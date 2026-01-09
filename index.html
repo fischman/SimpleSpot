@@ -383,24 +383,37 @@ async function transferPlayback(id) {
   document.getElementById('device-menu').classList.remove('show');
 }
 
-// Cast - shows only cast-type devices (Chromecast, speakers, etc)
+// Cast - shows non-computer devices (Chromecast, speakers, TVs, etc)
 async function showCastDevices() {
   const data = await api('/me/player/devices');
-  const castTypes = ['CastVideo', 'CastAudio', 'Speaker', 'TV'];
-  const castDevices = data.devices.filter(d => castTypes.includes(d.type) || d.name.toLowerCase().includes('cast'));
-  
-  if (castDevices.length === 0) {
-    alert('No cast devices found. Make sure your Chromecast or speaker is on the same network and has Spotify available.');
-    return;
-  }
+  // Filter out computers and smartphones, keep everything else (speakers, TVs, cast devices)
+  const computerTypes = ['Computer', 'Smartphone'];
+  const castDevices = data.devices.filter(d => !computerTypes.includes(d.type));
   
   const menu = document.getElementById('device-menu');
-  menu.innerHTML = '<div style="padding:4px 8px;color:#b3b3b3;font-size:12px">Cast to:</div>' + 
-    castDevices.map(d => `
-      <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
-        ${escapeHtml(d.name)}
+  
+  if (castDevices.length === 0) {
+    // Show all devices with their types for debugging, and instructions
+    menu.innerHTML = `
+      <div style="padding:8px;color:#b3b3b3;font-size:12px;max-width:250px">
+        <p style="margin-bottom:8px">No cast devices found.</p>
+        <p style="margin-bottom:8px">To cast to Chromecast:</p>
+        <ol style="margin-left:16px;margin-bottom:8px">
+          <li>Open Spotify on your phone</li>
+          <li>Start playing & cast to your device</li>
+          <li>It will then appear here</li>
+        </ol>
+        <p style="color:#666">Available: ${data.devices.map(d => d.type).join(', ') || 'none'}</p>
       </div>
-    `).join('');
+    `;
+  } else {
+    menu.innerHTML = '<div style="padding:4px 8px;color:#b3b3b3;font-size:12px">Cast to:</div>' + 
+      castDevices.map(d => `
+        <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
+          ${escapeHtml(d.name)} <span style="color:#666;font-size:11px">(${d.type})</span>
+        </div>
+      `).join('');
+  }
   menu.classList.add('show');
 }
 
