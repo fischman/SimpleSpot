@@ -219,6 +219,7 @@ function initPlayer() {
     deviceId = device_id;
     console.log('Player ready:', device_id);
     setupMediaSessionHandlers();
+    resumePlaybackIfNeeded();
   });
   
   player.addListener('player_state_changed', state => {
@@ -241,6 +242,15 @@ function initPlayer() {
     
     // Update MPRIS / Media Session
     updateMediaSession(track, state);
+    
+    // Persist play state for resume on reload
+    localStorage.setItem('play_state', JSON.stringify({
+      trackUri: track.uri,
+      position: state.position,
+      paused: state.paused,
+      contextUri: state.context?.uri || null,
+      timestamp: Date.now()
+    }));
   });
   
   player.connect();
@@ -651,6 +661,32 @@ function setupMediaSessionHandlers() {
       player?.seek(details.seekTime * 1000);
     }
   });
+}
+
+async function resumePlaybackIfNeeded() {
+  const saved = localStorage.getItem('play_state');
+  if (!saved) return;
+  
+  try {
+    const state = JSON.parse(saved);
+    // Only resume if saved within last 5 minutes and was playing
+    if (Date.now() - state.timestamp > 5 * 60 * 1000) return;
+    if (state.paused) return;
+    
+    // Resume playback
+    const body = state.contextUri
+      ? { context_uri: state.contextUri, offset: { uri: state.trackUri }, position_ms: state.position }
+      : { uris: [state.trackUri], position_ms: state.position };
+    
+    await api('/me/player/play?device_id=' + deviceId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    console.log('Resumed playback');
+  } catch (e) {
+    console.log('Could not resume playback:', e);
+  }
 }
   </script>
 </body>
