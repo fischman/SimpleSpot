@@ -45,12 +45,11 @@
     .queue-btn:hover { color: #fff; }
     .track-album { font-size: 12px; color: #b3b3b3; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .track-album:hover { text-decoration: underline; }
-    .column-width-control { display: flex; align-items: center; gap: 8px; }
-    .column-width-control input[type="range"] { width: 150px; cursor: pointer; }
+    #column-count { width: 100px; cursor: pointer; }
     
     /* Mobile styles */
     @media (max-width: 600px) {
-      .column-width-control { display: none; }
+      #column-count { display: none; }
       .tracks { grid-template-columns: 1fr; }
       .player { bottom: env(safe-area-inset-bottom, 0); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0)); flex-wrap: wrap; gap: 8px; }
       .progress-container { width: 100%; order: 10; }
@@ -72,10 +71,7 @@
     <div class="header">
       <input type="text" id="search" placeholder="Search tracks..." />
       <button onclick="loadPlaylists()">My Playlists</button>
-      <div class="column-width-control">
-        <span style="font-size:12px;color:#b3b3b3">Columns</span>
-        <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" />
-      </div>
+      <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content"><ul class="tracks" id="tracks"></ul></div>
