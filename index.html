@@ -31,6 +31,23 @@
     .device-item { padding: 8px; border-radius: 4px; cursor: pointer; }
     .device-item:hover { background: #383838; }
     .device-item.active { color: #1db954; }
+    .progress-container { display: flex; align-items: center; gap: 8px; width: 300px; }
+    .progress-bar { flex: 1; height: 4px; background: #404040; border-radius: 2px; cursor: pointer; position: relative; }
+    .progress-bar:hover { height: 6px; }
+    .progress-fill { height: 100%; background: #1db954; border-radius: 2px; width: 0%; }
+    .progress-time { font-size: 11px; color: #b3b3b3; min-width: 40px; }
+    .volume-container { display: flex; align-items: center; gap: 8px; }
+    .volume-bar { width: 80px; height: 4px; background: #404040; border-radius: 2px; cursor: pointer; }
+    .volume-bar:hover { height: 6px; }
+    .volume-fill { height: 100%; background: #1db954; border-radius: 2px; width: 50%; }
+    .queue-btn { background: none; border: none; color: #b3b3b3; font-size: 18px; cursor: pointer; }
+    .queue-btn:hover { color: #fff; }
+    .track-album { font-size: 12px; color: #b3b3b3; cursor: pointer; }
+    .track-album:hover { text-decoration: underline; }
+    .breadcrumb { padding: 8px 16px; background: #181818; border-bottom: 1px solid #282828; font-size: 14px; }
+    .breadcrumb a { color: #b3b3b3; cursor: pointer; }
+    .breadcrumb a:hover { color: #fff; }
+    .content { padding: 16px; padding-bottom: 120px; }
   </style>
 </head>
 <body>
@@ -40,9 +57,10 @@
       <input type="text" id="search" placeholder="Search tracks..." />
       <button onclick="loadPlaylists()">My Playlists</button>
     </div>
+    <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content"><ul class="tracks" id="tracks"></ul></div>
     <div class="player">
-      <img id="player-art" src="" alt="" />
+      <img id="player-art" src="" alt="" style="cursor:pointer" onclick="showCurrentAlbum()" />
       <div class="player-info">
         <div id="player-track">Not playing</div>
         <div id="player-artist" style="color:#b3b3b3;font-size:12px"></div>
@@ -52,8 +70,22 @@
         <button onclick="togglePlay()" id="play-btn">▶</button>
         <button onclick="next()">⏭</button>
       </div>
+      <div class="progress-container">
+        <span class="progress-time" id="progress-current">0:00</span>
+        <div class="progress-bar" id="progress-bar" onclick="seek(event)">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <span class="progress-time" id="progress-total">0:00</span>
+      </div>
+      <div class="volume-container">
+        <span>🔊</span>
+        <div class="volume-bar" id="volume-bar" onclick="setVolume(event)">
+          <div class="volume-fill" id="volume-fill"></div>
+        </div>
+      </div>
+      <button class="queue-btn" onclick="showQueue()">☰</button>
       <div class="device-picker">
-        <button onclick="toggleDevices()">🔊</button>
+        <button onclick="toggleDevices()">📱</button>
         <div class="device-menu" id="device-menu"></div>
       </div>
     </div>
@@ -68,6 +100,10 @@ const SCOPES = 'streaming user-read-email user-read-private user-library-read us
 let accessToken = null;
 let player = null;
 let deviceId = null;
+let currentState = null;
+let currentAlbumUri = null;
+let currentPlaylistContext = null;
+let progressInterval = null;
 
 // PKCE helpers
 function generateCodeVerifier() {
@@ -181,11 +217,21 @@ function initPlayer() {
   
   player.addListener('player_state_changed', state => {
     if (!state) return;
+    currentState = state;
     const track = state.track_window.current_track;
+    currentAlbumUri = track.album.uri;
     document.getElementById('player-track').textContent = track.name;
     document.getElementById('player-artist').textContent = track.artists.map(a => a.name).join(', ');
     document.getElementById('player-art').src = track.album.images[0]?.url || '';
     document.getElementById('play-btn').textContent = state.paused ? '▶' : '⏸';
+    document.getElementById('progress-total').textContent = formatTime(state.duration);
+    updateProgress();
+    
+    // Use interval only when playing, update every second
+    clearInterval(progressInterval);
+    if (!state.paused) {
+      progressInterval = setInterval(updateProgress, 1000);
+    }
   });
   
   player.connect();
@@ -195,42 +241,111 @@ window.onSpotifyWebPlaybackSDKReady = () => {
   if (accessToken) initPlayer();
 };
 
-async function search(q) {
-  const data = await api('/search?type=track&limit=20&q=' + encodeURIComponent(q));
-  renderTracks(data.tracks.items);
+// Utility
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
 }
 
-function renderTracks(tracks) {
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Progress & Volume
+function updateProgress() {
+  if (!currentState) return;
+  player.getCurrentState().then(state => {
+    if (!state) return;
+    const pct = (state.position / state.duration) * 100;
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-current').textContent = formatTime(state.position);
+  });
+}
+
+function seek(e) {
+  if (!currentState) return;
+  const bar = document.getElementById('progress-bar');
+  const pct = e.offsetX / bar.offsetWidth;
+  player.seek(pct * currentState.duration);
+}
+
+function setVolume(e) {
+  const bar = document.getElementById('volume-bar');
+  const pct = e.offsetX / bar.offsetWidth;
+  player.setVolume(pct);
+  document.getElementById('volume-fill').style.width = (pct * 100) + '%';
+}
+
+// Search
+async function search(q) {
+  setBreadcrumb([{ name: 'Search: ' + q }]);
+  const data = await api('/search?type=track,album&limit=20&q=' + encodeURIComponent(q));
+  renderSearchResults(data);
+}
+
+function renderSearchResults(data) {
   const el = document.getElementById('tracks');
-  el.innerHTML = tracks.map(t => `
-    <li class="track" onclick="playTrack('${t.uri}')">
-      <img src="${t.album.images[2]?.url || ''}" />
+  let html = '';
+  if (data.albums?.items.length) {
+    html += '<h3 style="padding:8px;color:#b3b3b3">Albums</h3>';
+    html += data.albums.items.slice(0, 5).map(a => `
+      <li class="track" onclick="loadAlbum('${a.id}')">
+        <img src="${a.images[2]?.url || ''}" />
+        <div class="track-info">
+          <div class="track-name">${escapeHtml(a.name)}</div>
+          <div class="track-artist">${escapeHtml(a.artists.map(x => x.name).join(', '))}</div>
+        </div>
+      </li>
+    `).join('');
+  }
+  if (data.tracks?.items.length) {
+    html += '<h3 style="padding:8px;color:#b3b3b3">Tracks</h3>';
+    html += renderTrackItems(data.tracks.items, null);
+  }
+  el.innerHTML = html;
+}
+
+// Tracks rendering with context
+function renderTrackItems(tracks, contextUri) {
+  return tracks.map((t, i) => `
+    <li class="track" onclick="playFromContext('${contextUri || ''}', ${i}, '${t.uri}')">
+      <img src="${t.album?.images?.[2]?.url || ''}" />
       <div class="track-info">
-        <div class="track-name">${t.name}</div>
-        <div class="track-artist">${t.artists.map(a => a.name).join(', ')}</div>
+        <div class="track-name">${escapeHtml(t.name)}</div>
+        <div class="track-artist">${escapeHtml(t.artists?.map(a => a.name).join(', ') || '')}</div>
+        ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
       </div>
+      <button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>
     </li>
   `).join('');
 }
 
-async function playTrack(uri) {
+async function playFromContext(contextUri, offset, trackUri) {
+  const body = contextUri 
+    ? { context_uri: contextUri, offset: { position: offset } }
+    : { uris: [trackUri] };
   await api('/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uris: [uri] })
+    body: JSON.stringify(body)
   });
+}
+
+async function addToQueue(uri) {
+  await api('/me/player/queue?uri=' + encodeURIComponent(uri), { method: 'POST' });
 }
 
 function togglePlay() { player?.togglePlay(); }
 function next() { player?.nextTrack(); }
 function previous() { player?.previousTrack(); }
 
+// Devices
 async function loadDevices() {
   const data = await api('/me/player/devices');
   const menu = document.getElementById('device-menu');
   menu.innerHTML = data.devices.map(d => `
     <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
-      ${d.name} (${d.type})
+      ${escapeHtml(d.name)} (${d.type})
     </div>
   `).join('');
 }
@@ -250,23 +365,89 @@ async function transferPlayback(id) {
   document.getElementById('device-menu').classList.remove('show');
 }
 
+// Playlists
 async function loadPlaylists() {
+  setBreadcrumb([{ name: 'My Playlists' }]);
   const data = await api('/me/playlists?limit=50');
   const el = document.getElementById('tracks');
   el.innerHTML = data.items.map(p => `
-    <li class="track" onclick="loadPlaylist('${p.id}')">
-      <img src="${p.images[0]?.url || ''}" />
+    <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')"> 
+      <img src="${p.images?.[0]?.url || ''}" />
       <div class="track-info">
-        <div class="track-name">${p.name}</div>
+        <div class="track-name">${escapeHtml(p.name)}</div>
         <div class="track-artist">${p.tracks.total} tracks</div>
       </div>
     </li>
   `).join('');
 }
 
-async function loadPlaylist(id) {
-  const data = await api('/playlists/' + id + '/tracks?limit=50');
-  renderTracks(data.items.map(i => i.track).filter(t => t));
+async function loadPlaylist(id, name) {
+  setBreadcrumb([
+    { name: 'My Playlists', action: 'loadPlaylists()' },
+    { name: name || 'Playlist' }
+  ]);
+  currentPlaylistContext = 'spotify:playlist:' + id;
+  const data = await api('/playlists/' + id + '/tracks?limit=100');
+  const tracks = data.items.map(i => i.track).filter(t => t);
+  document.getElementById('tracks').innerHTML = renderTrackItems(tracks, currentPlaylistContext);
+}
+
+// Albums
+async function loadAlbum(id) {
+  const data = await api('/albums/' + id);
+  setBreadcrumb([
+    { name: 'Album: ' + data.name }
+  ]);
+  const contextUri = data.uri;
+  const tracks = data.tracks.items.map(t => ({ ...t, album: { id: data.id, name: data.name, images: data.images } }));
+  document.getElementById('tracks').innerHTML = `
+    <div style="display:flex;gap:16px;padding:16px;align-items:flex-end">
+      <img src="${data.images?.[1]?.url || ''}" style="width:150px;height:150px;border-radius:4px" />
+      <div>
+        <div style="font-size:12px;color:#b3b3b3">ALBUM</div>
+        <h1 style="font-size:32px;margin:8px 0">${escapeHtml(data.name)}</h1>
+        <div style="color:#b3b3b3">${escapeHtml(data.artists.map(a => a.name).join(', '))} • ${data.release_date?.slice(0,4)} • ${data.total_tracks} tracks</div>
+      </div>
+    </div>
+  ` + renderTrackItems(tracks, contextUri);
+}
+
+async function showCurrentAlbum() {
+  if (!currentAlbumUri) return;
+  const id = currentAlbumUri.split(':')[2];
+  loadAlbum(id);
+}
+
+// Queue
+async function showQueue() {
+  setBreadcrumb([{ name: 'Queue' }]);
+  const data = await api('/me/player/queue');
+  const el = document.getElementById('tracks');
+  let html = '';
+  if (data.currently_playing) {
+    html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
+    html += renderTrackItems([data.currently_playing], null);
+  }
+  if (data.queue?.length) {
+    html += '<h3 style="padding:8px;color:#b3b3b3">Next Up</h3>';
+    html += renderTrackItems(data.queue, null);
+  }
+  el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+}
+
+// Breadcrumb
+function setBreadcrumb(items) {
+  const el = document.getElementById('breadcrumb');
+  if (!items.length) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'block';
+  el.innerHTML = items.map((item, i) => 
+    item.action 
+      ? `<a onclick="${item.action}">${escapeHtml(item.name)}</a>${i < items.length - 1 ? ' › ' : ''}`
+      : `<span>${escapeHtml(item.name)}</span>`
+  ).join('');
 }
 
 // Init
