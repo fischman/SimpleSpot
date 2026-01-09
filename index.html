@@ -289,6 +289,8 @@ function setVolume(e) {
 async function search(q) {
   setBreadcrumb([{ name: 'Search: ' + q }]);
   const data = await api('/search?type=track,album&limit=20&q=' + encodeURIComponent(q));
+  localStorage.setItem('last_search', JSON.stringify({ query: q, data: data }));
+  localStorage.setItem('last_view', 'search');
   renderSearchResults(data);
 }
 
@@ -505,6 +507,12 @@ async function loadArtist(id) {
 async function showQueue() {
   setBreadcrumb([{ name: 'Queue' }]);
   const data = await api('/me/player/queue');
+  localStorage.setItem('last_queue', JSON.stringify(data));
+  localStorage.setItem('last_view', 'queue');
+  renderQueue(data);
+}
+
+function renderQueue(data) {
   const el = document.getElementById('tracks');
   let html = '';
   if (data.currently_playing) {
@@ -553,8 +561,32 @@ function setBreadcrumb(items) {
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     if (window.Spotify) initPlayer();
+    
+    // Restore last view from localStorage
+    restoreLastView();
   }
 })();
+
+function restoreLastView() {
+  const lastSearch = localStorage.getItem('last_search');
+  const lastQueue = localStorage.getItem('last_queue');
+  const lastView = localStorage.getItem('last_view');
+  
+  if (lastView === 'queue' && lastQueue) {
+    try {
+      const data = JSON.parse(lastQueue);
+      setBreadcrumb([{ name: 'Queue' }]);
+      renderQueue(data);
+    } catch (e) {}
+  } else if (lastSearch) {
+    try {
+      const { query, data } = JSON.parse(lastSearch);
+      document.getElementById('search').value = query;
+      setBreadcrumb([{ name: 'Search: ' + query }]);
+      renderSearchResults(data);
+    } catch (e) {}
+  }
+}
 
 document.getElementById('search').addEventListener('keyup', e => {
   if (e.key === 'Enter' && e.target.value) search(e.target.value);
