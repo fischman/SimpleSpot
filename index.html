@@ -105,7 +105,7 @@
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script>
 // Config - user must set these
-const CLIENT_ID = localStorage.getItem('spotify_client_id') || '';
+const CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
 const REDIRECT_URI = window.location.href.split('?')[0].split('#')[0];
 const SCOPES = 'streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private';
 
@@ -133,19 +133,12 @@ async function generateCodeChallenge(verifier) {
 }
 
 async function login() {
-  let clientId = CLIENT_ID;
-  if (!clientId) {
-    clientId = prompt('Enter your Spotify Client ID:');
-    if (clientId) localStorage.setItem('spotify_client_id', clientId);
-  }
-  if (!clientId) return alert('Client ID required');
-  
   const verifier = generateCodeVerifier();
   localStorage.setItem('code_verifier', verifier);
   const challenge = await generateCodeChallenge(verifier);
   
   const params = new URLSearchParams({
-    client_id: clientId,
+    client_id: CLIENT_ID,
     response_type: 'code',
     redirect_uri: REDIRECT_URI,
     scope: SCOPES,
@@ -161,13 +154,12 @@ async function handleCallback() {
   if (!code) return false;
   
   const verifier = localStorage.getItem('code_verifier');
-  const clientId = localStorage.getItem('spotify_client_id');
   
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: clientId,
+      client_id: CLIENT_ID,
       grant_type: 'authorization_code',
       code: code,
       redirect_uri: REDIRECT_URI,
@@ -187,14 +179,13 @@ async function handleCallback() {
 
 async function refreshToken() {
   const refresh = localStorage.getItem('refresh_token');
-  const clientId = localStorage.getItem('spotify_client_id');
   if (!refresh) return false;
   
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: clientId,
+      client_id: CLIENT_ID,
       grant_type: 'refresh_token',
       refresh_token: refresh
     })
