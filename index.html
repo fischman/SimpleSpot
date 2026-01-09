@@ -422,7 +422,7 @@ async function loadDevices() {
   const menu = document.getElementById('device-menu');
   menu.innerHTML = data.devices.map(d => `
     <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
-      ${escapeHtml(d.name)} (${d.type})
+      ${escapeHtml(d.name)}
     </div>
   `).join('');
 }
@@ -469,7 +469,7 @@ async function showCastDevices() {
     menu.innerHTML = '<div style="padding:4px 8px;color:#b3b3b3;font-size:12px">Cast to:</div>' + 
       castDevices.map(d => `
         <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
-          ${escapeHtml(d.name)} <span style="color:#666;font-size:11px">(${d.type})</span>
+          ${escapeHtml(d.name)}
         </div>
       `).join('');
   }
