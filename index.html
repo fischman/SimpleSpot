@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Client</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; min-height: 100vh; }
+    #login { display: flex; align-items: center; justify-content: center; height: 100vh; }
+    #login button { background: #1db954; color: #fff; border: none; padding: 16px 32px; font-size: 18px; border-radius: 24px; cursor: pointer; }
+    #app { display: none; }
+    .header { padding: 16px; background: #181818; display: flex; gap: 16px; align-items: center; }
+    .header input { flex: 1; padding: 10px 16px; border-radius: 20px; border: none; background: #282828; color: #fff; }
+    .content { padding: 16px; }
+    .player { position: fixed; bottom: 0; left: 0; right: 0; background: #181818; padding: 16px; display: flex; align-items: center; gap: 16px; }
+    .player img { width: 56px; height: 56px; border-radius: 4px; }
+    .player-info { flex: 1; }
+    .player-controls { display: flex; gap: 16px; align-items: center; }
+    .player-controls button { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
+    .tracks { list-style: none; }
+    .track { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 4px; cursor: pointer; }
+    .track:hover { background: #282828; }
+    .track img { width: 40px; height: 40px; border-radius: 4px; }
+    .track-info { flex: 1; }
+    .track-name { font-size: 14px; }
+    .track-artist { font-size: 12px; color: #b3b3b3; }
+    .device-picker { position: relative; }
+    .device-menu { position: absolute; bottom: 100%; right: 0; background: #282828; border-radius: 8px; padding: 8px; min-width: 200px; display: none; }
+    .device-menu.show { display: block; }
+    .device-item { padding: 8px; border-radius: 4px; cursor: pointer; }
+    .device-item:hover { background: #383838; }
+    .device-item.active { color: #1db954; }
+  </style>
+</head>
+<body>
+  <div id="login"><button onclick="login()">Login with Spotify</button></div>
+  <div id="app">
+    <div class="header">
+      <input type="text" id="search" placeholder="Search tracks..." />
+      <button onclick="loadPlaylists()">My Playlists</button>
+    </div>
+    <div class="content"><ul class="tracks" id="tracks"></ul></div>
+    <div class="player">
+      <img id="player-art" src="" alt="" />
+      <div class="player-info">
+        <div id="player-track">Not playing</div>
+        <div id="player-artist" style="color:#b3b3b3;font-size:12px"></div>
+      </div>
+      <div class="player-controls">
+        <button onclick="previous()">⏮</button>
+        <button onclick="togglePlay()" id="play-btn">▶</button>
+        <button onclick="next()">⏭</button>
+      </div>
+      <div class="device-picker">
+        <button onclick="toggleDevices()">🔊</button>
+        <div class="device-menu" id="device-menu"></div>
+      </div>
+    </div>
+  </div>
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  <script>
+// Config - user must set these
+const CLIENT_ID = localStorage.getItem('spotify_client_id') || '';
+const REDIRECT_URI = window.location.href.split('?')[0].split('#')[0];
+const SCOPES = 'streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private';
+
+let accessToken = null;
+let player = null;
+let deviceId = null;
+
+// PKCE helpers
+function generateCodeVerifier() {
+  const arr = new Uint8Array(64);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 128);
+}
+
+async function generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(hash))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function login() {
+  let clientId = CLIENT_ID;
+  if (!clientId) {
+    clientId = prompt('Enter your Spotify Client ID:');
+    if (clientId) localStorage.setItem('spotify_client_id', clientId);
+  }
+  if (!clientId) return alert('Client ID required');
+  
+  const verifier = generateCodeVerifier();
+  localStorage.setItem('code_verifier', verifier);
+  const challenge = await generateCodeChallenge(verifier);
+  
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: REDIRECT_URI,
+    scope: SCOPES,
+    code_challenge_method: 'S256',
+    code_challenge: challenge
+  });
+  window.location = 'https://accounts.spotify.com/authorize?' + params;
+}
+
+async function handleCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return false;
+  
+  const verifier = localStorage.getItem('code_verifier');
+  const clientId = localStorage.getItem('spotify_client_id');
+  
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: verifier
+    })
+  });
+  const data = await res.json();
+  if (data.access_token) {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('refresh_token', data.refresh_token);
+    localStorage.setItem('token_expiry', Date.now() + data.expires_in * 1000);
+    window.history.replaceState({}, '', REDIRECT_URI);
+    return true;
+  }
+  return false;
+}
+
+async function refreshToken() {
+  const refresh = localStorage.getItem('refresh_token');
+  const clientId = localStorage.getItem('spotify_client_id');
+  if (!refresh) return false;
+  
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      grant_type: 'refresh_token',
+      refresh_token: refresh
+    })
+  });
+  const data = await res.json();
+  if (data.access_token) {
+    localStorage.setItem('access_token', data.access_token);
+    localStorage.setItem('token_expiry', Date.now() + data.expires_in * 1000);
+    return true;
+  }
+  return false;
+}
+
+async function api(endpoint, opts = {}) {
+  const res = await fetch('https://api.spotify.com/v1' + endpoint, {
+    ...opts,
+    headers: { Authorization: 'Bearer ' + accessToken, ...opts.headers }
+  });
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function initPlayer() {
+  player = new Spotify.Player({
+    name: 'Web Client',
+    getOAuthToken: cb => cb(accessToken),
+    volume: 0.5
+  });
+  
+  player.addListener('ready', ({ device_id }) => {
+    deviceId = device_id;
+    console.log('Player ready:', device_id);
+  });
+  
+  player.addListener('player_state_changed', state => {
+    if (!state) return;
+    const track = state.track_window.current_track;
+    document.getElementById('player-track').textContent = track.name;
+    document.getElementById('player-artist').textContent = track.artists.map(a => a.name).join(', ');
+    document.getElementById('player-art').src = track.album.images[0]?.url || '';
+    document.getElementById('play-btn').textContent = state.paused ? '▶' : '⏸';
+  });
+  
+  player.connect();
+}
+
+window.onSpotifyWebPlaybackSDKReady = () => {
+  if (accessToken) initPlayer();
+};
+
+async function search(q) {
+  const data = await api('/search?type=track&limit=20&q=' + encodeURIComponent(q));
+  renderTracks(data.tracks.items);
+}
+
+function renderTracks(tracks) {
+  const el = document.getElementById('tracks');
+  el.innerHTML = tracks.map(t => `
+    <li class="track" onclick="playTrack('${t.uri}')">
+      <img src="${t.album.images[2]?.url || ''}" />
+      <div class="track-info">
+        <div class="track-name">${t.name}</div>
+        <div class="track-artist">${t.artists.map(a => a.name).join(', ')}</div>
+      </div>
+    </li>
+  `).join('');
+}
+
+async function playTrack(uri) {
+  await api('/me/player/play?device_id=' + deviceId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uris: [uri] })
+  });
+}
+
+function togglePlay() { player?.togglePlay(); }
+function next() { player?.nextTrack(); }
+function previous() { player?.previousTrack(); }
+
+async function loadDevices() {
+  const data = await api('/me/player/devices');
+  const menu = document.getElementById('device-menu');
+  menu.innerHTML = data.devices.map(d => `
+    <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
+      ${d.name} (${d.type})
+    </div>
+  `).join('');
+}
+
+function toggleDevices() {
+  const menu = document.getElementById('device-menu');
+  menu.classList.toggle('show');
+  if (menu.classList.contains('show')) loadDevices();
+}
+
+async function transferPlayback(id) {
+  await api('/me/player', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_ids: [id] })
+  });
+  document.getElementById('device-menu').classList.remove('show');
+}
+
+async function loadPlaylists() {
+  const data = await api('/me/playlists?limit=50');
+  const el = document.getElementById('tracks');
+  el.innerHTML = data.items.map(p => `
+    <li class="track" onclick="loadPlaylist('${p.id}')">
+      <img src="${p.images[0]?.url || ''}" />
+      <div class="track-info">
+        <div class="track-name">${p.name}</div>
+        <div class="track-artist">${p.tracks.total} tracks</div>
+      </div>
+    </li>
+  `).join('');
+}
+
+async function loadPlaylist(id) {
+  const data = await api('/playlists/' + id + '/tracks?limit=50');
+  renderTracks(data.items.map(i => i.track).filter(t => t));
+}
+
+// Init
+(async () => {
+  if (await handleCallback() || localStorage.getItem('access_token')) {
+    if (Date.now() > localStorage.getItem('token_expiry')) {
+      if (!await refreshToken()) { localStorage.clear(); return; }
+    }
+    accessToken = localStorage.getItem('access_token');
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    if (window.Spotify) initPlayer();
+  }
+})();
+
+document.getElementById('search').addEventListener('keyup', e => {
+  if (e.key === 'Enter' && e.target.value) search(e.target.value);
+});
+  </script>
+</body>
+</html>
