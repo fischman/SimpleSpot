@@ -327,20 +327,23 @@ function renderSearchResults(data) {
 }
 
 // Tracks rendering with context
-function renderTrackItems(tracks, contextUri, isQueue = false) {
+function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView = false) {
   return tracks.map((t, i) => {
     const artistLinks = t.artists?.map(a => 
       `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
     ).join(', ') || '';
+    const clickAction = isQueueView 
+      ? `skipToQueuePosition(${i})` 
+      : `playFromContext('${contextUri || ''}', ${i}, '${t.uri}')`;
     return `
-    <li class="track" onclick="playFromContext('${contextUri || ''}', ${i}, '${t.uri}')">
+    <li class="track" onclick="${clickAction}">
       <img src="${t.album?.images?.[2]?.url || ''}" />
       <div class="track-info">
         <div class="track-name">${escapeHtml(t.name)}</div>
         <div class="track-artist">${artistLinks}</div>
         ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
       </div>
-      ${isQueue 
+      ${isQueueRemove 
         ? `<button class="queue-btn" onclick="event.stopPropagation(); skipQueueTrack(${i})" title="Skip (remove not supported)">−</button>`
         : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>`
       }
@@ -364,8 +367,15 @@ async function addToQueue(uri) {
 }
 
 function togglePlay() { player?.togglePlay(); }
-function next() { player?.nextTrack(); }
-function previous() { player?.previousTrack(); }
+
+async function next() {
+  // Use API instead of SDK to work across devices
+  await api('/me/player/next', { method: 'POST' });
+}
+
+async function previous() {
+  await api('/me/player/previous', { method: 'POST' });
+}
 
 // Devices
 async function loadDevices() {
@@ -540,23 +550,33 @@ function renderQueue(data) {
   let html = '';
   if (data.currently_playing) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderTrackItems([data.currently_playing], null, false);
+    html += renderTrackItems([data.currently_playing], null, false, false);
   }
   if (data.queue?.length) {
-    html += '<h3 style="padding:8px;color:#b3b3b3">Next Up</h3>';
-    html += renderTrackItems(data.queue, null, true);
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next Up (${data.queue.length})</h3>`;
+    html += renderTrackItems(data.queue, null, true, true);
   }
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
 async function skipQueueTrack(index) {
   // Spotify API doesn't support removing from queue, only skipping
-  if (index === 0) {
-    await next();
-    setTimeout(showQueue, 500);
-  } else {
-    alert('Spotify API only allows skipping the next track. This track is #' + (index + 1) + ' in queue.');
+  // Skip (index + 1) times to get past this track
+  for (let i = 0; i <= index; i++) {
+    await api('/me/player/next', { method: 'POST' });
+    // Small delay to let Spotify process
+    await new Promise(r => setTimeout(r, 200));
   }
+  setTimeout(showQueue, 500);
+}
+
+async function skipToQueuePosition(index) {
+  // Skip to position in queue by calling next repeatedly
+  for (let i = 0; i <= index; i++) {
+    await api('/me/player/next', { method: 'POST' });
+    await new Promise(r => setTimeout(r, 200));
+  }
+  setTimeout(showQueue, 500);
 }
 
 // Breadcrumb
