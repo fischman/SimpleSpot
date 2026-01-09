@@ -48,6 +48,10 @@
     .breadcrumb a { color: #b3b3b3; cursor: pointer; }
     .breadcrumb a:hover { color: #fff; }
     .content { padding: 16px; padding-bottom: 120px; }
+    .artist-link { color: #b3b3b3; cursor: pointer; }
+    .artist-link:hover { color: #fff; text-decoration: underline; }
+    .cast-btn { background: none; border: none; color: #b3b3b3; font-size: 20px; cursor: pointer; }
+    .cast-btn:hover { color: #fff; }
   </style>
 </head>
 <body>
@@ -83,9 +87,10 @@
           <div class="volume-fill" id="volume-fill"></div>
         </div>
       </div>
-      <button class="queue-btn" onclick="showQueue()">☰</button>
+      <button class="queue-btn" onclick="showQueue()" title="Queue">☰</button>
+      <button class="cast-btn" onclick="showCastDevices()" title="Cast">📺</button>
       <div class="device-picker">
-        <button onclick="toggleDevices()">📱</button>
+        <button onclick="toggleDevices()" title="Devices">📱</button>
         <div class="device-menu" id="device-menu"></div>
       </div>
     </div>
@@ -306,18 +311,25 @@ function renderSearchResults(data) {
 }
 
 // Tracks rendering with context
-function renderTrackItems(tracks, contextUri) {
-  return tracks.map((t, i) => `
+function renderTrackItems(tracks, contextUri, isQueue = false) {
+  return tracks.map((t, i) => {
+    const artistLinks = t.artists?.map(a => 
+      `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
+    ).join(', ') || '';
+    return `
     <li class="track" onclick="playFromContext('${contextUri || ''}', ${i}, '${t.uri}')">
       <img src="${t.album?.images?.[2]?.url || ''}" />
       <div class="track-info">
         <div class="track-name">${escapeHtml(t.name)}</div>
-        <div class="track-artist">${escapeHtml(t.artists?.map(a => a.name).join(', ') || '')}</div>
+        <div class="track-artist">${artistLinks}</div>
         ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
       </div>
-      <button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>
+      ${isQueue 
+        ? `<button class="queue-btn" onclick="event.stopPropagation(); skipQueueTrack(${i})" title="Skip (remove not supported)">−</button>`
+        : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>`
+      }
     </li>
-  `).join('');
+  `}).join('');
 }
 
 async function playFromContext(contextUri, offset, trackUri) {
@@ -365,6 +377,27 @@ async function transferPlayback(id) {
   document.getElementById('device-menu').classList.remove('show');
 }
 
+// Cast - shows only cast-type devices (Chromecast, speakers, etc)
+async function showCastDevices() {
+  const data = await api('/me/player/devices');
+  const castTypes = ['CastVideo', 'CastAudio', 'Speaker', 'TV'];
+  const castDevices = data.devices.filter(d => castTypes.includes(d.type) || d.name.toLowerCase().includes('cast'));
+  
+  if (castDevices.length === 0) {
+    alert('No cast devices found. Make sure your Chromecast or speaker is on the same network and has Spotify available.');
+    return;
+  }
+  
+  const menu = document.getElementById('device-menu');
+  menu.innerHTML = '<div style="padding:4px 8px;color:#b3b3b3;font-size:12px">Cast to:</div>' + 
+    castDevices.map(d => `
+      <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
+        ${escapeHtml(d.name)}
+      </div>
+    `).join('');
+  menu.classList.add('show');
+}
+
 // Playlists
 async function loadPlaylists() {
   setBreadcrumb([{ name: 'My Playlists' }]);
@@ -400,13 +433,16 @@ async function loadAlbum(id) {
   ]);
   const contextUri = data.uri;
   const tracks = data.tracks.items.map(t => ({ ...t, album: { id: data.id, name: data.name, images: data.images } }));
+  const artistLinks = data.artists.map(a => 
+    `<span class="artist-link" onclick="loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
+  ).join(', ');
   document.getElementById('tracks').innerHTML = `
     <div style="display:flex;gap:16px;padding:16px;align-items:flex-end">
       <img src="${data.images?.[1]?.url || ''}" style="width:150px;height:150px;border-radius:4px" />
       <div>
         <div style="font-size:12px;color:#b3b3b3">ALBUM</div>
         <h1 style="font-size:32px;margin:8px 0">${escapeHtml(data.name)}</h1>
-        <div style="color:#b3b3b3">${escapeHtml(data.artists.map(a => a.name).join(', '))} • ${data.release_date?.slice(0,4)} • ${data.total_tracks} tracks</div>
+        <div style="color:#b3b3b3">${artistLinks} • ${data.release_date?.slice(0,4)} • ${data.total_tracks} tracks</div>
       </div>
     </div>
   ` + renderTrackItems(tracks, contextUri);
@@ -418,6 +454,49 @@ async function showCurrentAlbum() {
   loadAlbum(id);
 }
 
+// Artist
+async function loadArtist(id) {
+  const [artist, topTracks, albums] = await Promise.all([
+    api('/artists/' + id),
+    api('/artists/' + id + '/top-tracks?market=US'),
+    api('/artists/' + id + '/albums?include_groups=album,single&limit=20')
+  ]);
+  
+  setBreadcrumb([{ name: artist.name }]);
+  
+  const el = document.getElementById('tracks');
+  let html = `
+    <div style="display:flex;gap:16px;padding:16px;align-items:flex-end">
+      <img src="${artist.images?.[1]?.url || ''}" style="width:150px;height:150px;border-radius:50%" />
+      <div>
+        <div style="font-size:12px;color:#b3b3b3">ARTIST</div>
+        <h1 style="font-size:32px;margin:8px 0">${escapeHtml(artist.name)}</h1>
+        <div style="color:#b3b3b3">${artist.followers?.total?.toLocaleString() || 0} followers</div>
+      </div>
+    </div>
+  `;
+  
+  if (topTracks.tracks?.length) {
+    html += '<h3 style="padding:8px 16px;color:#b3b3b3">Top Tracks</h3>';
+    html += renderTrackItems(topTracks.tracks.slice(0, 5), null);
+  }
+  
+  if (albums.items?.length) {
+    html += '<h3 style="padding:8px 16px;color:#b3b3b3">Discography</h3>';
+    html += albums.items.map(a => `
+      <li class="track" onclick="loadAlbum('${a.id}')">
+        <img src="${a.images?.[2]?.url || ''}" />
+        <div class="track-info">
+          <div class="track-name">${escapeHtml(a.name)}</div>
+          <div class="track-artist">${a.album_type} • ${a.release_date?.slice(0,4)}</div>
+        </div>
+      </li>
+    `).join('');
+  }
+  
+  el.innerHTML = html;
+}
+
 // Queue
 async function showQueue() {
   setBreadcrumb([{ name: 'Queue' }]);
@@ -426,13 +505,23 @@ async function showQueue() {
   let html = '';
   if (data.currently_playing) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderTrackItems([data.currently_playing], null);
+    html += renderTrackItems([data.currently_playing], null, false);
   }
   if (data.queue?.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Next Up</h3>';
-    html += renderTrackItems(data.queue, null);
+    html += renderTrackItems(data.queue, null, true);
   }
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+}
+
+async function skipQueueTrack(index) {
+  // Spotify API doesn't support removing from queue, only skipping
+  if (index === 0) {
+    await next();
+    setTimeout(showQueue, 500);
+  } else {
+    alert('Spotify API only allows skipping the next track. This track is #' + (index + 1) + ' in queue.');
+  }
 }
 
 // Breadcrumb
