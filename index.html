@@ -110,6 +110,7 @@ let currentAlbumUri = null;
 let currentPlaylistContext = null;
 let progressInterval = null;
 let lastTrackUri = null;
+let queueRefreshPending = false;
 
 // PKCE helpers
 function generateCodeVerifier() {
@@ -253,11 +254,11 @@ function initPlayer() {
       timestamp: Date.now()
     }));
     
-    // Auto-refresh queue view if track changed
+    // Auto-refresh queue view if track changed externally (track ended, cast control, etc)
     if (track.uri !== lastTrackUri) {
       lastTrackUri = track.uri;
-      if (localStorage.getItem('last_view') === 'queue') {
-        // Delay to let Spotify API catch up
+      // Debounce: only refresh if we didn't just trigger it ourselves
+      if (!queueRefreshPending && localStorage.getItem('last_view') === 'queue') {
         setTimeout(showQueue, 500);
       }
     }
@@ -379,12 +380,22 @@ async function addToQueue(uri) {
 function togglePlay() { player?.togglePlay(); }
 
 async function next() {
-  // Use API instead of SDK to work across devices
   await api('/me/player/next', { method: 'POST' });
+  refreshQueueIfViewing();
 }
 
 async function previous() {
   await api('/me/player/previous', { method: 'POST' });
+  refreshQueueIfViewing();
+}
+
+function refreshQueueIfViewing() {
+  if (localStorage.getItem('last_view') === 'queue') {
+    queueRefreshPending = true;
+    showQueue().then(() => {
+      queueRefreshPending = false;
+    });
+  }
 }
 
 // Devices
@@ -574,19 +585,16 @@ async function skipQueueTrack(index) {
   // Skip (index + 1) times to get past this track
   for (let i = 0; i <= index; i++) {
     await api('/me/player/next', { method: 'POST' });
-    // Small delay to let Spotify process
-    await new Promise(r => setTimeout(r, 200));
   }
-  setTimeout(showQueue, 500);
+  showQueue();
 }
 
 async function skipToQueuePosition(index) {
   // Skip to position in queue by calling next repeatedly
   for (let i = 0; i <= index; i++) {
     await api('/me/player/next', { method: 'POST' });
-    await new Promise(r => setTimeout(r, 200));
   }
-  setTimeout(showQueue, 500);
+  showQueue();
 }
 
 // Breadcrumb
