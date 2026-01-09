@@ -109,6 +109,7 @@ let currentState = null;
 let currentAlbumUri = null;
 let currentPlaylistContext = null;
 let progressInterval = null;
+let lastTrackUri = null;
 
 // PKCE helpers
 function generateCodeVerifier() {
@@ -251,6 +252,14 @@ function initPlayer() {
       contextUri: state.context?.uri || null,
       timestamp: Date.now()
     }));
+    
+    // Auto-refresh queue view if track changed
+    if (track.uri !== lastTrackUri) {
+      lastTrackUri = track.uri;
+      if (localStorage.getItem('last_view') === 'queue') {
+        showQueue();
+      }
+    }
   });
   
   player.connect();
