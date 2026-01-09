@@ -218,6 +218,7 @@ function initPlayer() {
   player.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
     console.log('Player ready:', device_id);
+    setupMediaSessionHandlers();
   });
   
   player.addListener('player_state_changed', state => {
@@ -237,6 +238,9 @@ function initPlayer() {
     if (!state.paused) {
       progressInterval = setInterval(updateProgress, 1000);
     }
+    
+    // Update MPRIS / Media Session
+    updateMediaSession(track, state);
   });
   
   player.connect();
@@ -555,6 +559,54 @@ function setBreadcrumb(items) {
 document.getElementById('search').addEventListener('keyup', e => {
   if (e.key === 'Enter' && e.target.value) search(e.target.value);
 });
+
+// Spacebar to toggle play/pause (when not in input)
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    togglePlay();
+  }
+});
+
+// Media Session API (MPRIS support)
+function updateMediaSession(track, state) {
+  if (!('mediaSession' in navigator)) return;
+  
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.name,
+    artist: track.artists.map(a => a.name).join(', '),
+    album: track.album.name,
+    artwork: track.album.images.map(img => ({
+      src: img.url,
+      sizes: `${img.width || 300}x${img.height || 300}`,
+      type: 'image/jpeg'
+    }))
+  });
+  
+  navigator.mediaSession.playbackState = state.paused ? 'paused' : 'playing';
+  
+  if (state.duration) {
+    navigator.mediaSession.setPositionState({
+      duration: state.duration / 1000,
+      position: state.position / 1000,
+      playbackRate: 1
+    });
+  }
+}
+
+function setupMediaSessionHandlers() {
+  if (!('mediaSession' in navigator)) return;
+  
+  navigator.mediaSession.setActionHandler('play', () => player?.resume());
+  navigator.mediaSession.setActionHandler('pause', () => player?.pause());
+  navigator.mediaSession.setActionHandler('previoustrack', () => player?.previousTrack());
+  navigator.mediaSession.setActionHandler('nexttrack', () => player?.nextTrack());
+  navigator.mediaSession.setActionHandler('seekto', (details) => {
+    if (details.seekTime !== undefined) {
+      player?.seek(details.seekTime * 1000);
+    }
+  });
+}
   </script>
 </body>
 </html>
