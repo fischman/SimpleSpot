@@ -6,8 +6,8 @@
   <title>Spotify Client</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; min-height: 100vh; }
-    #login { display: flex; align-items: center; justify-content: center; height: 100vh; }
+    body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; min-height: 100vh; min-height: 100dvh; }
+    #login { display: flex; align-items: center; justify-content: center; height: 100vh; height: 100dvh; }
     #login button { background: #1db954; color: #fff; border: none; padding: 16px 32px; font-size: 18px; border-radius: 24px; cursor: pointer; }
     #app { display: none; }
     .header { padding: 16px; background: #181818; display: flex; gap: 16px; align-items: center; }
@@ -47,6 +47,15 @@
     .track-album:hover { text-decoration: underline; }
     .column-width-control { display: flex; align-items: center; gap: 8px; }
     .column-width-control input[type="range"] { width: 80px; }
+    
+    /* Mobile styles */
+    @media (max-width: 600px) {
+      .column-width-control { display: none; }
+      .tracks { grid-template-columns: 1fr; }
+      .player { bottom: env(safe-area-inset-bottom, 0); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0)); flex-wrap: wrap; gap: 8px; }
+      .progress-container { width: 100%; order: 10; }
+      .volume-container { display: none; }
+    }
     .breadcrumb { padding: 8px 16px; background: #181818; border-bottom: 1px solid #282828; font-size: 14px; }
     .breadcrumb a { color: #b3b3b3; cursor: pointer; }
     .breadcrumb a:hover { color: #fff; }
