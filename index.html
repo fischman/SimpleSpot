@@ -257,7 +257,8 @@ function initPlayer() {
     if (track.uri !== lastTrackUri) {
       lastTrackUri = track.uri;
       if (localStorage.getItem('last_view') === 'queue') {
-        showQueue();
+        // Delay to let Spotify API catch up
+        setTimeout(showQueue, 500);
       }
     }
   });
