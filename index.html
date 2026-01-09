@@ -217,9 +217,23 @@ async function api(endpoint, opts = {}) {
   return res.json();
 }
 
+function getDeviceName() {
+  const ua = navigator.userAgent;
+  let device = 'Web';
+  if (/Android/i.test(ua)) device = 'Android';
+  else if (/iPhone|iPad|iPod/i.test(ua)) device = 'iOS';
+  else if (/Mac/i.test(ua)) device = 'Mac';
+  else if (/Windows/i.test(ua)) device = 'Windows';
+  else if (/Linux/i.test(ua)) device = 'Linux';
+  
+  // Try to get hostname from URL if available, otherwise use a short identifier
+  const host = location.hostname === 'localhost' ? '' : ` (${location.hostname.split('.')[0]})`;
+  return `${device} Web${host}`;
+}
+
 function initPlayer() {
   player = new Spotify.Player({
-    name: 'Web Client',
+    name: getDeviceName(),
     getOAuthToken: cb => cb(accessToken),
     volume: 0.5
   });
