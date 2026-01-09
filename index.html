@@ -18,7 +18,7 @@
     .player-info { flex: 1; }
     .player-controls { display: flex; gap: 16px; align-items: center; }
     .player-controls button { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
-    .tracks { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--column-width, 300px), 1fr)); gap: 4px; }
+    .tracks { list-style: none; display: grid; grid-template-columns: repeat(var(--column-count, 3), 1fr); gap: 4px; }
     .tracks h3 { grid-column: 1 / -1; }
     .track { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 4px; cursor: pointer; min-width: 0; }
     .track:hover { background: #282828; }
@@ -73,8 +73,8 @@
       <input type="text" id="search" placeholder="Search tracks..." />
       <button onclick="loadPlaylists()">My Playlists</button>
       <div class="column-width-control">
-        <span style="font-size:12px;color:#b3b3b3">Width</span>
-        <input type="range" id="column-width" min="150" max="2000" value="300" oninput="setColumnWidth(this.value)" />
+        <span style="font-size:12px;color:#b3b3b3">Columns</span>
+        <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" />
       </div>
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
@@ -671,18 +671,18 @@ document.getElementById('search').addEventListener('keyup', e => {
   if (e.key === 'Enter' && e.target.value) search(e.target.value);
 });
 
-// Column width control
-function setColumnWidth(width) {
-  document.documentElement.style.setProperty('--column-width', width + 'px');
-  localStorage.setItem('column_width', width);
+// Column count control
+function setColumnCount(count) {
+  document.documentElement.style.setProperty('--column-count', count);
+  localStorage.setItem('column_count', count);
 }
 
-// Restore column width on load
+// Restore column count on load
 (function() {
-  const saved = localStorage.getItem('column_width');
+  const saved = localStorage.getItem('column_count');
   if (saved) {
-    setColumnWidth(saved);
-    document.getElementById('column-width').value = saved;
+    setColumnCount(saved);
+    document.getElementById('column-count').value = saved;
   }
 })();
 
