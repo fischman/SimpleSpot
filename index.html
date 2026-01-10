@@ -632,6 +632,7 @@ function renderQueue(data) {
 }
 
 async function skipQueueTrack(index) {
+  console.log('skipQueueTrack called with index:', index);
   // Spotify API doesn't support removing from queue, only skipping
   // Skip (index + 2) times: once to get to the track, once more to skip past it
   for (let i = 0; i <= index + 1; i++) {
@@ -641,6 +642,7 @@ async function skipQueueTrack(index) {
 }
 
 async function skipToQueuePosition(index) {
+  console.log('skipToQueuePosition called with index:', index);
   // Skip to position in queue by calling next (index + 1) times to land on track at index
   for (let i = 0; i <= index; i++) {
     await api('/me/player/next', { method: 'POST' });
