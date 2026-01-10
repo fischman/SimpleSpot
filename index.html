@@ -34,7 +34,9 @@
     .track-info { flex: 1; min-width: 0; overflow: hidden; }
     .track-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .track-artist { font-size: 12px; color: #b3b3b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .track-num { color: #b3b3b3; font-size: 14px; min-width: 24px; text-align: right; }
+    .track-num { color: #b3b3b3; font-size: 14px; min-width: 24px; text-align: center; }
+    .track-num-col { display: flex; flex-direction: column; align-items: center; min-width: 24px; gap: 2px; }
+    .track-num-col .queue-btn { font-size: 14px; padding: 0; line-height: 1; }
     .device-picker { position: relative; }
     .device-picker button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; }
     .device-menu { position: absolute; bottom: 100%; right: 0; background: #282828; border-radius: 8px; padding: 8px; min-width: 200px; display: none; }
@@ -452,7 +454,13 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView
       : `playTrack('${t.uri}')`;
     return `
     <li class="track">
-      <span class="track-num">${startNum + i}</span>
+      <div class="track-num-col">
+        <span class="track-num">${startNum + i}</span>
+        ${isQueueRemove 
+          ? `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); removeFromQueue(${i}); return false;" title="Remove from queue">−</button>`
+          : `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); addToQueue('${t.uri}'); return false;" title="Add to queue">+</button>`
+        }
+      </div>
       <div class="track-art" onclick="event.stopPropagation(); ${playAction}">
         <img src="${t.album?.images?.[2]?.url || ''}" />
         <div class="play-overlay"></div>
@@ -462,10 +470,6 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView
         <div class="track-artist">${artistLinks}</div>
         ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
       </div>
-      ${isQueueRemove 
-        ? `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); removeFromQueue(${i}); return false;" title="Remove from queue">−</button>`
-        : `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); addToQueue('${t.uri}'); return false;" title="Add to queue">+</button>`
-      }
     </li>
   `}).join('');
 }
@@ -890,7 +894,7 @@ function renderSdkTrackItem(t, num = null) {
   ).join(', ') || '';
   return `
     <li class="track">
-      ${num !== null ? `<span class="track-num">${num}</span>` : ''}
+      ${num !== null ? `<div class="track-num-col"><span class="track-num">${num}</span></div>` : ''}
       <div class="track-art" onclick="event.stopPropagation(); playTrack('${t.uri}')">
         <img src="${t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || ''}" />
         <div class="play-overlay"></div>
@@ -900,7 +904,6 @@ function renderSdkTrackItem(t, num = null) {
         <div class="track-artist">${artistLinks}</div>
         <div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album?.uri?.split(':')[2] || ''}')">${escapeHtml(t.album?.name || '')}</div>
       </div>
-      <button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>
     </li>
   `;
 }
@@ -938,7 +941,10 @@ function renderLocalQueueItems(tracks) {
     ).join(', ') || '';
     return `
     <li class="track">
-      <span class="track-num">${i + 1}</span>
+      <div class="track-num-col">
+        <span class="track-num">${i + 1}</span>
+        <button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); removeFromQueue(${i}); return false;" title="Remove from queue">−</button>
+      </div>
       <div class="track-art" onclick="event.stopPropagation(); playFromLocalQueue(${i})">
         <img src="${t.album?.images?.[2]?.url || ''}" />
         <div class="play-overlay"></div>
@@ -948,7 +954,6 @@ function renderLocalQueueItems(tracks) {
         <div class="track-artist">${artistLinks}</div>
         ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
       </div>
-      <button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); removeFromQueue(${i}); return false;" title="Remove from queue">−</button>
     </li>
   `}).join('');
 }
