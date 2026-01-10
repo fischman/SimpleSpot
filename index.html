@@ -731,25 +731,39 @@ function setupMediaSessionHandlers() {
 
 async function resumePlaybackIfNeeded() {
   const saved = localStorage.getItem('play_state');
-  if (!saved) return;
+  if (!saved) {
+    console.log('No play state saved');
+    return;
+  }
   
   try {
     const state = JSON.parse(saved);
+    const age = Date.now() - state.timestamp;
+    console.log('Saved play state:', state, 'age:', age);
+    
     // Only resume if saved within last 5 minutes and was playing
-    if (Date.now() - state.timestamp > 5 * 60 * 1000) return;
-    if (state.paused) return;
+    if (age > 5 * 60 * 1000) {
+      console.log('Play state too old, not resuming');
+      return;
+    }
+    if (state.paused) {
+      console.log('Was paused, not resuming');
+      return;
+    }
     
     // Resume playback
+    // Note: queue cannot be restored via API, only current track + context
     const body = state.contextUri
       ? { context_uri: state.contextUri, offset: { uri: state.trackUri }, position_ms: state.position }
       : { uris: [state.trackUri], position_ms: state.position };
     
-    await api('/me/player/play?device_id=' + deviceId, {
+    console.log('Resuming with:', body);
+    const result = await api('/me/player/play?device_id=' + deviceId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    console.log('Resumed playback');
+    console.log('Resume result:', result);
   } catch (e) {
     console.log('Could not resume playback:', e);
   }
