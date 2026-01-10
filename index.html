@@ -579,7 +579,7 @@ async function loadArtist(id) {
 
 // Queue
 async function showQueue() {
-  setBreadcrumb([{ name: 'Queue <button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
+  setBreadcrumb([{ name: 'Queue', suffix: '<button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
   const data = await api('/me/player/queue');
   localStorage.setItem('last_queue', JSON.stringify(data));
   localStorage.setItem('last_view', 'queue');
@@ -640,7 +640,7 @@ function setBreadcrumb(items) {
   el.innerHTML = items.map((item, i) => 
     item.action 
       ? `<a onclick="${item.action}">${escapeHtml(item.name)}</a>${i < items.length - 1 ? ' › ' : ''}`
-      : `<span>${escapeHtml(item.name)}</span>`
+      : `<span>${escapeHtml(item.name)}${item.suffix || ''}</span>`
   ).join('');
 }
 
