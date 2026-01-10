@@ -295,9 +295,11 @@ function initPlayer() {
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
       
-      // Auto-refresh queue view
-      if (!queueRefreshPending && localStorage.getItem('last_view') === 'queue') {
-        showQueue();
+      // Refresh queue view if we're viewing it
+      if (localStorage.getItem('last_view') === 'queue') {
+        showQueue().then(() => {
+          queueRefreshPending = false;
+        });
       }
     }
     
@@ -504,14 +506,9 @@ async function previous() {
 }
 
 function refreshQueueIfViewing() {
+  // Just mark that we want a refresh - the player_state_changed handler will do the actual refresh
   if (localStorage.getItem('last_view') === 'queue') {
     queueRefreshPending = true;
-    // Small delay to let Spotify API update
-    setTimeout(() => {
-      showQueue().then(() => {
-        queueRefreshPending = false;
-      });
-    }, 300);
   }
 }
 
