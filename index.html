@@ -16,7 +16,6 @@
     .header { padding: 16px; background: #181818; display: flex; gap: 16px; align-items: center; flex-shrink: 0; }
     .header input[type="text"] { flex: 1; padding: 10px 16px; border-radius: 20px; border: none; background: #282828; color: #fff; }
     .header button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; color: #b3b3b3; }
-    .content { padding: 16px; }
     .player { background: #181818; padding: 16px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
     .player img { width: 56px; height: 56px; border-radius: 4px; }
     .player-info { flex: 1; }
@@ -133,7 +132,7 @@ let player = null;
 let deviceId = null;
 let currentState = null;
 let currentAlbumUri = null;
-let currentPlaylistContext = null;
+
 let progressInterval = null;
 let lastTrackUri = null;
 let lastPlayState = null;
@@ -240,7 +239,6 @@ async function refreshToken() {
 async function api(endpoint, opts = {}) {
   // Check if token needs refresh before API call
   if (Date.now() > localStorage.getItem('token_expiry')) {
-    console.log('Token expired, refreshing before API call...');
     if (!await refreshToken()) {
       console.error('Failed to refresh token');
       return null;
@@ -280,7 +278,6 @@ function initPlayer() {
     getOAuthToken: async cb => {
       // Always check if token needs refresh
       if (Date.now() > localStorage.getItem('token_expiry')) {
-        console.log('Token expired, refreshing...');
         if (!await refreshToken()) {
           console.error('Failed to refresh token');
           return;
@@ -293,7 +290,6 @@ function initPlayer() {
   
   player.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
-    console.log('Player ready:', device_id);
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
   });
@@ -453,7 +449,7 @@ function renderSearchResults(data) {
 }
 
 // Tracks rendering with context
-function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView = false, startNum = 1) {
+function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 1) {
   return tracks.map((t, i) => {
     const artistLinks = t.artists?.map(a => 
       `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
@@ -466,8 +462,8 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView
       <div class="track-num-col">
         <span class="track-num">${startNum + i}</span>
         ${isQueueRemove 
-          ? `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); removeFromQueue(${i}); return false;" title="Remove from queue">−</button>`
-          : `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); addToQueue('${t.uri}'); return false;" title="Add to queue">+</button>`
+          ? `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>`
+          : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>`
         }
       </div>
       <div class="track-art" onclick="event.stopPropagation(); ${playAction}">
@@ -483,26 +479,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView
   `}).join('');
 }
 
-async function playTrack(uri) {
-  await api('/me/player/play?device_id=' + deviceId, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uris: [uri] })
-  });
-}
-
-async function playContext(contextUri) {
-  await api('/me/player/play?device_id=' + deviceId, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ context_uri: contextUri })
-  });
-}
-
-async function playFromContext(contextUri, offset, trackUri) {
-  const body = contextUri 
-    ? { context_uri: contextUri, offset: { position: offset } }
-    : { uris: [trackUri] };
+async function play(body) {
   await api('/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -510,15 +487,24 @@ async function playFromContext(contextUri, offset, trackUri) {
   });
 }
 
+const playTrack = uri => play({ uris: [uri] });
+const playContext = uri => play({ context_uri: uri });
+const playFromContext = (contextUri, offset, trackUri) => 
+  play(contextUri ? { context_uri: contextUri, offset: { position: offset } } : { uris: [trackUri] });
+
+function saveLocalQueue() {
+  localStorage.setItem('local_queue', JSON.stringify(localQueue));
+}
+
+function loadLocalQueue() {
+  try { localQueue = JSON.parse(localStorage.getItem('local_queue')) || []; }
+  catch (e) { localQueue = []; }
+}
+
 function addToQueue(uri) {
-  // Add to local queue instead of Spotify's queue
   localQueue.push(uri);
   saveLocalQueue();
-  console.log('Added to local queue:', uri, 'Queue length:', localQueue.length);
-  // Refresh queue view if we're viewing it
-  if (localStorage.getItem('last_view') === 'queue') {
-    showQueue();
-  }
+  if (localStorage.getItem('last_view') === 'queue') showQueue();
 }
 
 function removeFromQueue(index) {
@@ -526,21 +512,6 @@ function removeFromQueue(index) {
     localQueue.splice(index, 1);
     saveLocalQueue();
     showQueue();
-  }
-}
-
-function saveLocalQueue() {
-  localStorage.setItem('local_queue', JSON.stringify(localQueue));
-}
-
-function loadLocalQueue() {
-  const saved = localStorage.getItem('local_queue');
-  if (saved) {
-    try {
-      localQueue = JSON.parse(saved);
-    } catch (e) {
-      localQueue = [];
-    }
   }
 }
 
@@ -552,35 +523,24 @@ async function playNextFromLocalQueue() {
     const state = await player?.getCurrentState();
     if (state?.track_window?.next_tracks?.[0]) {
       contextResumeTrackUri = state.track_window.next_tracks[0].uri;
-      console.log('Saved context resume point:', contextResumeTrackUri);
     }
   }
   
   const nextUri = localQueue.shift();
   saveLocalQueue();
-  console.log('Playing next from local queue:', nextUri);
-  await api('/me/player/play?device_id=' + deviceId, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uris: [nextUri] })
-  });
+  await playTrack(nextUri);
 }
 
 async function togglePlay() {
-  // If player has no track loaded, try to resume from saved state
   const state = await player?.getCurrentState();
   if (!state) {
+    // Try to resume from saved state
     const saved = localStorage.getItem('play_state');
     if (saved) {
       const s = JSON.parse(saved);
-      const body = s.contextUri
+      await play(s.contextUri
         ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position }
-        : { uris: [s.trackUri], position_ms: s.position };
-      await api('/me/player/play?device_id=' + deviceId, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
+        : { uris: [s.trackUri], position_ms: s.position });
       return;
     }
   }
@@ -588,22 +548,12 @@ async function togglePlay() {
 }
 
 async function next() {
-  // Play next from local queue if available, otherwise use Spotify's next
-  console.log('next() called, localQueue.length:', localQueue.length, 'queue:', localQueue);
   if (localQueue.length > 0) {
-    console.log('Playing from local queue');
     await playNextFromLocalQueue();
   } else if (contextResumeTrackUri && savedContextUri) {
-    // Local queue exhausted, resume context from saved position
-    console.log('Resuming context at:', contextResumeTrackUri);
-    await api('/me/player/play?device_id=' + deviceId, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context_uri: savedContextUri, offset: { uri: contextResumeTrackUri } })
-    });
-    contextResumeTrackUri = null; // Clear after resuming
+    await play({ context_uri: savedContextUri, offset: { uri: contextResumeTrackUri } });
+    contextResumeTrackUri = null;
   } else {
-    console.log('Playing from Spotify queue');
     await api('/me/player/next', { method: 'POST' });
   }
   refreshQueueIfViewing();
@@ -652,8 +602,6 @@ async function transferPlayback(id) {
   });
   document.getElementById('device-menu').classList.remove('show');
 }
-
-// Cast - shows non-computer devices (Chromecast, speakers, TVs, etc)
 
 // Playlists
 async function loadLikedSongs() {
@@ -711,10 +659,10 @@ async function loadPlaylist(id, name) {
     { name: 'Playlists', action: 'loadPlaylists()' },
     { name: name || 'Playlist' }
   ]);
-  currentPlaylistContext = 'spotify:playlist:' + id;
+  const contextUri = 'spotify:playlist:' + id;
   const data = await api('/playlists/' + id + '/tracks?limit=100');
   const tracks = data.items.map(i => i.track).filter(t => t);
-  document.getElementById('tracks').innerHTML = renderTrackItems(tracks, currentPlaylistContext);
+  document.getElementById('tracks').innerHTML = renderTrackItems(tracks, contextUri);
 }
 
 // Albums
@@ -897,7 +845,7 @@ async function renderQueueFromState(state) {
   
   if (nextTracks.length > 0) {
     html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${contextName} (${nextTracks.length})</h3>`;
-    html += renderTrackItems(nextTracks, contextUri, false, false);
+    html += renderTrackItems(nextTracks, contextUri);
   }
   
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
@@ -930,7 +878,7 @@ function renderQueue(spotifyData, localQueueTracks) {
   // Now Playing
   if (spotifyData?.currently_playing) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderTrackItems([spotifyData.currently_playing], null, false, false);
+    html += renderTrackItems([spotifyData.currently_playing], null);
   }
   
   // Local queue (user-added, can be removed)
@@ -942,7 +890,7 @@ function renderQueue(spotifyData, localQueueTracks) {
   // Spotify's context queue (from playlist/album, read-only)
   if (spotifyData?.queue?.length > 0) {
     html += `<h3 style="padding:8px;color:#b3b3b3">Next from playlist (${spotifyData.queue.length})</h3>`;
-    html += renderTrackItems(spotifyData.queue, null, false, false);
+    html += renderTrackItems(spotifyData.queue, null);
   }
   
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
@@ -958,7 +906,7 @@ function renderLocalQueueItems(tracks) {
     <li class="track">
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
-        <button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); removeFromQueue(${i}); return false;" title="Remove from queue">−</button>
+        <button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>
       </div>
       <div class="track-art" onclick="event.stopPropagation(); playFromLocalQueue(${i})">
         <img src="${t.album?.images?.[2]?.url || ''}" />
@@ -974,18 +922,12 @@ function renderLocalQueueItems(tracks) {
 }
 
 async function playFromLocalQueue(index) {
-  // Play this track and keep remaining tracks in queue
   const uri = localQueue[index];
   localQueue = localQueue.slice(index + 1);
   saveLocalQueue();
-  await api('/me/player/play?device_id=' + deviceId, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uris: [uri] })
-  });
+  await playTrack(uri);
   refreshQueueIfViewing();
 }
-
 
 
 function clearPlayerUI() {
@@ -1061,23 +1003,20 @@ function setBreadcrumb(items) {
 })();
 
 function restoreLastView() {
-  const lastSearch = localStorage.getItem('last_search');
-  const lastQueue = localStorage.getItem('last_queue');
   const lastView = localStorage.getItem('last_view');
   
-  if (lastView === 'queue' && lastQueue) {
-    try {
-      const data = JSON.parse(lastQueue);
-      setBreadcrumb([{ name: 'Queue' }]);
-      renderQueue(data);
-    } catch (e) {}
-  } else if (lastSearch) {
-    try {
-      const { query, data } = JSON.parse(lastSearch);
-      document.getElementById('search').value = query;
-      setBreadcrumb([{ name: 'Search: ' + query }]);
-      renderSearchResults(data);
-    } catch (e) {}
+  if (lastView === 'queue') {
+    showQueue();
+  } else {
+    const lastSearch = localStorage.getItem('last_search');
+    if (lastSearch) {
+      try {
+        const { query, data } = JSON.parse(lastSearch);
+        document.getElementById('search').value = query;
+        setBreadcrumb([{ name: 'Search: ' + query }]);
+        renderSearchResults(data);
+      } catch (e) {}
+    }
   }
 }
 
@@ -1097,12 +1036,9 @@ window.addEventListener('beforeunload', () => {
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && localStorage.getItem('access_token')) {
     if (Date.now() > localStorage.getItem('token_expiry')) {
-      console.log('Tab visible, token expired, refreshing...');
       if (await refreshToken()) {
         accessToken = localStorage.getItem('access_token');
-        // Reconnect player with fresh token
         if (player) {
-          console.log('Reconnecting player with fresh token...');
           player.disconnect();
           initPlayer();
         }
@@ -1176,21 +1112,14 @@ function setupMediaSessionHandlers() {
 
 async function resumePlaybackIfNeeded() {
   const saved = localStorage.getItem('play_state');
-  if (!saved) {
-    console.log('No play state saved');
-    return;
-  }
+  if (!saved) return;
   
   try {
     const state = JSON.parse(saved);
     const age = Date.now() - state.timestamp;
-    console.log('Saved play state:', state, 'age:', age);
     
     // Only restore if saved within last 5 minutes
-    if (age > 5 * 60 * 1000) {
-      console.log('Play state too old, not resuming');
-      return;
-    }
+    if (age > 5 * 60 * 1000) return;
     
     // Fetch track info to update UI
     const trackData = await api('/tracks/' + state.trackUri.split(':')[2]);
@@ -1206,26 +1135,12 @@ async function resumePlaybackIfNeeded() {
       currentAlbumUri = trackData.album.uri;
     }
     
-    // Enable play button - always show play since we don't auto-resume
+    // Enable play button (don't auto-play due to browser autoplay policies)
     const playBtn = document.getElementById('play-btn');
     playBtn.disabled = false;
     playBtn.style.opacity = '1';
     playBtn.textContent = '▶';
-    
-    // Show play button ready to resume (don't auto-play due to browser autoplay policies)
-    // User can click play to resume from saved position
-    console.log('Ready to resume, waiting for user interaction');
-    
-    // Restore queue if we have saved tracks and no context
-    if (!state.contextUri && state.queue?.length) {
-      console.log('Restoring queue:', state.queue.length, 'tracks');
-      for (const uri of state.queue) {
-        await api('/me/player/queue?uri=' + encodeURIComponent(uri), { method: 'POST' });
-      }
-    }
-  } catch (e) {
-    console.log('Could not resume playback:', e);
-  }
+  } catch (e) {}
 }
   </script>
 </body>
