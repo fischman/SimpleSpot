@@ -388,8 +388,8 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView
         ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
       </div>
       ${isQueueRemove 
-        ? `<button class="queue-btn" onclick="event.stopPropagation(); skipQueueTrack(${i})" title="Skip (remove not supported)">−</button>`
-        : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>`
+        ? `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); skipQueueTrack(${i}); return false;" title="Remove from queue">−</button>`
+        : `<button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); addToQueue('${t.uri}'); return false;" title="Add to queue">+</button>`
       }
     </li>
   `}).join('');
