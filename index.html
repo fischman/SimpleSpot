@@ -50,7 +50,7 @@
     .progress-bar:hover { height: 6px; }
     .progress-fill { height: 100%; background: #1db954; border-radius: 2px; width: 0%; }
     .progress-time { font-size: 11px; color: #b3b3b3; min-width: 40px; }
-    .volume-container { display: flex; align-items: center; gap: 8px; }
+    .volume-container { display: flex; align-items: center; gap: 8px; position: relative; }
     .volume-bar { width: 80px; height: 4px; background: #404040; border-radius: 2px; cursor: pointer; }
     .volume-bar:hover { height: 6px; }
     .volume-fill { height: 100%; background: #1db954; border-radius: 2px; width: 50%; }
@@ -118,9 +118,10 @@
       </div>
       <div class="volume-container">
         <span>🔊</span>
-        <div class="volume-bar" id="volume-bar" onclick="setVolume(event)">
+        <div class="volume-bar" id="volume-bar">
           <div class="volume-fill" id="volume-fill"></div>
         </div>
+        <span id="volume-tooltip" style="display:none;position:absolute;background:#282828;padding:4px 8px;border-radius:4px;font-size:12px"></span>
       </div>
       <button class="queue-btn" onclick="showQueue()" title="Queue">☰</button>
       <div class="device-picker">
@@ -410,12 +411,46 @@ function seek(e) {
   player.seek(pct * currentState.duration);
 }
 
-function setVolume(e) {
+// Volume drag handling
+(function() {
   const bar = document.getElementById('volume-bar');
-  const pct = e.offsetX / bar.offsetWidth;
-  player.setVolume(pct);
-  document.getElementById('volume-fill').style.width = (pct * 100) + '%';
-}
+  const fill = document.getElementById('volume-fill');
+  const tooltip = document.getElementById('volume-tooltip');
+  let dragging = false;
+  let currentPct = 0.5;
+  
+  function updateVolume(e) {
+    const rect = bar.getBoundingClientRect();
+    currentPct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    fill.style.width = (currentPct * 100) + '%';
+    tooltip.textContent = Math.round(currentPct * 100) + '%';
+    tooltip.style.display = 'block';
+    tooltip.style.bottom = '24px';
+  }
+  
+  bar.addEventListener('mousedown', e => {
+    dragging = true;
+    updateVolume(e);
+  });
+  
+  document.addEventListener('mousemove', e => {
+    if (dragging) updateVolume(e);
+  });
+  
+  document.addEventListener('mouseup', () => {
+    if (dragging) {
+      dragging = false;
+      tooltip.style.display = 'none';
+      player?.setVolume(currentPct);
+    }
+  });
+  
+  bar.addEventListener('click', e => {
+    updateVolume(e);
+    tooltip.style.display = 'none';
+    player?.setVolume(currentPct);
+  });
+})();
 
 // Search
 async function search(q) {
