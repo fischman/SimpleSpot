@@ -955,9 +955,11 @@ function renderQueue(spotifyData, localQueueTracks) {
   }
   
   // Spotify's context queue (from playlist/album, read-only)
-  if (spotifyData?.queue?.length > 0) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next from playlist (${spotifyData.queue.length})</h3>`;
-    html += renderTrackItems(spotifyData.queue, null);
+  // Only show if we have a saved context (otherwise it's just duplicates)
+  if (spotifyData?.queue?.length > 0 && savedContextUri) {
+    const [, type] = savedContextUri.split(':');
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${type} (${spotifyData.queue.length})</h3>`;
+    html += renderTrackItems(spotifyData.queue, savedContextUri);
   }
   
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
