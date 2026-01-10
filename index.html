@@ -61,8 +61,6 @@
     .content { padding: 16px; padding-bottom: 120px; }
     .artist-link { color: #b3b3b3; cursor: pointer; }
     .artist-link:hover { color: #fff; text-decoration: underline; }
-    .cast-btn { background: none; border: none; color: #b3b3b3; font-size: 20px; cursor: pointer; }
-    .cast-btn:hover { color: #fff; }
   </style>
 </head>
 <body>
@@ -100,7 +98,6 @@
         </div>
       </div>
       <button class="queue-btn" onclick="showQueue()" title="Queue">☰</button>
-      <button class="cast-btn" onclick="showCastDevices()" title="Cast">📺</button>
       <div class="device-picker">
         <button onclick="toggleDevices()" title="Devices">📱</button>
         <div class="device-menu" id="device-menu"></div>
@@ -439,38 +436,6 @@ async function transferPlayback(id) {
 }
 
 // Cast - shows non-computer devices (Chromecast, speakers, TVs, etc)
-async function showCastDevices() {
-  const data = await api('/me/player/devices');
-  // Filter out computers and smartphones, keep everything else (speakers, TVs, cast devices)
-  const computerTypes = ['Computer', 'Smartphone'];
-  const castDevices = data.devices.filter(d => !computerTypes.includes(d.type));
-  
-  const menu = document.getElementById('device-menu');
-  
-  if (castDevices.length === 0) {
-    // Show all devices with their types for debugging, and instructions
-    menu.innerHTML = `
-      <div style="padding:8px;color:#b3b3b3;font-size:12px;max-width:250px">
-        <p style="margin-bottom:8px">No cast devices found.</p>
-        <p style="margin-bottom:8px">To cast to Chromecast:</p>
-        <ol style="margin-left:16px;margin-bottom:8px">
-          <li>Open Spotify on your phone</li>
-          <li>Start playing & cast to your device</li>
-          <li>It will then appear here</li>
-        </ol>
-        <p style="color:#666">Available: ${data.devices.map(d => d.type).join(', ') || 'none'}</p>
-      </div>
-    `;
-  } else {
-    menu.innerHTML = '<div style="padding:4px 8px;color:#b3b3b3;font-size:12px">Cast to:</div>' + 
-      castDevices.map(d => `
-        <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
-          ${escapeHtml(d.name)}
-        </div>
-      `).join('');
-  }
-  menu.classList.add('show');
-}
 
 // Playlists
 async function loadPlaylists() {
