@@ -838,57 +838,9 @@ async function resumePlaybackIfNeeded() {
     playBtn.style.opacity = '1';
     playBtn.textContent = state.paused ? '▶' : '⏸';
     
-    if (state.paused) {
-      console.log('Was paused, showing paused state');
-      return;
-    }
-    
-    // Activate the player element (needed for autoplay in some browsers)
-    try {
-      await player.activateElement();
-      console.log('Player activated');
-    } catch (e) {
-      console.log('activateElement failed:', e);
-    }
-    
-    // Resume playback by starting on this device
-    const body = state.contextUri
-      ? { context_uri: state.contextUri, offset: { uri: state.trackUri }, position_ms: state.position }
-      : { uris: [state.trackUri], position_ms: state.position };
-    
-    console.log('Resuming with:', body, 'device:', deviceId);
-    
-    // Use Web API to set up what to play
-    const playRes = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
-      method: 'PUT',
-      headers: { 
-        'Authorization': 'Bearer ' + accessToken,
-        'Content-Type': 'application/json' 
-      },
-      body: JSON.stringify(body)
-    });
-    console.log('Play response:', playRes.status, playRes.statusText);
-    if (!playRes.ok) {
-      const err = await playRes.text();
-      console.log('Play error:', err);
-    }
-    
-    // Check audio context state
-    setTimeout(async () => {
-      const currentState = await player.getCurrentState();
-      console.log('State after play:', currentState?.paused, 'position:', currentState?.position);
-      
-      // The SDK uses an internal audio context - try to resume it
-      if (player._options?.getOAuthToken) {
-        // Access internal audio element if available
-        const audioElements = document.querySelectorAll('audio');
-        console.log('Audio elements:', audioElements.length);
-        audioElements.forEach(a => {
-          console.log('Audio state:', a.paused, a.readyState, a.currentSrc?.substring(0, 50));
-          if (a.paused) a.play().catch(e => console.log('Audio play failed:', e));
-        });
-      }
-    }, 500);
+    // Show play button ready to resume (don't auto-play due to browser autoplay policies)
+    // User can click play to resume from saved position
+    console.log('Ready to resume, waiting for user interaction');
     
     // Restore queue if we have saved tracks and no context
     if (!state.contextUri && state.queue?.length) {
