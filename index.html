@@ -625,11 +625,17 @@ function refreshQueueIfViewing() {
 async function loadDevices() {
   const data = await api('/me/player/devices');
   const menu = document.getElementById('device-menu');
-  menu.innerHTML = data.devices.map(d => `
+  let html = data.devices.map(d => `
     <div class="device-item ${d.is_active ? 'active' : ''}" onclick="transferPlayback('${d.id}')">
       ${escapeHtml(d.name)}
     </div>
   `).join('');
+  
+  if (data.devices.length <= 1) {
+    html += '<div style="padding:8px;color:#b3b3b3;font-size:12px;border-top:1px solid #404040;margin-top:8px">To play on another device, open this page in another browser or device.</div>';
+  }
+  
+  menu.innerHTML = html;
 }
 
 function toggleDevices() {
