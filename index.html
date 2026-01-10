@@ -843,29 +843,20 @@ async function resumePlaybackIfNeeded() {
       return;
     }
     
-    // Transfer playback to this device first
-    console.log('Transferring playback to device:', deviceId);
-    await api('/me/player', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_ids: [deviceId], play: false })
-    });
+    // Activate the player element (needed for autoplay in some browsers)
+    await player.activateElement();
     
-    // Small delay to let transfer complete
-    await new Promise(r => setTimeout(r, 300));
-    
-    // Resume playback
+    // Resume playback by starting on this device
     const body = state.contextUri
       ? { context_uri: state.contextUri, offset: { uri: state.trackUri }, position_ms: state.position }
       : { uris: [state.trackUri], position_ms: state.position };
     
     console.log('Resuming with:', body);
-    const result = await api('/me/player/play?device_id=' + deviceId, {
+    await api('/me/player/play?device_id=' + deviceId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     });
-    console.log('Resume result:', result);
     
     // Restore queue if we have saved tracks and no context
     if (!state.contextUri && state.queue?.length) {
