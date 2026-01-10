@@ -140,6 +140,7 @@ let localQueue = []; // Array of track URIs
 let currentTrackUri = null;
 let savedContextUri = null; // Remember context even when playing from local queue
 let savedContextType = null;
+let contextResumeTrackUri = null; // Track to resume from after local queue is exhausted
 
 // PKCE helpers
 function generateCodeVerifier() {
@@ -313,6 +314,8 @@ function initPlayer() {
       savedContextUri = state.context.uri;
       const [, type] = state.context.uri.split(':');
       savedContextType = type;
+      // Clear resume point when we're back in a context
+      contextResumeTrackUri = null;
     }
     
     // Track changed
@@ -510,6 +513,16 @@ function loadLocalQueue() {
 
 async function playNextFromLocalQueue() {
   if (localQueue.length === 0) return;
+  
+  // Before breaking context, save what track should play next from context
+  if (!contextResumeTrackUri && savedContextUri) {
+    const state = await player?.getCurrentState();
+    if (state?.track_window?.next_tracks?.[0]) {
+      contextResumeTrackUri = state.track_window.next_tracks[0].uri;
+      console.log('Saved context resume point:', contextResumeTrackUri);
+    }
+  }
+  
   const nextUri = localQueue.shift();
   saveLocalQueue();
   console.log('Playing next from local queue:', nextUri);
@@ -547,6 +560,15 @@ async function next() {
   if (localQueue.length > 0) {
     console.log('Playing from local queue');
     await playNextFromLocalQueue();
+  } else if (contextResumeTrackUri && savedContextUri) {
+    // Local queue exhausted, resume context from saved position
+    console.log('Resuming context at:', contextResumeTrackUri);
+    await api('/me/player/play?device_id=' + deviceId, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context_uri: savedContextUri, offset: { uri: contextResumeTrackUri } })
+    });
+    contextResumeTrackUri = null; // Clear after resuming
   } else {
     console.log('Playing from Spotify queue');
     await api('/me/player/next', { method: 'POST' });
@@ -795,41 +817,34 @@ async function renderQueueFromState(state) {
       // Fetch all playlist tracks
       const playlistData = await api(`/playlists/${id}/tracks?limit=100`);
       const allTracks = playlistData?.items?.map(i => i.track).filter(t => t) || [];
-      // Find current track position and get remaining
-      // If no context (playing from local queue), show all tracks after the one in queue
-      // Find the track that's either currently playing or was last in context
-      const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
-      if (currentIndex >= 0) {
-        nextTracks = allTracks.slice(currentIndex + 1);
-      } else if (!state.context?.uri && savedContextUri) {
-        // Playing from local queue - find where we left off in the playlist
-        // Use the queue API to see what's coming next from the context
-        const queueData = await api('/me/player/queue');
-        if (queueData?.queue?.length > 0) {
-          // Find first queued track in our playlist
-          const firstQueuedUri = queueData.queue[0]?.uri;
-          const queueIndex = allTracks.findIndex(t => t.uri === firstQueuedUri);
-          if (queueIndex >= 0) {
-            nextTracks = allTracks.slice(queueIndex);
-          }
+      
+      // If we have a saved resume point, use that to show what's next from context
+      if (contextResumeTrackUri) {
+        const resumeIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
+        if (resumeIndex >= 0) {
+          nextTracks = allTracks.slice(resumeIndex);
+        }
+      } else {
+        // Normal case - show tracks after current
+        const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
+        if (currentIndex >= 0) {
+          nextTracks = allTracks.slice(currentIndex + 1);
         }
       }
     } else if (type === 'album') {
       // Fetch album tracks
       const albumData = await api(`/albums/${id}`);
       const allTracks = albumData?.tracks?.items || [];
-      const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
-      if (currentIndex >= 0) {
-        nextTracks = allTracks.slice(currentIndex + 1);
-      } else if (!state.context?.uri && savedContextUri) {
-        // Playing from local queue - use queue API
-        const queueData = await api('/me/player/queue');
-        if (queueData?.queue?.length > 0) {
-          const firstQueuedUri = queueData.queue[0]?.uri;
-          const queueIndex = allTracks.findIndex(t => t.uri === firstQueuedUri);
-          if (queueIndex >= 0) {
-            nextTracks = allTracks.slice(queueIndex);
-          }
+      
+      if (contextResumeTrackUri) {
+        const resumeIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
+        if (resumeIndex >= 0) {
+          nextTracks = allTracks.slice(resumeIndex);
+        }
+      } else {
+        const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
+        if (currentIndex >= 0) {
+          nextTracks = allTracks.slice(currentIndex + 1);
         }
       }
     }
