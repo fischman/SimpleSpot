@@ -520,7 +520,13 @@ async function play(body) {
   });
 }
 
-const playTrack = uri => play({ uris: [uri] });
+function playTrack(uri) {
+  // Clear context since we're playing a single track
+  savedContextUri = null;
+  savedContextType = null;
+  contextResumeTrackUri = null;
+  return play({ uris: [uri] });
+}
 const playContext = uri => play({ context_uri: uri });
 const playFromContext = (contextUri, offset, trackUri) => 
   play(contextUri ? { context_uri: contextUri, offset: { position: offset } } : { uris: [trackUri] });
@@ -870,13 +876,13 @@ async function renderQueueFromState(state) {
     }
   }
   
-  // Fallback to queue API if no context or couldn't find tracks
-  if (nextTracks.length === 0) {
+  // Fallback to queue API only if we have a real context
+  if (nextTracks.length === 0 && contextUri) {
     const queueData = await api('/me/player/queue');
     nextTracks = queueData?.queue || [];
   }
   
-  if (nextTracks.length > 0) {
+  if (nextTracks.length > 0 && contextUri) {
     html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${contextName} (${nextTracks.length})</h3>`;
     html += renderTrackItems(nextTracks, contextUri);
   }
