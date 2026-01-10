@@ -619,13 +619,10 @@ async function skipToQueuePosition(index) {
 
 async function clearQueue() {
   // Spotify API doesn't have a clear queue endpoint
-  // Skip through all queued tracks to clear them
-  const data = await api('/me/player/queue');
-  if (data.queue?.length) {
-    for (let i = 0; i < data.queue.length; i++) {
-      await api('/me/player/next', { method: 'POST' });
-    }
-  }
+  // Pause playback and play a silent/empty context to clear the queue
+  await api('/me/player/pause', { method: 'PUT' });
+  // Clear our saved queue state
+  localStorage.removeItem('play_state');
   showQueue();
 }
 
