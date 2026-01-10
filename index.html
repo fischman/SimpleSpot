@@ -184,13 +184,9 @@ async function login() {
 }
 
 function logout() {
-  // Disconnect player
+  if (!confirm('Log out of Spotify?')) return;
   if (player) player.disconnect();
-  
-  // Clear all localStorage
   localStorage.clear();
-  
-  // Reload to show login screen
   window.location.reload();
 }
 
