@@ -765,11 +765,44 @@ async function renderQueueFromState(state) {
     }
   }
   
-  // Next tracks - use API to get full queue (SDK only has limited tracks)
-  const queueData = await api('/me/player/queue');
-  if (queueData?.queue?.length > 0) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next from playlist (${queueData.queue.length})</h3>`;
-    html += renderTrackItems(queueData.queue, null, false, false);
+  // Next tracks - fetch from context if available for full list
+  const contextUri = state.context?.uri;
+  let nextTracks = [];
+  let contextName = 'playlist';
+  
+  if (contextUri) {
+    const [, type, id] = contextUri.split(':');
+    contextName = type;
+    
+    if (type === 'playlist') {
+      // Fetch all playlist tracks
+      const playlistData = await api(`/playlists/${id}/tracks?limit=100`);
+      const allTracks = playlistData?.items?.map(i => i.track).filter(t => t) || [];
+      // Find current track position and get remaining
+      const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
+      if (currentIndex >= 0) {
+        nextTracks = allTracks.slice(currentIndex + 1);
+      }
+    } else if (type === 'album') {
+      // Fetch album tracks
+      const albumData = await api(`/albums/${id}`);
+      const allTracks = albumData?.tracks?.items || [];
+      const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
+      if (currentIndex >= 0) {
+        nextTracks = allTracks.slice(currentIndex + 1);
+      }
+    }
+  }
+  
+  // Fallback to queue API if no context or couldn't find tracks
+  if (nextTracks.length === 0) {
+    const queueData = await api('/me/player/queue');
+    nextTracks = queueData?.queue || [];
+  }
+  
+  if (nextTracks.length > 0) {
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${contextName} (${nextTracks.length})</h3>`;
+    html += renderTrackItems(nextTracks, contextUri, false, false);
   }
   
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
