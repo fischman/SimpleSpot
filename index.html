@@ -234,6 +234,16 @@ async function refreshToken() {
 }
 
 async function api(endpoint, opts = {}) {
+  // Check if token needs refresh before API call
+  if (Date.now() > localStorage.getItem('token_expiry')) {
+    console.log('Token expired, refreshing before API call...');
+    if (!await refreshToken()) {
+      console.error('Failed to refresh token');
+      return null;
+    }
+    accessToken = localStorage.getItem('access_token');
+  }
+  
   const res = await fetch('https://api.spotify.com/v1' + endpoint, {
     ...opts,
     headers: { Authorization: 'Bearer ' + accessToken, ...opts.headers }
@@ -263,7 +273,17 @@ function getDeviceName() {
 function initPlayer() {
   player = new Spotify.Player({
     name: getDeviceName(),
-    getOAuthToken: cb => cb(accessToken),
+    getOAuthToken: async cb => {
+      // Always check if token needs refresh
+      if (Date.now() > localStorage.getItem('token_expiry')) {
+        console.log('Token expired, refreshing...');
+        if (!await refreshToken()) {
+          console.error('Failed to refresh token');
+          return;
+        }
+      }
+      cb(localStorage.getItem('access_token'));
+    },
     volume: 0.5
   });
   
