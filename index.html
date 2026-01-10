@@ -182,6 +182,10 @@ async function login() {
 
 function logout() {
   if (!confirm('Log out of Spotify?')) return;
+  forceRelogin();
+}
+
+function forceRelogin() {
   if (player) player.disconnect();
   localStorage.clear();
   window.location.reload();
@@ -242,7 +246,7 @@ async function api(endpoint, opts = {}) {
   // Check if token needs refresh before API call
   if (Date.now() > localStorage.getItem('token_expiry')) {
     if (!await refreshToken()) {
-      console.error('Failed to refresh token');
+      forceRelogin();
       return null;
     }
     accessToken = localStorage.getItem('access_token');
@@ -278,10 +282,9 @@ function initPlayer() {
   player = new Spotify.Player({
     name: getDeviceName(),
     getOAuthToken: async cb => {
-      // Always check if token needs refresh
       if (Date.now() > localStorage.getItem('token_expiry')) {
         if (!await refreshToken()) {
-          console.error('Failed to refresh token');
+          forceRelogin();
           return;
         }
       }
@@ -1034,7 +1037,7 @@ function setBreadcrumb(items) {
 (async () => {
   if (await handleCallback() || localStorage.getItem('access_token')) {
     if (Date.now() > localStorage.getItem('token_expiry')) {
-      if (!await refreshToken()) { localStorage.clear(); return; }
+      if (!await refreshToken()) { forceRelogin(); return; }
     }
     accessToken = localStorage.getItem('access_token');
     document.getElementById('login').style.display = 'none';
@@ -1092,6 +1095,8 @@ document.addEventListener('visibilitychange', async () => {
           player.disconnect();
           initPlayer();
         }
+      } else {
+        forceRelogin();
       }
     }
   }
