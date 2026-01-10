@@ -77,6 +77,7 @@
       <button onclick="loadSavedAlbums()" title="Saved Albums">💿</button>
       <button onclick="loadPlaylists()" title="My Playlists">📜</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
+      <button onclick="logout()" title="Logout">⏻</button>
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content"><ul class="tracks" id="tracks"></ul></div>
@@ -160,6 +161,17 @@ async function login() {
     code_challenge: challenge
   });
   window.location = 'https://accounts.spotify.com/authorize?' + params;
+}
+
+function logout() {
+  // Disconnect player
+  if (player) player.disconnect();
+  
+  // Clear all localStorage
+  localStorage.clear();
+  
+  // Reload to show login screen
+  window.location.reload();
 }
 
 async function handleCallback() {
