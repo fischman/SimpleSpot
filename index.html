@@ -63,6 +63,8 @@
     /* Mobile styles */
     @media (max-width: 600px) {
       #column-count { display: none; }
+      .header { flex-wrap: wrap; gap: 8px; }
+      .header input[type="text"] { order: 10; width: 100%; flex: none; }
       .tracks { column-count: 1; }
       .player { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0)); flex-wrap: wrap; gap: 8px; }
       .progress-container { width: 100%; order: 10; }
