@@ -78,14 +78,14 @@
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content"><ul class="tracks" id="tracks"></ul></div>
     <div class="player">
-      <img id="player-art" src="" alt="" style="cursor:pointer" onclick="showCurrentAlbum()" />
+      <img id="player-art" src="" alt="" style="cursor:pointer;display:none" onclick="showCurrentAlbum()" />
       <div class="player-info">
         <div id="player-track">Not playing</div>
         <div id="player-artist" style="color:#b3b3b3;font-size:12px"></div>
       </div>
       <div class="player-controls">
         <button onclick="previous()">⏮</button>
-        <button onclick="togglePlay()" id="play-btn">▶</button>
+        <button onclick="togglePlay()" id="play-btn" disabled style="opacity:0.5">▶</button>
         <button onclick="next()">⏭</button>
       </div>
       <div class="progress-container">
@@ -246,8 +246,13 @@ function initPlayer() {
     currentAlbumUri = track.album.uri;
     document.getElementById('player-track').textContent = track.name;
     document.getElementById('player-artist').textContent = track.artists.map(a => a.name).join(', ');
-    document.getElementById('player-art').src = track.album.images[0]?.url || '';
-    document.getElementById('play-btn').textContent = state.paused ? '▶' : '⏸';
+    const art = document.getElementById('player-art');
+    art.src = track.album.images[0]?.url || '';
+    art.style.display = track.album.images[0]?.url ? 'block' : 'none';
+    const playBtn = document.getElementById('play-btn');
+    playBtn.textContent = state.paused ? '▶' : '⏸';
+    playBtn.disabled = false;
+    playBtn.style.opacity = '1';
     document.getElementById('progress-total').textContent = formatTime(state.duration);
     updateProgress();
     
