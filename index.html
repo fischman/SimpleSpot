@@ -633,19 +633,19 @@ function renderQueue(data) {
 
 async function skipQueueTrack(index) {
   // Spotify API doesn't support removing from queue, only skipping
-  // Skip (index + 1) times to get past this track
-  for (let i = 0; i <= index; i++) {
+  // Skip (index + 2) times: once to get to the track, once more to skip past it
+  for (let i = 0; i <= index + 1; i++) {
     await api('/me/player/next', { method: 'POST' });
   }
-  showQueue();
+  refreshQueueIfViewing();
 }
 
 async function skipToQueuePosition(index) {
-  // Skip to position in queue by calling next repeatedly
+  // Skip to position in queue by calling next (index + 1) times to land on track at index
   for (let i = 0; i <= index; i++) {
     await api('/me/player/next', { method: 'POST' });
   }
-  showQueue();
+  refreshQueueIfViewing();
 }
 
 async function clearQueue() {
