@@ -857,6 +857,8 @@ async function resumePlaybackIfNeeded() {
       : { uris: [state.trackUri], position_ms: state.position };
     
     console.log('Resuming with:', body, 'device:', deviceId);
+    
+    // Use Web API to set up what to play
     const playRes = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
       method: 'PUT',
       headers: { 
@@ -871,19 +873,19 @@ async function resumePlaybackIfNeeded() {
       console.log('Play error:', err);
     }
     
-    // Check if playback actually started, retry if not
+    // Check audio context state
     setTimeout(async () => {
       const currentState = await player.getCurrentState();
-      console.log('State after play:', currentState?.paused);
-      if (!currentState || currentState.paused) {
-        console.log('Playback did not start, retrying...');
-        await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
-          method: 'PUT',
-          headers: { 
-            'Authorization': 'Bearer ' + accessToken,
-            'Content-Type': 'application/json' 
-          },
-          body: JSON.stringify(body)
+      console.log('State after play:', currentState?.paused, 'position:', currentState?.position);
+      
+      // The SDK uses an internal audio context - try to resume it
+      if (player._options?.getOAuthToken) {
+        // Access internal audio element if available
+        const audioElements = document.querySelectorAll('audio');
+        console.log('Audio elements:', audioElements.length);
+        audioElements.forEach(a => {
+          console.log('Audio state:', a.paused, a.readyState, a.currentSrc?.substring(0, 50));
+          if (a.paused) a.play().catch(e => console.log('Audio play failed:', e));
         });
       }
     }, 500);
