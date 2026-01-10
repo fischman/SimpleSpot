@@ -496,7 +496,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
         <span class="track-num">${startNum + i}</span>
         ${isQueueRemove 
           ? `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>`
-          : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button><button class="queue-btn" onclick="event.stopPropagation(); startRadio('${t.id}')" title="Start radio">📻</button>`
+          : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>`
         }
       </div>
       <div class="track-art" onclick="event.stopPropagation(); ${playAction}">
@@ -544,29 +544,6 @@ function addToQueue(uri) {
   localQueue.push(uri);
   saveLocalQueue();
   if (localStorage.getItem('last_view') === 'queue') showQueue();
-}
-
-async function startRadio(trackId) {
-  setBreadcrumb([{ name: 'Radio' }]);
-  showLoading();
-  // Get track info to seed with artist too
-  const track = await api(`/tracks/${trackId}`);
-  const artistId = track?.artists?.[0]?.id;
-  const seeds = artistId ? `seed_tracks=${trackId}&seed_artists=${artistId}` : `seed_tracks=${trackId}`;
-  const data = await api(`/recommendations?${seeds}&limit=50`);
-  if (!data?.tracks?.length) {
-    document.getElementById('tracks').innerHTML = '<p style="padding:16px;color:#b3b3b3">No recommendations found</p>';
-    return;
-  }
-  // Play first track and queue the rest
-  const [first, ...rest] = data.tracks;
-  localQueue = rest.map(t => t.uri);
-  saveLocalQueue();
-  savedContextUri = null;
-  savedContextType = null;
-  contextResumeTrackUri = null;
-  await playTrack(first.uri);
-  document.getElementById('tracks').innerHTML = renderTrackItems(data.tracks, null);
 }
 
 function removeFromQueue(index) {
