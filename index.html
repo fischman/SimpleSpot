@@ -843,6 +843,17 @@ async function resumePlaybackIfNeeded() {
       return;
     }
     
+    // Transfer playback to this device first
+    console.log('Transferring playback to device:', deviceId);
+    await api('/me/player', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_ids: [deviceId], play: false })
+    });
+    
+    // Small delay to let transfer complete
+    await new Promise(r => setTimeout(r, 300));
+    
     // Resume playback
     const body = state.contextUri
       ? { context_uri: state.contextUri, offset: { uri: state.trackUri }, position_ms: state.position }
