@@ -889,9 +889,12 @@ async function renderQueueFromState(state) {
         }
       }
     } else if (type === 'album') {
-      // Fetch album tracks
+      // Fetch album tracks and add album images
       const albumData = await api(`/albums/${id}`);
-      const allTracks = albumData?.tracks?.items || [];
+      const allTracks = (albumData?.tracks?.items || []).map(t => ({
+        ...t,
+        album: { id: albumData.id, name: albumData.name, images: albumData.images }
+      }));
       
       if (contextResumeTrackUri) {
         const resumeIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
