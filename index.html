@@ -297,7 +297,7 @@ function initPlayer() {
       
       // Auto-refresh queue view
       if (!queueRefreshPending && localStorage.getItem('last_view') === 'queue') {
-        setTimeout(showQueue, 500);
+        showQueue();
       }
     }
     
@@ -675,31 +675,42 @@ async function showQueue() {
   showLoading();
   localStorage.setItem('last_view', 'queue');
   
-  // Get currently playing from Spotify
-  const playerState = await api('/me/player');
+  // Get Spotify's queue (includes context-based upcoming tracks)
+  const data = await api('/me/player/queue');
   
-  // Get track details for local queue
-  let queueTracks = [];
+  // Also get local queue track details
+  let localQueueTracks = [];
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
     const tracksData = await api('/tracks?ids=' + trackIds);
-    queueTracks = tracksData?.tracks || [];
+    localQueueTracks = tracksData?.tracks || [];
   }
   
-  renderQueue(playerState?.item, queueTracks);
+  renderQueue(data, localQueueTracks);
 }
 
-function renderQueue(currentTrack, queueTracks) {
+function renderQueue(spotifyData, localQueueTracks) {
   const el = document.getElementById('tracks');
   let html = '';
-  if (currentTrack) {
+  
+  // Now Playing
+  if (spotifyData?.currently_playing) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderTrackItems([currentTrack], null, false, false);
+    html += renderTrackItems([spotifyData.currently_playing], null, false, false);
   }
-  if (queueTracks.length > 0) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next Up (${queueTracks.length})</h3>`;
-    html += renderLocalQueueItems(queueTracks);
+  
+  // Local queue (user-added, can be removed)
+  if (localQueueTracks.length > 0) {
+    html += `<h3 style="padding:8px;color:#b3b3b3">Queued (${localQueueTracks.length})</h3>`;
+    html += renderLocalQueueItems(localQueueTracks);
   }
+  
+  // Spotify's context queue (from playlist/album, read-only)
+  if (spotifyData?.queue?.length > 0) {
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next from playlist (${spotifyData.queue.length})</h3>`;
+    html += renderTrackItems(spotifyData.queue, null, false, false);
+  }
+  
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
@@ -735,6 +746,7 @@ async function playFromLocalQueue(index) {
   });
   refreshQueueIfViewing();
 }
+
 
 
 async function clearQueue() {
