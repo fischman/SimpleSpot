@@ -990,21 +990,15 @@ function clearPlayerUI() {
 }
 
 async function clearQueue() {
-  // Clear local queue
   localQueue = [];
   saveLocalQueue();
-  
-  // Pause playback
+  savedContextUri = null;
+  savedContextType = null;
+  contextResumeTrackUri = null;
   await player.pause();
-  
-  // Clear localStorage
   localStorage.removeItem('play_state');
-  
-  // Reset UI
   clearPlayerUI();
-  
-  // Show empty queue
-  showQueue();
+  document.getElementById('tracks').innerHTML = '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
 // About modal
