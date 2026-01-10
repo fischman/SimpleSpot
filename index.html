@@ -320,6 +320,7 @@ function setVolume(e) {
 // Search
 async function search(q) {
   setBreadcrumb([{ name: 'Search: ' + q }]);
+  document.getElementById('tracks').innerHTML = '<li style="padding:16px;color:#b3b3b3">Searching...</li>';
   const data = await api('/search?type=track,album&limit=20&q=' + encodeURIComponent(q));
   localStorage.setItem('last_search', JSON.stringify({ query: q, data: data }));
   localStorage.setItem('last_view', 'search');
