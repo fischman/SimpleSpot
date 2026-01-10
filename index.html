@@ -74,6 +74,11 @@
     .content { padding: 16px; flex: 1; overflow-y: auto; overflow-x: hidden; }
     .artist-link { color: #b3b3b3; cursor: pointer; }
     .artist-link:hover { color: #fff; text-decoration: underline; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: #282828; border-radius: 8px; padding: 24px; max-width: 400px; width: 90%; }
+    .modal h2 { margin: 0 0 16px 0; color: #1db954; }
+    .modal p { color: #b3b3b3; line-height: 1.5; margin: 8px 0; }
+    .modal button { background: #1db954; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -86,6 +91,7 @@
       <button onclick="loadPlaylists()" title="My Playlists">📜</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
       <button onclick="logout()" title="Logout">⏻</button>
+      <button onclick="showAbout()" title="About" style="font-weight:bold">?</button>
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content"><ul class="tracks" id="tracks"></ul></div>
@@ -966,6 +972,23 @@ async function clearQueue() {
   
   // Show empty queue
   showQueue();
+}
+
+// About modal
+function showAbout() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>SimpleSpot</h2>
+      <p>A minimal Spotify web client built with vanilla HTML, CSS, and JavaScript.</p>
+      <p>Features local queue management, device switching, and keyboard controls.</p>
+      <p>Requires Spotify Premium for playback.</p>
+      <button onclick="this.closest('.modal-overlay').remove()">Close</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 // Breadcrumb
