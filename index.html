@@ -506,9 +506,12 @@ async function previous() {
 function refreshQueueIfViewing() {
   if (localStorage.getItem('last_view') === 'queue') {
     queueRefreshPending = true;
-    showQueue().then(() => {
-      queueRefreshPending = false;
-    });
+    // Small delay to let Spotify API update
+    setTimeout(() => {
+      showQueue().then(() => {
+        queueRefreshPending = false;
+      });
+    }, 300);
   }
 }
 
