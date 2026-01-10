@@ -129,6 +129,10 @@ let lastTrackUri = null;
 let lastPlayState = null;
 let queueRefreshPending = false;
 
+// Local queue management
+let localQueue = []; // Array of track URIs
+let currentTrackUri = null;
+
 // PKCE helpers
 function generateCodeVerifier() {
   const arr = new Uint8Array(64);
@@ -277,23 +281,31 @@ function initPlayer() {
     updateMediaSession(track, state);
     
     // Store play state in memory (saved to localStorage on beforeunload)
-    const nextTracks = state.track_window.next_tracks.map(t => t.uri);
     lastPlayState = {
       trackUri: track.uri,
       position: state.position,
       paused: state.paused,
       contextUri: state.context?.uri || null,
-      queue: nextTracks,
       timestamp: Date.now()
     };
     
-    // Auto-refresh queue view if track changed externally (track ended, cast control, etc)
+    // Track changed
     if (track.uri !== lastTrackUri) {
+      const previousTrack = lastTrackUri;
       lastTrackUri = track.uri;
-      // Debounce: only refresh if we didn't just trigger it ourselves
+      currentTrackUri = track.uri;
+      
+      // Auto-refresh queue view
       if (!queueRefreshPending && localStorage.getItem('last_view') === 'queue') {
         setTimeout(showQueue, 500);
       }
+    }
+    
+    // Detect track ending - position near end and paused, or next_tracks empty
+    // Play next from local queue
+    if (state.paused && state.position === 0 && localQueue.length > 0 && track.uri === currentTrackUri) {
+      // Track finished, play next from local queue
+      playNextFromLocalQueue();
     }
   });
   
@@ -413,8 +425,46 @@ async function playFromContext(contextUri, offset, trackUri) {
   });
 }
 
-async function addToQueue(uri) {
-  await api('/me/player/queue?uri=' + encodeURIComponent(uri), { method: 'POST' });
+function addToQueue(uri) {
+  // Add to local queue instead of Spotify's queue
+  localQueue.push(uri);
+  saveLocalQueue();
+  console.log('Added to local queue:', uri, 'Queue length:', localQueue.length);
+}
+
+function removeFromQueue(index) {
+  if (index >= 0 && index < localQueue.length) {
+    localQueue.splice(index, 1);
+    saveLocalQueue();
+    showQueue();
+  }
+}
+
+function saveLocalQueue() {
+  localStorage.setItem('local_queue', JSON.stringify(localQueue));
+}
+
+function loadLocalQueue() {
+  const saved = localStorage.getItem('local_queue');
+  if (saved) {
+    try {
+      localQueue = JSON.parse(saved);
+    } catch (e) {
+      localQueue = [];
+    }
+  }
+}
+
+async function playNextFromLocalQueue() {
+  if (localQueue.length === 0) return;
+  const nextUri = localQueue.shift();
+  saveLocalQueue();
+  console.log('Playing next from local queue:', nextUri);
+  await api('/me/player/play?device_id=' + deviceId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uris: [nextUri] })
+  });
 }
 
 async function togglePlay() {
@@ -439,7 +489,12 @@ async function togglePlay() {
 }
 
 async function next() {
-  await api('/me/player/next', { method: 'POST' });
+  // Play next from local queue if available, otherwise use Spotify's next
+  if (localQueue.length > 0) {
+    await playNextFromLocalQueue();
+  } else {
+    await api('/me/player/next', { method: 'POST' });
+  }
   refreshQueueIfViewing();
 }
 
@@ -618,55 +673,80 @@ async function loadArtist(id) {
 async function showQueue() {
   setBreadcrumb([{ name: 'Queue', suffix: '<button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
   showLoading();
-  const data = await api('/me/player/queue');
-  localStorage.setItem('last_queue', JSON.stringify(data));
   localStorage.setItem('last_view', 'queue');
-  renderQueue(data);
+  
+  // Get currently playing from Spotify
+  const playerState = await api('/me/player');
+  
+  // Get track details for local queue
+  let queueTracks = [];
+  if (localQueue.length > 0) {
+    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
+    const tracksData = await api('/tracks?ids=' + trackIds);
+    queueTracks = tracksData?.tracks || [];
+  }
+  
+  renderQueue(playerState?.item, queueTracks);
 }
 
-function renderQueue(data) {
+function renderQueue(currentTrack, queueTracks) {
   const el = document.getElementById('tracks');
   let html = '';
-  if (data.currently_playing) {
+  if (currentTrack) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderTrackItems([data.currently_playing], null, false, false);
+    html += renderTrackItems([currentTrack], null, false, false);
   }
-  if (data.queue?.length) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next Up (${data.queue.length})</h3>`;
-    html += renderTrackItems(data.queue, null, true, true);
+  if (queueTracks.length > 0) {
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next Up (${queueTracks.length})</h3>`;
+    html += renderLocalQueueItems(queueTracks);
   }
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
-async function skipQueueTrack(index) {
-  console.log('skipQueueTrack called with index:', index);
-  // Spotify API doesn't support removing from queue, only skipping
-  // Skip (index + 2) times: once to get to the track, once more to skip past it
-  for (let i = 0; i <= index + 1; i++) {
-    await api('/me/player/next', { method: 'POST' });
-  }
+function renderLocalQueueItems(tracks) {
+  return tracks.map((t, i) => {
+    if (!t) return '';
+    const artistLinks = t.artists?.map(a => 
+      `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
+    ).join(', ') || '';
+    return `
+    <li class="track" onclick="playFromLocalQueue(${i})">
+      <span class="track-num">${i + 1}</span>
+      <img src="${t.album?.images?.[2]?.url || ''}" />
+      <div class="track-info">
+        <div class="track-name">${escapeHtml(t.name)}</div>
+        <div class="track-artist">${artistLinks}</div>
+        ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
+      </div>
+      <button class="queue-btn" onclick="event.stopPropagation(); event.preventDefault(); removeFromQueue(${i}); return false;" title="Remove from queue">−</button>
+    </li>
+  `}).join('');
+}
+
+async function playFromLocalQueue(index) {
+  // Play this track and keep remaining tracks in queue
+  const uri = localQueue[index];
+  localQueue = localQueue.slice(index + 1);
+  saveLocalQueue();
+  await api('/me/player/play?device_id=' + deviceId, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uris: [uri] })
+  });
   refreshQueueIfViewing();
 }
 
-async function skipToQueuePosition(index) {
-  console.log('skipToQueuePosition called with index:', index);
-  // Skip to position in queue by calling next (index + 1) times to land on track at index
-  for (let i = 0; i <= index; i++) {
-    await api('/me/player/next', { method: 'POST' });
-  }
-  refreshQueueIfViewing();
-}
 
 async function clearQueue() {
-  // Disconnect and reconnect player to fully stop playback
-  player.disconnect();
+  // Clear local queue
+  localQueue = [];
+  saveLocalQueue();
+  
+  // Pause playback
+  await player.pause();
   
   // Clear localStorage
   localStorage.removeItem('play_state');
-  localStorage.removeItem('last_queue');
-  
-  // Clear the view
-  document.getElementById('tracks').innerHTML = '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
   
   // Reset UI
   document.getElementById('player-track').textContent = 'Not playing';
@@ -674,12 +754,13 @@ async function clearQueue() {
   document.getElementById('player-art').style.display = 'none';
   document.getElementById('play-btn').disabled = true;
   document.getElementById('play-btn').style.opacity = '0.5';
+  document.getElementById('play-btn').textContent = '▶';
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('progress-current').textContent = '0:00';
   document.getElementById('progress-total').textContent = '0:00';
   
-  // Reconnect player
-  player.connect();
+  // Show empty queue
+  showQueue();
 }
 
 // Breadcrumb
@@ -706,6 +787,9 @@ function setBreadcrumb(items) {
     accessToken = localStorage.getItem('access_token');
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    // Load local queue from storage
+    loadLocalQueue();
+    
     if (window.Spotify) initPlayer();
     
     // Restore last view from localStorage
