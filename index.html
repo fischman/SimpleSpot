@@ -618,21 +618,28 @@ async function skipToQueuePosition(index) {
 }
 
 async function clearQueue() {
-  // Spotify API doesn't have a clear queue endpoint
-  // Get current track, restart it alone (clears queue), then pause
-  const data = await api('/me/player/queue');
-  if (data.currently_playing) {
-    await api('/me/player/play?device_id=' + deviceId, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ uris: [data.currently_playing.uri], position_ms: 0 })
-    });
-    await api('/me/player/pause', { method: 'PUT' });
-  } else {
-    await api('/me/player/pause', { method: 'PUT' });
-  }
+  // Disconnect and reconnect player to fully stop playback
+  player.disconnect();
+  
+  // Clear localStorage
   localStorage.removeItem('play_state');
-  showQueue();
+  localStorage.removeItem('last_queue');
+  
+  // Clear the view
+  document.getElementById('tracks').innerHTML = '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+  
+  // Reset UI
+  document.getElementById('player-track').textContent = 'Not playing';
+  document.getElementById('player-artist').textContent = '';
+  document.getElementById('player-art').style.display = 'none';
+  document.getElementById('play-btn').disabled = true;
+  document.getElementById('play-btn').style.opacity = '0.5';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-current').textContent = '0:00';
+  document.getElementById('progress-total').textContent = '0:00';
+  
+  // Reconnect player
+  player.connect();
 }
 
 // Breadcrumb
