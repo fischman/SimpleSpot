@@ -1061,6 +1061,24 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+// Refresh token when tab becomes visible (handles Chrome tab freeze)
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && localStorage.getItem('access_token')) {
+    if (Date.now() > localStorage.getItem('token_expiry')) {
+      console.log('Tab visible, token expired, refreshing...');
+      if (await refreshToken()) {
+        accessToken = localStorage.getItem('access_token');
+        // Reconnect player with fresh token
+        if (player) {
+          console.log('Reconnecting player with fresh token...');
+          player.disconnect();
+          initPlayer();
+        }
+      }
+    }
+  }
+});
+
 // Column count control
 function setColumnCount(count) {
   document.documentElement.style.setProperty('--column-count', count);
