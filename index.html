@@ -765,11 +765,11 @@ async function renderQueueFromState(state) {
     }
   }
   
-  // Next tracks from SDK (context-based)
-  const nextTracks = state.track_window.next_tracks;
-  if (nextTracks?.length > 0) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next from playlist (${nextTracks.length})</h3>`;
-    html += nextTracks.map((t, i) => renderSdkTrackItem(t, i + 1)).join('');
+  // Next tracks - use API to get full queue (SDK only has limited tracks)
+  const queueData = await api('/me/player/queue');
+  if (queueData?.queue?.length > 0) {
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next from playlist (${queueData.queue.length})</h3>`;
+    html += renderTrackItems(queueData.queue, null, false, false);
   }
   
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
