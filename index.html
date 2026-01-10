@@ -871,6 +871,23 @@ async function resumePlaybackIfNeeded() {
       console.log('Play error:', err);
     }
     
+    // Check if playback actually started, retry if not
+    setTimeout(async () => {
+      const currentState = await player.getCurrentState();
+      console.log('State after play:', currentState?.paused);
+      if (!currentState || currentState.paused) {
+        console.log('Playback did not start, retrying...');
+        await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
+          method: 'PUT',
+          headers: { 
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify(body)
+        });
+      }
+    }, 500);
+    
     // Restore queue if we have saved tracks and no context
     if (!state.contextUri && state.queue?.length) {
       console.log('Restoring queue:', state.queue.length, 'tracks');
