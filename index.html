@@ -307,11 +307,10 @@ function initPlayer() {
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
       
-      // Refresh queue view if we're viewing it
+      // Refresh queue view if we're viewing it - use SDK state directly
       if (localStorage.getItem('last_view') === 'queue') {
-        showQueue().then(() => {
-          queueRefreshPending = false;
-        });
+        renderQueueFromState(state);
+        queueRefreshPending = false;
       }
     }
     
@@ -687,7 +686,14 @@ async function showQueue() {
   showLoading();
   localStorage.setItem('last_view', 'queue');
   
-  // Get Spotify's queue (includes context-based upcoming tracks)
+  // Try to use SDK state first (more up-to-date)
+  const sdkState = await player?.getCurrentState();
+  if (sdkState) {
+    await renderQueueFromState(sdkState);
+    return;
+  }
+  
+  // Fallback to API
   const data = await api('/me/player/queue');
   
   // Also get local queue track details
@@ -699,6 +705,56 @@ async function showQueue() {
   }
   
   renderQueue(data, localQueueTracks);
+}
+
+async function renderQueueFromState(state) {
+  const el = document.getElementById('tracks');
+  let html = '';
+  
+  // Now Playing from SDK
+  const currentTrack = state.track_window.current_track;
+  if (currentTrack) {
+    html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
+    html += renderSdkTrackItem(currentTrack);
+  }
+  
+  // Local queue (user-added, can be removed)
+  if (localQueue.length > 0) {
+    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
+    const tracksData = await api('/tracks?ids=' + trackIds);
+    const localQueueTracks = tracksData?.tracks || [];
+    if (localQueueTracks.length > 0) {
+      html += `<h3 style="padding:8px;color:#b3b3b3">Queued (${localQueueTracks.length})</h3>`;
+      html += renderLocalQueueItems(localQueueTracks);
+    }
+  }
+  
+  // Next tracks from SDK (context-based)
+  const nextTracks = state.track_window.next_tracks;
+  if (nextTracks?.length > 0) {
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next from playlist (${nextTracks.length})</h3>`;
+    html += nextTracks.map((t, i) => renderSdkTrackItem(t, i + 1)).join('');
+  }
+  
+  el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+}
+
+function renderSdkTrackItem(t, num = null) {
+  const artistLinks = t.artists?.map(a => 
+    `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.uri?.split(':')[2] || ''}')">${escapeHtml(a.name)}</span>`
+  ).join(', ') || '';
+  return `
+    <li class="track">
+      ${num !== null ? `<span class="track-num">${num}</span>` : ''}
+      <img src="${t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || ''}" />
+      <div class="track-info">
+        <div class="track-name">${escapeHtml(t.name)}</div>
+        <div class="track-artist">${artistLinks}</div>
+        <div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album?.uri?.split(':')[2] || ''}')">${escapeHtml(t.album?.name || '')}</div>
+      </div>
+      <button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>
+    </li>
+  `;
 }
 
 function renderQueue(spotifyData, localQueueTracks) {
