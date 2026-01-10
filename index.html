@@ -784,13 +784,34 @@ async function resumePlaybackIfNeeded() {
     const age = Date.now() - state.timestamp;
     console.log('Saved play state:', state, 'age:', age);
     
-    // Only resume if saved within last 5 minutes and was playing
+    // Only restore if saved within last 5 minutes
     if (age > 5 * 60 * 1000) {
       console.log('Play state too old, not resuming');
       return;
     }
+    
+    // Fetch track info to update UI
+    const trackData = await api('/tracks/' + state.trackUri.split(':')[2]);
+    if (trackData) {
+      document.getElementById('player-track').textContent = trackData.name;
+      document.getElementById('player-artist').textContent = trackData.artists.map(a => a.name).join(', ');
+      const art = document.getElementById('player-art');
+      art.src = trackData.album.images[0]?.url || '';
+      art.style.display = trackData.album.images[0]?.url ? 'block' : 'none';
+      document.getElementById('progress-current').textContent = formatTime(state.position);
+      document.getElementById('progress-total').textContent = formatTime(trackData.duration_ms);
+      document.getElementById('progress-fill').style.width = ((state.position / trackData.duration_ms) * 100) + '%';
+      currentAlbumUri = trackData.album.uri;
+    }
+    
+    // Enable play button
+    const playBtn = document.getElementById('play-btn');
+    playBtn.disabled = false;
+    playBtn.style.opacity = '1';
+    playBtn.textContent = state.paused ? '▶' : '⏸';
+    
     if (state.paused) {
-      console.log('Was paused, not resuming');
+      console.log('Was paused, showing paused state');
       return;
     }
     
