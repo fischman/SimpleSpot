@@ -844,19 +844,32 @@ async function resumePlaybackIfNeeded() {
     }
     
     // Activate the player element (needed for autoplay in some browsers)
-    await player.activateElement();
+    try {
+      await player.activateElement();
+      console.log('Player activated');
+    } catch (e) {
+      console.log('activateElement failed:', e);
+    }
     
     // Resume playback by starting on this device
     const body = state.contextUri
       ? { context_uri: state.contextUri, offset: { uri: state.trackUri }, position_ms: state.position }
       : { uris: [state.trackUri], position_ms: state.position };
     
-    console.log('Resuming with:', body);
-    await api('/me/player/play?device_id=' + deviceId, {
+    console.log('Resuming with:', body, 'device:', deviceId);
+    const playRes = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Authorization': 'Bearer ' + accessToken,
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify(body)
     });
+    console.log('Play response:', playRes.status, playRes.statusText);
+    if (!playRes.ok) {
+      const err = await playRes.text();
+      console.log('Play error:', err);
+    }
     
     // Restore queue if we have saved tracks and no context
     if (!state.contextUri && state.queue?.length) {
