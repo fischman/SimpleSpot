@@ -832,11 +832,11 @@ async function resumePlaybackIfNeeded() {
       currentAlbumUri = trackData.album.uri;
     }
     
-    // Enable play button
+    // Enable play button - always show play since we don't auto-resume
     const playBtn = document.getElementById('play-btn');
     playBtn.disabled = false;
     playBtn.style.opacity = '1';
-    playBtn.textContent = state.paused ? '▶' : '⏸';
+    playBtn.textContent = '▶';
     
     // Show play button ready to resume (don't auto-play due to browser autoplay policies)
     // User can click play to resume from saved position
