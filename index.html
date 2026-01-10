@@ -261,11 +261,13 @@ function initPlayer() {
     updateMediaSession(track, state);
     
     // Persist play state for resume on reload
+    const nextTracks = state.track_window.next_tracks.map(t => t.uri);
     localStorage.setItem('play_state', JSON.stringify({
       trackUri: track.uri,
       position: state.position,
       paused: state.paused,
       contextUri: state.context?.uri || null,
+      queue: nextTracks,
       timestamp: Date.now()
     }));
     
@@ -752,7 +754,6 @@ async function resumePlaybackIfNeeded() {
     }
     
     // Resume playback
-    // Note: queue cannot be restored via API, only current track + context
     const body = state.contextUri
       ? { context_uri: state.contextUri, offset: { uri: state.trackUri }, position_ms: state.position }
       : { uris: [state.trackUri], position_ms: state.position };
@@ -764,6 +765,14 @@ async function resumePlaybackIfNeeded() {
       body: JSON.stringify(body)
     });
     console.log('Resume result:', result);
+    
+    // Restore queue if we have saved tracks and no context
+    if (!state.contextUri && state.queue?.length) {
+      console.log('Restoring queue:', state.queue.length, 'tracks');
+      for (const uri of state.queue) {
+        await api('/me/player/queue?uri=' + encodeURIComponent(uri), { method: 'POST' });
+      }
+    }
   } catch (e) {
     console.log('Could not resume playback:', e);
   }
