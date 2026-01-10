@@ -125,6 +125,7 @@ let currentAlbumUri = null;
 let currentPlaylistContext = null;
 let progressInterval = null;
 let lastTrackUri = null;
+let lastPlayState = null;
 let queueRefreshPending = false;
 
 // PKCE helpers
@@ -267,16 +268,16 @@ function initPlayer() {
     // Update MPRIS / Media Session
     updateMediaSession(track, state);
     
-    // Persist play state for resume on reload
+    // Store play state in memory (saved to localStorage on beforeunload)
     const nextTracks = state.track_window.next_tracks.map(t => t.uri);
-    localStorage.setItem('play_state', JSON.stringify({
+    lastPlayState = {
       trackUri: track.uri,
       position: state.position,
       paused: state.paused,
       contextUri: state.context?.uri || null,
       queue: nextTracks,
       timestamp: Date.now()
-    }));
+    };
     
     // Auto-refresh queue view if track changed externally (track ended, cast control, etc)
     if (track.uri !== lastTrackUri) {
@@ -698,6 +699,14 @@ function restoreLastView() {
 
 document.getElementById('search').addEventListener('keyup', e => {
   if (e.key === 'Enter' && e.target.value) search(e.target.value);
+});
+
+// Save play state before page unload (before player disconnects and sets paused=true)
+window.addEventListener('beforeunload', () => {
+  if (lastPlayState) {
+    lastPlayState.timestamp = Date.now();
+    localStorage.setItem('play_state', JSON.stringify(lastPlayState));
+  }
 });
 
 // Column count control
