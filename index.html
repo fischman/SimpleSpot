@@ -26,6 +26,7 @@
     .track-info { flex: 1; min-width: 0; overflow: hidden; }
     .track-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .track-artist { font-size: 12px; color: #b3b3b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .track-num { color: #b3b3b3; font-size: 14px; min-width: 24px; text-align: right; }
     .device-picker { position: relative; }
     .device-menu { position: absolute; bottom: 100%; right: 0; background: #282828; border-radius: 8px; padding: 8px; min-width: 200px; display: none; }
     .device-menu.show { display: block; }
@@ -332,8 +333,9 @@ function renderSearchResults(data) {
   let html = '';
   if (data.albums?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Albums</h3>';
-    html += data.albums.items.slice(0, 5).map(a => `
+    html += data.albums.items.slice(0, 5).map((a, i) => `
       <li class="track" onclick="loadAlbum('${a.id}')">
+        <span class="track-num">${i + 1}</span>
         <img src="${a.images[2]?.url || ''}" />
         <div class="track-info">
           <div class="track-name">${escapeHtml(a.name)}</div>
@@ -350,7 +352,7 @@ function renderSearchResults(data) {
 }
 
 // Tracks rendering with context
-function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView = false) {
+function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView = false, startNum = 1) {
   return tracks.map((t, i) => {
     const artistLinks = t.artists?.map(a => 
       `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
@@ -360,6 +362,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, isQueueView
       : `playFromContext('${contextUri || ''}', ${i}, '${t.uri}')`;
     return `
     <li class="track" onclick="${clickAction}">
+      <span class="track-num">${startNum + i}</span>
       <img src="${t.album?.images?.[2]?.url || ''}" />
       <div class="track-info">
         <div class="track-name">${escapeHtml(t.name)}</div>
@@ -443,8 +446,9 @@ async function loadPlaylists() {
   setBreadcrumb([{ name: 'My Playlists' }]);
   const data = await api('/me/playlists?limit=50');
   const el = document.getElementById('tracks');
-  el.innerHTML = data.items.map(p => `
-    <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')"> 
+  el.innerHTML = data.items.map((p, i) => `
+    <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
+      <span class="track-num">${i + 1}</span>
       <img src="${p.images?.[0]?.url || ''}" />
       <div class="track-info">
         <div class="track-name">${escapeHtml(p.name)}</div>
@@ -523,8 +527,9 @@ async function loadArtist(id) {
   
   if (albums.items?.length) {
     html += '<h3 style="padding:8px 16px;color:#b3b3b3">Discography</h3>';
-    html += albums.items.map(a => `
+    html += albums.items.map((a, i) => `
       <li class="track" onclick="loadAlbum('${a.id}')">
+        <span class="track-num">${i + 1}</span>
         <img src="${a.images?.[2]?.url || ''}" />
         <div class="track-info">
           <div class="track-name">${escapeHtml(a.name)}</div>
