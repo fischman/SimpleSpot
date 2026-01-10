@@ -574,7 +574,7 @@ async function loadArtist(id) {
 
 // Queue
 async function showQueue() {
-  setBreadcrumb([{ name: 'Queue' }]);
+  setBreadcrumb([{ name: 'Queue <button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
   const data = await api('/me/player/queue');
   localStorage.setItem('last_queue', JSON.stringify(data));
   localStorage.setItem('last_view', 'queue');
@@ -589,7 +589,7 @@ function renderQueue(data) {
     html += renderTrackItems([data.currently_playing], null, false, false);
   }
   if (data.queue?.length) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next Up (${data.queue.length}) <button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px">Clear</button></h3>`;
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next Up (${data.queue.length})</h3>`;
     html += renderTrackItems(data.queue, null, true, true);
   }
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
