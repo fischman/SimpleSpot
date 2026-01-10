@@ -299,7 +299,11 @@ function initPlayer() {
   });
   
   player.addListener('player_state_changed', state => {
-    if (!state) return;
+    if (!state) {
+      // Playback transferred to another device - clear UI
+      clearPlayerUI();
+      return;
+    }
     currentState = state;
     const track = state.track_window.current_track;
     currentAlbumUri = track.album.uri;
@@ -308,10 +312,13 @@ function initPlayer() {
     const art = document.getElementById('player-art');
     art.src = track.album.images[0]?.url || '';
     art.style.display = track.album.images[0]?.url ? 'block' : 'none';
+    // Re-enable all player controls
+    document.querySelectorAll('.player-controls button').forEach(btn => {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    });
     const playBtn = document.getElementById('play-btn');
     playBtn.textContent = state.paused ? '▶' : '⏸';
-    playBtn.disabled = false;
-    playBtn.style.opacity = '1';
     document.getElementById('progress-total').textContent = formatTime(state.duration);
     updateProgress();
     
@@ -975,6 +982,26 @@ async function playFromLocalQueue(index) {
 
 
 
+function clearPlayerUI() {
+  currentState = null;
+  clearInterval(progressInterval);
+  document.getElementById('player-track').textContent = 'Not playing';
+  document.getElementById('player-artist').textContent = '';
+  document.getElementById('player-art').src = '';
+  document.getElementById('player-art').style.display = 'none';
+  document.getElementById('play-btn').disabled = true;
+  document.getElementById('play-btn').style.opacity = '0.5';
+  document.getElementById('play-btn').textContent = '▶';
+  document.querySelectorAll('.player-controls button').forEach(btn => {
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  });
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-current').textContent = '0:00';
+  document.getElementById('progress-total').textContent = '0:00';
+  document.getElementById('volume-fill').style.width = '0%';
+}
+
 async function clearQueue() {
   // Clear local queue
   localQueue = [];
@@ -987,15 +1014,7 @@ async function clearQueue() {
   localStorage.removeItem('play_state');
   
   // Reset UI
-  document.getElementById('player-track').textContent = 'Not playing';
-  document.getElementById('player-artist').textContent = '';
-  document.getElementById('player-art').style.display = 'none';
-  document.getElementById('play-btn').disabled = true;
-  document.getElementById('play-btn').style.opacity = '0.5';
-  document.getElementById('play-btn').textContent = '▶';
-  document.getElementById('progress-fill').style.width = '0%';
-  document.getElementById('progress-current').textContent = '0:00';
-  document.getElementById('progress-total').textContent = '0:00';
+  clearPlayerUI();
   
   // Show empty queue
   showQueue();
