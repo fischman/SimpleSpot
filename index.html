@@ -63,8 +63,9 @@
     /* Mobile styles */
     @media (max-width: 600px) {
       #column-count { display: none; }
-      .header { flex-wrap: wrap; gap: 8px; }
-      .header input[type="text"] { order: 10; width: 100%; flex: none; }
+      .header { gap: 8px; }
+      .header input[type="text"] { flex: 1; min-width: 60px; }
+      .header input[type="text"]:focus { position: absolute; left: 8px; right: 8px; width: auto; z-index: 10; }
       .tracks { column-count: 1; }
       .player { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0)); flex-wrap: wrap; gap: 8px; }
       .progress-container { width: 100%; order: 10; }
@@ -1046,7 +1047,10 @@ function restoreLastView() {
 }
 
 document.getElementById('search').addEventListener('keyup', e => {
-  if (e.key === 'Enter' && e.target.value) search(e.target.value);
+  if (e.key === 'Enter' && e.target.value) {
+    search(e.target.value);
+    e.target.blur();
+  }
 });
 
 // Save play state before page unload (before player disconnects and sets paused=true)
