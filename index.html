@@ -286,7 +286,7 @@ function initPlayer() {
       }
       cb(localStorage.getItem('access_token'));
     },
-    volume: 0.5
+    volume: (localStorage.getItem('volume') || 50) / 100
   });
   
   player.addListener('ready', ({ device_id }) => {
@@ -409,10 +409,16 @@ function seek(e) {
 // Volume slider
 (function() {
   const slider = document.getElementById('volume-slider');
+  const saved = localStorage.getItem('volume');
+  if (saved) {
+    slider.value = saved;
+    slider.title = saved + '%';
+  }
   slider.addEventListener('input', () => {
     slider.title = slider.value + '%';
   });
   slider.addEventListener('change', () => {
+    localStorage.setItem('volume', slider.value);
     player?.setVolume(slider.value / 100);
   });
 })();
