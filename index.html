@@ -18,8 +18,9 @@
     .player-info { flex: 1; }
     .player-controls { display: flex; gap: 16px; align-items: center; }
     .player-controls button { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
-    .tracks { list-style: none; display: grid; grid-template-columns: repeat(var(--column-count, 3), 1fr); gap: 4px; }
-    .tracks h3 { grid-column: 1 / -1; }
+    .tracks { list-style: none; column-count: var(--column-count, 3); column-gap: 4px; }
+    .tracks > * { break-inside: avoid; }
+    .tracks h3 { column-span: all; }
     .track { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 4px; cursor: pointer; min-width: 0; }
     .track:hover { background: #282828; }
     .track img { width: 40px; height: 40px; border-radius: 4px; flex-shrink: 0; }
@@ -51,7 +52,7 @@
     /* Mobile styles */
     @media (max-width: 600px) {
       #column-count { display: none; }
-      .tracks { grid-template-columns: 1fr; }
+      .tracks { column-count: 1; }
       .player { bottom: env(safe-area-inset-bottom, 0); padding-bottom: calc(16px + env(safe-area-inset-bottom, 0)); flex-wrap: wrap; gap: 8px; }
       .progress-container { width: 100%; order: 10; }
       .volume-container { display: none; }
