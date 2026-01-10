@@ -214,8 +214,15 @@ async function api(endpoint, opts = {}) {
     ...opts,
     headers: { Authorization: 'Bearer ' + accessToken, ...opts.headers }
   });
-  if (res.status === 204) return null;
-  return res.json();
+  if (res.status === 204 || res.status === 202) return null;
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.log('API response not JSON:', text.substring(0, 50));
+    return null;
+  }
 }
 
 function getDeviceName() {
