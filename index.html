@@ -138,6 +138,8 @@ let queueRefreshPending = false;
 // Local queue management
 let localQueue = []; // Array of track URIs
 let currentTrackUri = null;
+let savedContextUri = null; // Remember context even when playing from local queue
+let savedContextType = null;
 
 // PKCE helpers
 function generateCodeVerifier() {
@@ -306,6 +308,13 @@ function initPlayer() {
       timestamp: Date.now()
     };
     
+    // Save context when we have one (so we can use it after playing from local queue)
+    if (state.context?.uri) {
+      savedContextUri = state.context.uri;
+      const [, type] = state.context.uri.split(':');
+      savedContextType = type;
+    }
+    
     // Track changed
     if (track.uri !== lastTrackUri) {
       const previousTrack = lastTrackUri;
@@ -470,6 +479,10 @@ function addToQueue(uri) {
   localQueue.push(uri);
   saveLocalQueue();
   console.log('Added to local queue:', uri, 'Queue length:', localQueue.length);
+  // Refresh queue view if we're viewing it
+  if (localStorage.getItem('last_view') === 'queue') {
+    showQueue();
+  }
 }
 
 function removeFromQueue(index) {
@@ -530,9 +543,12 @@ async function togglePlay() {
 
 async function next() {
   // Play next from local queue if available, otherwise use Spotify's next
+  console.log('next() called, localQueue.length:', localQueue.length, 'queue:', localQueue);
   if (localQueue.length > 0) {
+    console.log('Playing from local queue');
     await playNextFromLocalQueue();
   } else {
+    console.log('Playing from Spotify queue');
     await api('/me/player/next', { method: 'POST' });
   }
   refreshQueueIfViewing();
@@ -766,7 +782,8 @@ async function renderQueueFromState(state) {
   }
   
   // Next tracks - fetch from context if available for full list
-  const contextUri = state.context?.uri;
+  // Use saved context if current context is null (e.g., after playing from local queue)
+  const contextUri = state.context?.uri || savedContextUri;
   let nextTracks = [];
   let contextName = 'playlist';
   
@@ -779,9 +796,23 @@ async function renderQueueFromState(state) {
       const playlistData = await api(`/playlists/${id}/tracks?limit=100`);
       const allTracks = playlistData?.items?.map(i => i.track).filter(t => t) || [];
       // Find current track position and get remaining
+      // If no context (playing from local queue), show all tracks after the one in queue
+      // Find the track that's either currently playing or was last in context
       const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
       if (currentIndex >= 0) {
         nextTracks = allTracks.slice(currentIndex + 1);
+      } else if (!state.context?.uri && savedContextUri) {
+        // Playing from local queue - find where we left off in the playlist
+        // Use the queue API to see what's coming next from the context
+        const queueData = await api('/me/player/queue');
+        if (queueData?.queue?.length > 0) {
+          // Find first queued track in our playlist
+          const firstQueuedUri = queueData.queue[0]?.uri;
+          const queueIndex = allTracks.findIndex(t => t.uri === firstQueuedUri);
+          if (queueIndex >= 0) {
+            nextTracks = allTracks.slice(queueIndex);
+          }
+        }
       }
     } else if (type === 'album') {
       // Fetch album tracks
@@ -790,6 +821,16 @@ async function renderQueueFromState(state) {
       const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
       if (currentIndex >= 0) {
         nextTracks = allTracks.slice(currentIndex + 1);
+      } else if (!state.context?.uri && savedContextUri) {
+        // Playing from local queue - use queue API
+        const queueData = await api('/me/player/queue');
+        if (queueData?.queue?.length > 0) {
+          const firstQueuedUri = queueData.queue[0]?.uri;
+          const queueIndex = allTracks.findIndex(t => t.uri === firstQueuedUri);
+          if (queueIndex >= 0) {
+            nextTracks = allTracks.slice(queueIndex);
+          }
+        }
       }
     }
   }
@@ -1039,8 +1080,8 @@ function setupMediaSessionHandlers() {
   
   navigator.mediaSession.setActionHandler('play', () => player?.resume());
   navigator.mediaSession.setActionHandler('pause', () => player?.pause());
-  navigator.mediaSession.setActionHandler('previoustrack', () => player?.previousTrack());
-  navigator.mediaSession.setActionHandler('nexttrack', () => player?.nextTrack());
+  navigator.mediaSession.setActionHandler('previoustrack', previous);
+  navigator.mediaSession.setActionHandler('nexttrack', next);
   navigator.mediaSession.setActionHandler('seekto', (details) => {
     if (details.seekTime !== undefined) {
       player?.seek(details.seekTime * 1000);
