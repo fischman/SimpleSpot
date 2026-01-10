@@ -70,7 +70,9 @@
   <div id="app">
     <div class="header">
       <input type="text" id="search" placeholder="Search tracks..." />
-      <button onclick="loadPlaylists()">My Playlists</button>
+      <button onclick="loadLikedSongs()" title="Liked Songs">❤️</button>
+      <button onclick="loadSavedAlbums()" title="Saved Albums">💿</button>
+      <button onclick="loadPlaylists()" title="My Playlists">📜</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
@@ -443,8 +445,33 @@ async function transferPlayback(id) {
 // Cast - shows non-computer devices (Chromecast, speakers, TVs, etc)
 
 // Playlists
+async function loadLikedSongs() {
+  setBreadcrumb([{ name: 'Liked Songs' }]);
+  const data = await api('/me/tracks?limit=50');
+  const tracks = data.items.map(i => i.track).filter(t => t);
+  document.getElementById('tracks').innerHTML = renderTrackItems(tracks, null);
+}
+
+async function loadSavedAlbums() {
+  setBreadcrumb([{ name: 'Saved Albums' }]);
+  const data = await api('/me/albums?limit=50');
+  const el = document.getElementById('tracks');
+  el.innerHTML = data.items.map((item, i) => {
+    const a = item.album;
+    return `
+    <li class="track" onclick="loadAlbum('${a.id}')">
+      <span class="track-num">${i + 1}</span>
+      <img src="${a.images?.[2]?.url || ''}" />
+      <div class="track-info">
+        <div class="track-name">${escapeHtml(a.name)}</div>
+        <div class="track-artist">${escapeHtml(a.artists.map(x => x.name).join(', '))}</div>
+      </div>
+    </li>
+  `}).join('');
+}
+
 async function loadPlaylists() {
-  setBreadcrumb([{ name: 'My Playlists' }]);
+  setBreadcrumb([{ name: 'Playlists' }]);
   const data = await api('/me/playlists?limit=50');
   const el = document.getElementById('tracks');
   el.innerHTML = data.items.map((p, i) => `
@@ -461,7 +488,7 @@ async function loadPlaylists() {
 
 async function loadPlaylist(id, name) {
   setBreadcrumb([
-    { name: 'My Playlists', action: 'loadPlaylists()' },
+    { name: 'Playlists', action: 'loadPlaylists()' },
     { name: name || 'Playlist' }
   ]);
   currentPlaylistContext = 'spotify:playlist:' + id;
