@@ -109,8 +109,9 @@
       </div>
       <div class="progress-container">
         <span class="progress-time" id="progress-current">0:00</span>
-        <div class="progress-bar" id="progress-bar" onclick="seek(event)">
+        <div class="progress-bar" id="progress-bar">
           <div class="progress-fill" id="progress-fill"></div>
+          <span id="seek-tooltip" style="display:none;position:absolute;background:#282828;padding:4px 8px;border-radius:4px;font-size:12px;top:-28px;transform:translateX(-50%)"></span>
         </div>
         <span class="progress-time" id="progress-total">0:00</span>
       </div>
@@ -399,12 +400,30 @@ function updateProgress() {
   });
 }
 
-function seek(e) {
-  if (!currentState) return;
+// Seek bar with tooltip
+(function() {
   const bar = document.getElementById('progress-bar');
-  const pct = e.offsetX / bar.offsetWidth;
-  player.seek(pct * currentState.duration);
-}
+  const tooltip = document.getElementById('seek-tooltip');
+  
+  function showTooltip(e) {
+    if (!currentState) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const time = pct * currentState.duration;
+    tooltip.textContent = formatTime(time);
+    tooltip.style.left = (pct * 100) + '%';
+    tooltip.style.display = 'block';
+  }
+  
+  bar.addEventListener('mousemove', showTooltip);
+  bar.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+  bar.addEventListener('click', e => {
+    if (!currentState) return;
+    const rect = bar.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    player.seek(pct * currentState.duration);
+  });
+})();
 
 // Volume slider
 (function() {
