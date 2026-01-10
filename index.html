@@ -90,6 +90,8 @@
       <button onclick="loadLikedSongs()" title="Liked Songs">❤️</button>
       <button onclick="loadSavedAlbums()" title="Saved Albums">💿</button>
       <button onclick="loadPlaylists()" title="My Playlists">📜</button>
+      <button onclick="loadTopArtists()" title="Top Artists">⬆️A</button>
+      <button onclick="loadTopTracks()" title="Top Tracks">⬆️T</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
       <button onclick="logout()" title="Logout">🚪</button>
       <button onclick="showAbout()" title="About" style="font-weight:bold">?</button>
@@ -691,6 +693,32 @@ async function loadPlaylists() {
       </div>
     </li>
   `).join('');
+}
+
+async function loadTopArtists() {
+  setBreadcrumb([{ name: 'Top Artists' }]);
+  showLoading();
+  const data = await api('/me/top/artists?limit=50&time_range=medium_term');
+  const el = document.getElementById('tracks');
+  el.innerHTML = data.items.map((a, i) => `
+    <li class="track" onclick="loadArtist('${a.id}')">
+      <span class="track-num">${i + 1}</span>
+      <div class="track-art">
+        <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
+      </div>
+      <div class="track-info">
+        <div class="track-name">${escapeHtml(a.name)}</div>
+        <div class="track-artist">${a.genres?.slice(0, 2).join(', ') || ''}</div>
+      </div>
+    </li>
+  `).join('');
+}
+
+async function loadTopTracks() {
+  setBreadcrumb([{ name: 'Top Tracks' }]);
+  showLoading();
+  const data = await api('/me/top/tracks?limit=50&time_range=medium_term');
+  document.getElementById('tracks').innerHTML = renderTrackItems(data.items, null);
 }
 
 async function loadPlaylist(id, name) {
