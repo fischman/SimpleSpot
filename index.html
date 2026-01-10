@@ -405,7 +405,26 @@ async function addToQueue(uri) {
   await api('/me/player/queue?uri=' + encodeURIComponent(uri), { method: 'POST' });
 }
 
-function togglePlay() { player?.togglePlay(); }
+async function togglePlay() {
+  // If player has no track loaded, try to resume from saved state
+  const state = await player?.getCurrentState();
+  if (!state) {
+    const saved = localStorage.getItem('play_state');
+    if (saved) {
+      const s = JSON.parse(saved);
+      const body = s.contextUri
+        ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position }
+        : { uris: [s.trackUri], position_ms: s.position };
+      await api('/me/player/play?device_id=' + deviceId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return;
+    }
+  }
+  player?.togglePlay();
+}
 
 async function next() {
   await api('/me/player/next', { method: 'POST' });
