@@ -148,7 +148,7 @@ let progressInterval = null;
 let lastTrackUri = null;
 let lastPlayState = null;
 let queueRefreshPending = false;
-
+let queueRenderVersion = 0; // Incremented each render to detect stale renders
 
 // Local queue management
 let localQueue = []; // Array of track URIs
@@ -842,6 +842,7 @@ async function showQueue() {
 
 async function renderQueueFromState(state) {
   const el = document.getElementById('tracks');
+  const myVersion = ++queueRenderVersion; // Capture version for this render
   let html = '';
   
   // Capture current track URI at start (before any async operations)
@@ -928,7 +929,10 @@ async function renderQueueFromState(state) {
     html += renderTrackItems(nextTracks, contextUri, false, 1, nextTracksOffset);
   }
   
-  el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+  // Only update DOM if this render is still current (not superseded by a newer one)
+  if (myVersion === queueRenderVersion) {
+    el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+  }
 }
 
 function renderSdkTrackItem(t, num = null) {
