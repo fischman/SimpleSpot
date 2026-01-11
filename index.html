@@ -355,16 +355,14 @@ function initPlayer() {
       contextResumeTrackUri = null;
     }
     
-    // Track changed
-    if (track.uri !== lastTrackUri) {
-      const previousTrack = lastTrackUri;
+    // Track changed - refresh queue view
+    if (track.uri !== lastTrackUri || queueRefreshPending) {
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
+      queueRefreshPending = false;
       
-      // Refresh queue view if we're viewing it - use SDK state directly
       if (localStorage.getItem('last_view') === 'queue') {
         renderQueueFromState(state);
-        queueRefreshPending = false;
       }
     }
     
