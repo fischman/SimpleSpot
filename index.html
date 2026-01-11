@@ -844,8 +844,9 @@ async function renderQueueFromState(state) {
   const el = document.getElementById('tracks');
   let html = '';
   
-  // Now Playing from SDK
+  // Capture current track URI at start (before any async operations)
   const currentTrack = state.track_window.current_track;
+  const trackUriForLookup = currentTrack?.uri;
   if (currentTrack) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
     html += renderSdkTrackItem(currentTrack);
@@ -883,13 +884,13 @@ async function renderQueueFromState(state) {
         url = playlistData?.next ? playlistData.next.replace('https://api.spotify.com/v1', '') : null;
       }
       
-      // Find starting position using global currentTrackUri (more reliable than state)
+      // Find starting position
       let startIndex = 0;
       if (contextResumeTrackUri) {
         startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
         if (startIndex < 0) startIndex = 0;
       } else {
-        const currentIndex = allTracks.findIndex(t => t.uri === currentTrackUri);
+        const currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
         startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
       }
       nextTracks = allTracks.slice(startIndex);
@@ -907,7 +908,7 @@ async function renderQueueFromState(state) {
         startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
         if (startIndex < 0) startIndex = 0;
       } else {
-        const currentIndex = allTracks.findIndex(t => t.uri === currentTrackUri);
+        const currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
         startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
       }
       nextTracks = allTracks.slice(startIndex);
