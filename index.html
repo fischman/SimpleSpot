@@ -148,6 +148,7 @@ let progressInterval = null;
 let lastTrackUri = null;
 let lastPlayState = null;
 let queueRefreshPending = false;
+let queueRefreshTimeout = null;
 
 // Local queue management
 let localQueue = []; // Array of track URIs
@@ -355,14 +356,15 @@ function initPlayer() {
       contextResumeTrackUri = null;
     }
     
-    // Track changed - refresh queue view
+    // Track changed - refresh queue view (debounced to avoid race conditions)
     if (track.uri !== lastTrackUri || queueRefreshPending) {
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
       queueRefreshPending = false;
       
       if (localStorage.getItem('last_view') === 'queue') {
-        renderQueueFromState(state);
+        clearTimeout(queueRefreshTimeout);
+        queueRefreshTimeout = setTimeout(() => renderQueueFromState(state), 100);
       }
     }
     
