@@ -487,13 +487,13 @@ function renderSearchResults(data) {
 }
 
 // Tracks rendering with context
-function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 1) {
+function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 1, contextOffset = 0) {
   return tracks.map((t, i) => {
     const artistLinks = t.artists?.map(a => 
       `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
     ).join(', ') || '';
     const playAction = contextUri 
-      ? `playFromContext('${contextUri}', ${i}, '${t.uri}')`
+      ? `playFromContext('${contextUri}', ${contextOffset + i}, '${t.uri}')`
       : `playTrack('${t.uri}')`;
     return `
     <li class="track">
@@ -867,6 +867,7 @@ async function renderQueueFromState(state) {
   // Use saved context if current context is null (e.g., after playing from local queue)
   const contextUri = state.context?.uri || savedContextUri;
   let nextTracks = [];
+  let nextTracksOffset = 0;
   let contextName = 'playlist';
   
   if (contextUri) {
@@ -874,23 +875,26 @@ async function renderQueueFromState(state) {
     contextName = type;
     
     if (type === 'playlist') {
-      // Fetch all playlist tracks
-      const playlistData = await api(`/playlists/${id}/tracks?limit=100`);
-      const allTracks = playlistData?.items?.map(i => i.track).filter(t => t) || [];
-      
-      // If we have a saved resume point, use that to show what's next from context
-      if (contextResumeTrackUri) {
-        const resumeIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
-        if (resumeIndex >= 0) {
-          nextTracks = allTracks.slice(resumeIndex);
-        }
-      } else {
-        // Normal case - show tracks after current
-        const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
-        if (currentIndex >= 0) {
-          nextTracks = allTracks.slice(currentIndex + 1);
-        }
+      // Fetch all playlist tracks (handle pagination)
+      let allTracks = [];
+      let url = `/playlists/${id}/tracks?limit=100`;
+      while (url) {
+        const playlistData = await api(url);
+        allTracks = allTracks.concat(playlistData?.items?.map(i => i.track).filter(t => t) || []);
+        url = playlistData?.next ? playlistData.next.replace('https://api.spotify.com/v1', '') : null;
       }
+      
+      // Find starting position
+      let startIndex = 0;
+      if (contextResumeTrackUri) {
+        startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
+        if (startIndex < 0) startIndex = 0;
+      } else {
+        const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
+        startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+      }
+      nextTracks = allTracks.slice(startIndex);
+      nextTracksOffset = startIndex; // Save offset for correct playFromContext
     } else if (type === 'album') {
       // Fetch album tracks and add album images
       const albumData = await api(`/albums/${id}`);
@@ -899,17 +903,16 @@ async function renderQueueFromState(state) {
         album: { id: albumData.id, name: albumData.name, images: albumData.images }
       }));
       
+      let startIndex = 0;
       if (contextResumeTrackUri) {
-        const resumeIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
-        if (resumeIndex >= 0) {
-          nextTracks = allTracks.slice(resumeIndex);
-        }
+        startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
+        if (startIndex < 0) startIndex = 0;
       } else {
         const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
-        if (currentIndex >= 0) {
-          nextTracks = allTracks.slice(currentIndex + 1);
-        }
+        startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
       }
+      nextTracks = allTracks.slice(startIndex);
+      nextTracksOffset = startIndex;
     }
   }
   
@@ -917,11 +920,12 @@ async function renderQueueFromState(state) {
   if (nextTracks.length === 0 && contextUri) {
     const queueData = await api('/me/player/queue');
     nextTracks = queueData?.queue || [];
+    nextTracksOffset = 0; // Queue API doesn't give us offset info
   }
   
   if (nextTracks.length > 0 && contextUri) {
     html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${contextName} (${nextTracks.length})</h3>`;
-    html += renderTrackItems(nextTracks, contextUri);
+    html += renderTrackItems(nextTracks, contextUri, false, 1, nextTracksOffset);
   }
   
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
