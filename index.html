@@ -148,7 +148,7 @@ let progressInterval = null;
 let lastTrackUri = null;
 let lastPlayState = null;
 let queueRefreshPending = false;
-let queueRefreshTimeout = null;
+
 
 // Local queue management
 let localQueue = []; // Array of track URIs
@@ -363,8 +363,7 @@ function initPlayer() {
       queueRefreshPending = false;
       
       if (localStorage.getItem('last_view') === 'queue') {
-        clearTimeout(queueRefreshTimeout);
-        queueRefreshTimeout = setTimeout(() => renderQueueFromState(state), 100);
+        renderQueueFromState(state);
       }
     }
     
@@ -884,17 +883,17 @@ async function renderQueueFromState(state) {
         url = playlistData?.next ? playlistData.next.replace('https://api.spotify.com/v1', '') : null;
       }
       
-      // Find starting position
+      // Find starting position using global currentTrackUri (more reliable than state)
       let startIndex = 0;
       if (contextResumeTrackUri) {
         startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
         if (startIndex < 0) startIndex = 0;
       } else {
-        const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
+        const currentIndex = allTracks.findIndex(t => t.uri === currentTrackUri);
         startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
       }
       nextTracks = allTracks.slice(startIndex);
-      nextTracksOffset = startIndex; // Save offset for correct playFromContext
+      nextTracksOffset = startIndex;
     } else if (type === 'album') {
       // Fetch album tracks and add album images
       const albumData = await api(`/albums/${id}`);
@@ -908,7 +907,7 @@ async function renderQueueFromState(state) {
         startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
         if (startIndex < 0) startIndex = 0;
       } else {
-        const currentIndex = allTracks.findIndex(t => t.uri === currentTrack?.uri);
+        const currentIndex = allTracks.findIndex(t => t.uri === currentTrackUri);
         startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
       }
       nextTracks = allTracks.slice(startIndex);
