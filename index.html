@@ -75,6 +75,10 @@
     .content { padding: 16px; flex: 1; overflow-y: auto; overflow-x: hidden; }
     .artist-link { color: #b3b3b3; cursor: pointer; }
     .artist-link:hover { color: #fff; text-decoration: underline; }
+    .track-name a, .track-album a { color: inherit; text-decoration: none; }
+    .track-name a:hover, .track-album a:hover { text-decoration: underline; }
+    .artist-link a { color: inherit; text-decoration: none; }
+    .artist-link a:hover { text-decoration: underline; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
     .modal { background: #282828; border-radius: 8px; padding: 24px; max-width: 400px; width: 90%; }
     .modal h2 { margin: 0 0 16px 0; color: #1db954; }
@@ -403,6 +407,13 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Generate shareable link - wraps text in <a> with Spotify URL
+// Left-click does onclick action, right-click gives native "Copy link" option
+function shareLink(type, id, text, onclick) {
+  const url = `https://open.spotify.com/${type}/${id}`;
+  return `<a href="${url}" onclick="event.preventDefault(); ${onclick}">${text}</a>`;
+}
+
 // Progress & Volume
 function updateProgress() {
   if (!currentState) return;
@@ -479,8 +490,8 @@ function renderSearchResults(data) {
           <div class="play-overlay"></div>
         </div>
         <div class="track-info">
-          <div class="track-name">${escapeHtml(a.name)}</div>
-          <div class="track-artist">${escapeHtml(a.artists.map(x => x.name).join(', '))}</div>
+          <div class="track-name">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
+          <div class="track-artist">${a.artists.map(x => shareLink('artist', x.id, escapeHtml(x.name), `event.stopPropagation(); loadArtist('${x.id}')`)).join(', ')}</div>
         </div>
       </li>
     `).join('');
@@ -495,8 +506,9 @@ function renderSearchResults(data) {
 // Tracks rendering with context
 function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 1, contextOffset = 0) {
   return tracks.map((t, i) => {
+    const trackId = t.uri?.split(':')[2] || t.id;
     const artistLinks = t.artists?.map(a => 
-      `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
+      `<span class="artist-link">${shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`)}</span>`
     ).join(', ') || '';
     const playAction = contextUri 
       ? `playFromContext('${contextUri}', ${contextOffset + i}, '${t.uri}')`
@@ -515,9 +527,9 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
         <div class="play-overlay"></div>
       </div>
       <div class="track-info">
-        <div class="track-name">${escapeHtml(t.name)}</div>
+        <div class="track-name">${shareLink('track', trackId, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`)}</div>
         <div class="track-artist">${artistLinks}</div>
-        ${t.album ? `<div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
+        ${t.album ? `<div class="track-album">${shareLink('album', t.album.id, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${t.album.id}')`)}</div>` : ''}
       </div>
     </li>
   `}).join('');
@@ -679,8 +691,8 @@ async function loadSavedAlbums() {
         <div class="play-overlay"></div>
       </div>
       <div class="track-info">
-        <div class="track-name">${escapeHtml(a.name)}</div>
-        <div class="track-artist">${escapeHtml(a.artists.map(x => x.name).join(', '))}</div>
+        <div class="track-name">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
+        <div class="track-artist">${a.artists.map(x => shareLink('artist', x.id, escapeHtml(x.name), `event.stopPropagation(); loadArtist('${x.id}')`)).join(', ')}</div>
       </div>
     </li>
   `}).join('');
@@ -699,7 +711,7 @@ async function loadPlaylists() {
         <div class="play-overlay"></div>
       </div>
       <div class="track-info">
-        <div class="track-name">${escapeHtml(p.name)}</div>
+        <div class="track-name">${shareLink('playlist', p.id, escapeHtml(p.name), `event.stopPropagation(); loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')`)}</div>
         <div class="track-artist">${p.tracks.total} tracks</div>
       </div>
     </li>
@@ -718,7 +730,7 @@ async function loadTopArtists() {
         <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
       </div>
       <div class="track-info">
-        <div class="track-name">${escapeHtml(a.name)}</div>
+        <div class="track-name">${shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`)}</div>
         <div class="track-artist">${a.genres?.slice(0, 2).join(', ') || ''}</div>
       </div>
     </li>
@@ -752,7 +764,7 @@ async function loadAlbum(id) {
   const contextUri = data.uri;
   const tracks = data.tracks.items.map(t => ({ ...t, album: { id: data.id, name: data.name, images: data.images } }));
   const artistLinks = data.artists.map(a => 
-    `<span class="artist-link" onclick="loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
+    `<span class="artist-link">${shareLink('artist', a.id, escapeHtml(a.name), `loadArtist('${a.id}')`)}</span>`
   ).join(', ');
   document.getElementById('tracks').innerHTML = `
     <div style="display:flex;gap:16px;padding:16px;align-items:flex-end">
@@ -762,7 +774,7 @@ async function loadAlbum(id) {
       </div>
       <div>
         <div style="font-size:12px;color:#b3b3b3">ALBUM</div>
-        <h1 style="font-size:32px;margin:8px 0">${escapeHtml(data.name)}</h1>
+        <h1 style="font-size:32px;margin:8px 0">${shareLink('album', data.id, escapeHtml(data.name), `playContext('${contextUri}')`)}</h1>
         <div style="color:#b3b3b3">${artistLinks} • ${data.release_date?.slice(0,4)} • ${data.total_tracks} tracks</div>
       </div>
     </div>
@@ -791,7 +803,7 @@ async function loadArtist(id) {
       <img src="${artist.images?.[1]?.url || ''}" style="width:150px;height:150px;border-radius:50%" />
       <div>
         <div style="font-size:12px;color:#b3b3b3">ARTIST</div>
-        <h1 style="font-size:32px;margin:8px 0">${escapeHtml(artist.name)}</h1>
+        <h1 style="font-size:32px;margin:8px 0">${shareLink('artist', artist.id, escapeHtml(artist.name), '')}</h1>
         <div style="color:#b3b3b3">${artist.followers?.total?.toLocaleString() || 0} followers</div>
       </div>
     </div>
@@ -812,7 +824,7 @@ async function loadArtist(id) {
           <div class="play-overlay"></div>
         </div>
         <div class="track-info">
-          <div class="track-name">${escapeHtml(a.name)}</div>
+          <div class="track-name">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
           <div class="track-artist">${a.album_type} • ${a.release_date?.slice(0,4)}</div>
         </div>
       </li>
@@ -984,9 +996,12 @@ async function renderQueueFromState(state) {
 }
 
 function renderSdkTrackItem(t, num = null) {
-  const artistLinks = t.artists?.map(a => 
-    `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.uri?.split(':')[2] || ''}')">${escapeHtml(a.name)}</span>`
-  ).join(', ') || '';
+  const trackId = t.uri?.split(':')[2] || t.id;
+  const albumId = t.album?.uri?.split(':')[2] || '';
+  const artistLinks = t.artists?.map(a => {
+    const artistId = a.uri?.split(':')[2] || '';
+    return `<span class="artist-link">${shareLink('artist', artistId, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${artistId}')`)}</span>`;
+  }).join(', ') || '';
   return `
     <li class="track">
       ${num !== null ? `<div class="track-num-col"><span class="track-num">${num}</span></div>` : ''}
@@ -995,9 +1010,9 @@ function renderSdkTrackItem(t, num = null) {
         <div class="play-overlay"></div>
       </div>
       <div class="track-info">
-        <div class="track-name">${escapeHtml(t.name)}</div>
+        <div class="track-name">${shareLink('track', trackId, escapeHtml(t.name), `event.stopPropagation(); playTrack('${t.uri}')`)}</div>
         <div class="track-artist">${artistLinks}</div>
-        <div class="track-album" onclick="event.stopPropagation(); loadAlbum('${t.album?.uri?.split(':')[2] || ''}')">${escapeHtml(t.album?.name || '')}</div>
+        <div class="track-album">${shareLink('album', albumId, escapeHtml(t.album?.name || ''), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>
       </div>
     </li>
   `;
