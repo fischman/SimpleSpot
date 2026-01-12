@@ -230,31 +230,42 @@ async function handleCallback() {
   return false;
 }
 
+let refreshPromise = null;
 async function refreshToken() {
+  // Prevent concurrent refresh attempts
+  if (refreshPromise) return refreshPromise;
+  
   const refresh = localStorage.getItem('refresh_token');
   if (!refresh) return false;
   
-  try {
-    const res = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        grant_type: 'refresh_token',
-        refresh_token: refresh
-      })
-    });
-    const data = await res.json();
-    if (data.access_token) {
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('token_expiry', Date.now() + data.expires_in * 1000);
-      return true;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: CLIENT_ID,
+          grant_type: 'refresh_token',
+          refresh_token: refresh
+        })
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('token_expiry', Date.now() + data.expires_in * 1000);
+        return true;
+      }
+      console.warn('Token refresh failed:', data.error || 'no access_token');
+      return false;
+    } catch (e) {
+      console.error('Token refresh error:', e);
+      return false;
+    } finally {
+      refreshPromise = null;
     }
-    return false;
-  } catch (e) {
-    console.error('Token refresh failed:', e);
-    return false;
-  }
+  })();
+  
+  return refreshPromise;
 }
 
 async function api(endpoint, opts = {}) {
