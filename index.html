@@ -263,12 +263,16 @@ async function api(endpoint, opts = {}) {
     headers: { Authorization: 'Bearer ' + accessToken, ...opts.headers }
   });
   if (res.status === 204 || res.status === 202) return null;
+  if (!res.ok) {
+    console.error('API error:', res.status, res.statusText, endpoint);
+    return null;
+  }
   const text = await res.text();
   if (!text) return null;
   try {
     return JSON.parse(text);
   } catch (e) {
-    console.log('API response not JSON:', text.substring(0, 50));
+    console.error('API response not JSON:', res.status, endpoint, text.substring(0, 200));
     return null;
   }
 }
@@ -356,8 +360,9 @@ function initPlayer() {
       contextResumeTrackUri = null;
     }
     
-    // Track changed - refresh queue view (debounced to avoid race conditions)
+    // Track changed - refresh queue view
     if (track.uri !== lastTrackUri || queueRefreshPending) {
+
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
       queueRefreshPending = false;
@@ -365,6 +370,8 @@ function initPlayer() {
       if (localStorage.getItem('last_view') === 'queue') {
         renderQueueFromState(state);
       }
+    } else {
+
     }
     
     // Detect track ending - position near end and paused, or next_tracks empty
@@ -531,7 +538,9 @@ function playTrack(uri) {
   contextResumeTrackUri = null;
   return play({ uris: [uri] });
 }
-const playContext = uri => play({ context_uri: uri });
+const playContext = uri => {
+  return play({ context_uri: uri });
+};
 const playFromContext = (contextUri, offset, trackUri) => 
   play(contextUri ? { context_uri: contextUri, offset: { position: offset } } : { uris: [trackUri] });
 
@@ -842,12 +851,16 @@ async function showQueue() {
 
 async function renderQueueFromState(state) {
   const el = document.getElementById('tracks');
-  const myVersion = ++queueRenderVersion; // Capture version for this render
+  const myVersion = ++queueRenderVersion;
+
   let html = '';
   
   // Capture current track URI at start (before any async operations)
   const currentTrack = state.track_window.current_track;
+  // Spotify uses track relinking - playlist may have original URI, SDK gives relinked URI
+  // Check both the current URI and linked_from URI when searching
   const trackUriForLookup = currentTrack?.uri;
+  const linkedFromUri = currentTrack?.linked_from?.uri;
   if (currentTrack) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
     html += renderSdkTrackItem(currentTrack);
@@ -867,6 +880,7 @@ async function renderQueueFromState(state) {
   // Next tracks - fetch from context if available for full list
   // Use saved context if current context is null (e.g., after playing from local queue)
   const contextUri = state.context?.uri || savedContextUri;
+
   let nextTracks = [];
   let nextTracksOffset = 0;
   let contextName = 'playlist';
@@ -890,12 +904,26 @@ async function renderQueueFromState(state) {
       if (contextResumeTrackUri) {
         startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
         if (startIndex < 0) startIndex = 0;
+        nextTracks = allTracks.slice(startIndex);
+        nextTracksOffset = startIndex;
       } else {
-        const currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
-        startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+        // Check both current URI and linked_from URI (for track relinking)
+        let currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
+        if (currentIndex < 0 && linkedFromUri) {
+          currentIndex = allTracks.findIndex(t => t.uri === linkedFromUri);
+        }
+
+        if (currentIndex >= 0) {
+          startIndex = currentIndex + 1;
+          nextTracks = allTracks.slice(startIndex);
+          nextTracksOffset = startIndex;
+        } else {
+          // Track not in this playlist - playing a queued track
+          // Don't show playlist tracks, fall through to queue API
+
+          nextTracks = [];
+        }
       }
-      nextTracks = allTracks.slice(startIndex);
-      nextTracksOffset = startIndex;
     } else if (type === 'album') {
       // Fetch album tracks and add album images
       const albumData = await api(`/albums/${id}`);
@@ -919,10 +947,12 @@ async function renderQueueFromState(state) {
   
   // Fallback to queue API only if we have a real context
   if (nextTracks.length === 0 && contextUri) {
+
     const queueData = await api('/me/player/queue');
     nextTracks = queueData?.queue || [];
     nextTracksOffset = 0; // Queue API doesn't give us offset info
   }
+
   
   if (nextTracks.length > 0 && contextUri) {
     html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${contextName} (${nextTracks.length})</h3>`;
@@ -931,7 +961,10 @@ async function renderQueueFromState(state) {
   
   // Only update DOM if this render is still current (not superseded by a newer one)
   if (myVersion === queueRenderVersion) {
+
     el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+  } else {
+
   }
 }
 
