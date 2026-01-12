@@ -137,9 +137,14 @@
   </div>
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script>
-// Config - user must set these
-const CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
-const REDIRECT_URI = window.location.href.split('?')[0].split('#')[0];
+// Config - set USE_NCSPOT to true to use ncspot's client ID (requires manual URL copy/paste)
+const USE_NCSPOT = false;
+
+const PLAYPAUSE_CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
+const NCSPOT_CLIENT_ID = 'd420a117a32841c2b3474932e49fb54b';
+
+const CLIENT_ID = USE_NCSPOT ? NCSPOT_CLIENT_ID : PLAYPAUSE_CLIENT_ID;
+const REDIRECT_URI = USE_NCSPOT ? 'http://127.0.0.1/login' : window.location.href.split('?')[0].split('#')[0];
 const SCOPES = 'streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read';
 
 let accessToken = null;
@@ -187,7 +192,64 @@ async function login() {
     code_challenge_method: 'S256',
     code_challenge: challenge
   });
-  window.location = 'https://accounts.spotify.com/authorize?' + params;
+  const authUrl = 'https://accounts.spotify.com/authorize?' + params;
+  
+  if (USE_NCSPOT) {
+    showNcspotLoginModal(authUrl);
+  } else {
+    window.location = authUrl;
+  }
+}
+
+function showNcspotLoginModal(authUrl) {
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:500px">
+      <h2>Login with Spotify (ncspot)</h2>
+      <p>Using ncspot's client ID requires a manual step:</p>
+      <ol style="color:#b3b3b3;line-height:1.8;margin:16px 0;padding-left:20px">
+        <li>Click the button below to open Spotify auth in a new tab</li>
+        <li>Authorize the app in that tab</li>
+        <li>You'll be redirected to a URL that <strong>won't load</strong> (127.0.0.1)</li>
+        <li>Copy the entire URL from the address bar</li>
+        <li>Paste it below and click Continue</li>
+      </ol>
+      <button onclick="window.open('${authUrl}', '_blank')" style="width:100%;margin-bottom:16px">
+        Open Spotify Auth (new tab)
+      </button>
+      <input type="text" id="ncspot-url" placeholder="Paste the redirect URL here..." 
+        style="width:100%;padding:10px;border-radius:4px;border:1px solid #444;background:#181818;color:#fff;margin-bottom:16px" />
+      <div style="display:flex;gap:8px">
+        <button onclick="this.closest('.modal-overlay').remove()" 
+          style="flex:1;background:#333">Cancel</button>
+        <button onclick="handleNcspotUrl()" style="flex:1">Continue</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function handleNcspotUrl() {
+  const input = document.getElementById('ncspot-url');
+  const url = input.value.trim();
+  if (!url) return;
+  
+  try {
+    const parsedUrl = new URL(url);
+    const code = parsedUrl.searchParams.get('code');
+    if (!code) {
+      alert('No authorization code found in URL');
+      return;
+    }
+    // Process the code as if we received it via redirect
+    document.querySelector('.modal-overlay').remove();
+    if (!await processAuthCode(code, false, true)) {
+      alert('Authentication failed. Please try again.');
+    }
+  } catch (e) {
+    alert('Invalid URL: ' + e.message);
+  }
 }
 
 function logout() {
@@ -205,7 +267,10 @@ async function handleCallback() {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
   if (!code) return false;
-  
+  return await processAuthCode(code, true, false);
+}
+
+async function processAuthCode(code, clearUrl = false, reload = false) {
   const verifier = localStorage.getItem('code_verifier');
   
   const res = await fetch('https://accounts.spotify.com/api/token', {
@@ -224,9 +289,15 @@ async function handleCallback() {
     localStorage.setItem('access_token', data.access_token);
     localStorage.setItem('refresh_token', data.refresh_token);
     localStorage.setItem('token_expiry', Date.now() + data.expires_in * 1000);
-    window.history.replaceState({}, '', REDIRECT_URI);
+    if (clearUrl) {
+      window.history.replaceState({}, '', window.location.href.split('?')[0]);
+    }
+    if (reload) {
+      window.location.reload();
+    }
     return true;
   }
+  console.error('Auth failed:', data.error || 'no access_token');
   return false;
 }
 
