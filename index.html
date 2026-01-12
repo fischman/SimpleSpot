@@ -861,21 +861,9 @@ async function renderQueueFromState(state) {
   // Check both the current URI and linked_from URI when searching
   const trackUriForLookup = currentTrack?.uri;
   const linkedFromUri = currentTrack?.linked_from?.uri;
-  if (currentTrack) {
-    html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderSdkTrackItem(currentTrack);
-  }
   
-  // Local queue (user-added, can be removed)
-  if (localQueue.length > 0) {
-    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
-    const tracksData = await api('/tracks?ids=' + trackIds);
-    const localQueueTracks = tracksData?.tracks || [];
-    if (localQueueTracks.length > 0) {
-      html += `<h3 style="padding:8px;color:#b3b3b3">Queued (${localQueueTracks.length})</h3>`;
-      html += renderLocalQueueItems(localQueueTracks);
-    }
-  }
+  // We'll render Now Playing after fetching context, so we can use playlist track data for correct album art
+  let nowPlayingTrack = null; // Will be set to playlist track if found, otherwise SDK track
   
   // Next tracks - fetch from context if available for full list
   // Use saved context if current context is null (e.g., after playing from local queue)
@@ -914,13 +902,14 @@ async function renderQueueFromState(state) {
         }
 
         if (currentIndex >= 0) {
+          // Use playlist track for Now Playing (has correct album art for relinked tracks)
+          nowPlayingTrack = allTracks[currentIndex];
           startIndex = currentIndex + 1;
           nextTracks = allTracks.slice(startIndex);
           nextTracksOffset = startIndex;
         } else {
           // Track not in this playlist - playing a queued track
           // Don't show playlist tracks, fall through to queue API
-
           nextTracks = [];
         }
       }
@@ -937,8 +926,15 @@ async function renderQueueFromState(state) {
         startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
         if (startIndex < 0) startIndex = 0;
       } else {
-        const currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
-        startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+        // Check both current URI and linked_from URI (for track relinking)
+        let currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
+        if (currentIndex < 0 && linkedFromUri) {
+          currentIndex = allTracks.findIndex(t => t.uri === linkedFromUri);
+        }
+        if (currentIndex >= 0) {
+          nowPlayingTrack = allTracks[currentIndex];
+          startIndex = currentIndex + 1;
+        }
       }
       nextTracks = allTracks.slice(startIndex);
       nextTracksOffset = startIndex;
@@ -947,12 +943,31 @@ async function renderQueueFromState(state) {
   
   // Fallback to queue API only if we have a real context
   if (nextTracks.length === 0 && contextUri) {
-
     const queueData = await api('/me/player/queue');
     nextTracks = queueData?.queue || [];
     nextTracksOffset = 0; // Queue API doesn't give us offset info
   }
-
+  
+  // Now render Now Playing - use playlist/album track if found (correct art for relinked tracks)
+  if (currentTrack) {
+    html = '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
+    if (nowPlayingTrack) {
+      html += renderTrackItems([nowPlayingTrack], contextUri, false, null, 0);
+    } else {
+      html += renderSdkTrackItem(currentTrack);
+    }
+  }
+  
+  // Local queue (moved after Now Playing)
+  if (localQueue.length > 0) {
+    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
+    const tracksData = await api('/tracks?ids=' + trackIds);
+    const localQueueTracks = tracksData?.tracks || [];
+    if (localQueueTracks.length > 0) {
+      html += `<h3 style="padding:8px;color:#b3b3b3">Queued (${localQueueTracks.length})</h3>`;
+      html += renderLocalQueueItems(localQueueTracks);
+    }
+  }
   
   if (nextTracks.length > 0 && contextUri) {
     html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${contextName} (${nextTracks.length})</h3>`;
