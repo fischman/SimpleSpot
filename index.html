@@ -292,7 +292,10 @@ async function api(endpoint, opts = {}) {
   try {
     return JSON.parse(text);
   } catch (e) {
-    console.error('API response not JSON:', res.status, endpoint, text.substring(0, 200));
+    // Don't log for successful responses - some endpoints return non-JSON
+    if (res.status >= 400) {
+      console.error('API error response:', res.status, endpoint, text.substring(0, 200));
+    }
     return null;
   }
 }
