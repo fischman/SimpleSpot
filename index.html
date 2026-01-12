@@ -1174,7 +1174,18 @@ function setBreadcrumb(items) {
 
 // Init
 (async () => {
-  if (await handleCallback() || localStorage.getItem('access_token')) {
+  const hasCodeInUrl = new URLSearchParams(window.location.search).has('code');
+  const callbackOk = await handleCallback();
+  
+  // If we have ?code= but callback failed, auth flow is broken - start fresh
+  if (hasCodeInUrl && !callbackOk) {
+    console.warn('OAuth callback failed, clearing state');
+    localStorage.clear();
+    window.history.replaceState({}, '', REDIRECT_URI);
+    return; // Will show login screen
+  }
+  
+  if (callbackOk || localStorage.getItem('access_token')) {
     if (Date.now() > localStorage.getItem('token_expiry')) {
       if (!await refreshToken()) { forceRelogin(); return; }
     }
