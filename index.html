@@ -792,15 +792,18 @@ function loadLocalQueue() {
   catch (e) { localQueue = []; }
 }
 
-function addToQueue(uri) {
+async function addToQueue(uri) {
+  const wasEmpty = localQueue.length === 0;
   if (!localQueue.includes(uri)) {
     localQueue.push(uri);
     saveLocalQueue();
   }
   if (localStorage.getItem('last_view') === 'queue') showQueue();
+  await autoPlayIfIdle(wasEmpty);
 }
 
 async function addAlbumToQueue(albumId) {
+  const wasEmpty = localQueue.length === 0;
   const data = await api(`/albums/${albumId}`);
   const trackUris = data.tracks?.items?.map(t => t.uri) || [];
   trackUris.forEach(uri => {
@@ -808,9 +811,11 @@ async function addAlbumToQueue(albumId) {
   });
   saveLocalQueue();
   if (localStorage.getItem('last_view') === 'queue') showQueue();
+  await autoPlayIfIdle(wasEmpty);
 }
 
 async function addPlaylistToQueue(playlistId) {
+  const wasEmpty = localQueue.length === 0;
   const data = await api(`/playlists/${playlistId}/tracks?limit=100`);
   const trackUris = data.items?.map(i => i.track?.uri).filter(Boolean) || [];
   trackUris.forEach(uri => {
@@ -818,6 +823,16 @@ async function addPlaylistToQueue(playlistId) {
   });
   saveLocalQueue();
   if (localStorage.getItem('last_view') === 'queue') showQueue();
+  await autoPlayIfIdle(wasEmpty);
+}
+
+async function autoPlayIfIdle(wasEmpty) {
+  if (!wasEmpty || localQueue.length === 0) return;
+  const state = await player?.getCurrentState();
+  // Start playing if nothing is playing or playback is paused with no track
+  if (!state || (!state.track_window?.current_track && state.paused)) {
+    playNextFromLocalQueue();
+  }
 }
 
 function removeFromQueue(index) {
