@@ -693,10 +693,32 @@ async function search(q, fromHistory = false) {
   if (!fromHistory) navigate('search', { q });
   setBreadcrumb([{ name: 'Search: ' + q }]);
   showLoading();
-  const data = await api('/search?type=track,album&limit=20&q=' + encodeURIComponent(q));
-  localStorage.setItem('last_search', JSON.stringify({ query: q, data: data }));
+  
+  // Fetch albums and tracks with pagination
+  let allAlbums = [];
+  let allTracks = [];
+  
+  // First request
+  const data = await api('/search?type=track,album&limit=50&q=' + encodeURIComponent(q));
+  allAlbums = data.albums?.items || [];
+  allTracks = data.tracks?.items || [];
+  
+  // Fetch more albums if available (up to 100 total)
+  if (data.albums?.next) {
+    const more = await api(data.albums.next.replace('https://api.spotify.com/v1', ''));
+    allAlbums = allAlbums.concat(more?.items || []);
+  }
+  
+  // Fetch more tracks if available (up to 100 total)
+  if (data.tracks?.next) {
+    const more = await api(data.tracks.next.replace('https://api.spotify.com/v1', ''));
+    allTracks = allTracks.concat(more?.items || []);
+  }
+  
+  const results = { albums: { items: allAlbums }, tracks: { items: allTracks } };
+  localStorage.setItem('last_search', JSON.stringify({ query: q, data: results }));
   localStorage.setItem('last_view', 'search');
-  renderSearchResults(data);
+  renderSearchResults(results);
 }
 
 function renderSearchResults(data) {
@@ -704,7 +726,7 @@ function renderSearchResults(data) {
   let html = '';
   if (data.albums?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Albums</h3>';
-    html += data.albums.items.slice(0, 5).map((a, i) => `
+    html += data.albums.items.map((a, i) => `
       <li class="track" onclick="loadAlbum('${a.id}')">
         <div class="track-num-col">
           <span class="track-num">${i + 1}</span>
