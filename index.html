@@ -173,6 +173,7 @@ let queueRenderVersion = 0; // Incremented each render to detect stale renders
 // Local queue management
 let localQueue = []; // Array of track URIs
 let currentTrackUri = null;
+let playingFromQueueInProgress = false; // Guard against rapid duplicate calls
 let savedContextUri = null; // Remember context even when playing from local queue
 let savedContextType = null;
 let contextResumeTrackUri = null; // Track to resume from after local queue is exhausted
@@ -496,8 +497,13 @@ function initPlayer() {
     // Detect track ending - position near end and paused, or next_tracks empty
     // Play next from local queue
     if (state.paused && state.position === 0 && localQueue.length > 0 && track.uri === currentTrackUri) {
+      // Guard against multiple rapid calls
+      if (playingFromQueueInProgress) return;
+      playingFromQueueInProgress = true;
       // Track finished, play next from local queue
-      playNextFromLocalQueue();
+      playNextFromLocalQueue().finally(() => {
+        playingFromQueueInProgress = false;
+      });
     }
   });
   
