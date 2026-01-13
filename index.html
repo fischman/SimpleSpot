@@ -462,7 +462,7 @@ function initPlayer() {
     // Update MPRIS / Media Session
     updateMediaSession(track, state);
     
-    // Store play state and save to localStorage
+    // Store play state in memory (saved to localStorage on beforeunload)
     lastPlayState = {
       trackUri: track.uri,
       position: state.position,
@@ -470,7 +470,6 @@ function initPlayer() {
       contextUri: state.context?.uri || null,
       timestamp: Date.now()
     };
-    localStorage.setItem('play_state', JSON.stringify(lastPlayState));
     
     // Save context when we have one (so we can use it after playing from local queue)
     if (state.context?.uri) {
