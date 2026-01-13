@@ -314,7 +314,9 @@ function openNcspotPopup(authUrl) {
       }
       
       const popupUrl = ncspotPopup.location.href;
+      console.log('Popup URL:', popupUrl);
       if (popupUrl.startsWith('http://127.0.0.1/')) {
+        console.log('Detected redirect, processing...');
         clearInterval(ncspotPollInterval);
         ncspotPopup.close();
         handleNcspotRedirect(popupUrl);
