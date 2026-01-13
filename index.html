@@ -1403,6 +1403,11 @@ document.getElementById('search').addEventListener('keyup', e => {
 // Save play state before page unload (before player disconnects and sets paused=true)
 window.addEventListener('beforeunload', () => {
   if (lastPlayState) {
+    // Estimate current position based on elapsed time since last state update
+    if (!lastPlayState.paused) {
+      const elapsed = Date.now() - lastPlayState.timestamp;
+      lastPlayState.position = lastPlayState.position + elapsed;
+    }
     lastPlayState.timestamp = Date.now();
     localStorage.setItem('play_state', JSON.stringify(lastPlayState));
   }
