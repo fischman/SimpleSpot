@@ -1381,6 +1381,7 @@ function setBreadcrumb(items) {
   const el = document.getElementById('breadcrumb');
   if (!items.length) {
     el.style.display = 'none';
+    document.title = 'SimpleSpot';
     return;
   }
   el.style.display = 'block';
@@ -1389,6 +1390,9 @@ function setBreadcrumb(items) {
       ? `<a onclick="${item.action}">${escapeHtml(item.name)}</a>${i < items.length - 1 ? ' › ' : ''}`
       : `<span>${escapeHtml(item.name)}${item.suffix || ''}</span>`
   ).join('');
+  // Update page title with last breadcrumb item
+  const lastItem = items[items.length - 1];
+  document.title = 'SimpleSpot - ' + lastItem.name;
 }
 
 // Init
