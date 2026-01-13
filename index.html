@@ -322,7 +322,24 @@ function openNcspotPopup(authUrl) {
         handleNcspotRedirect(popupUrl);
       }
     } catch (e) {
-      // Cross-origin - popup still on Spotify domain, keep polling
+      // Cross-origin error - check if it's because we redirected to 127.0.0.1
+      console.log('Popup poll error:', e.message);
+      try {
+        // Try to get just the origin - might work even if full href fails
+        const origin = ncspotPopup.location.origin;
+        console.log('Popup origin:', origin);
+        if (origin === 'http://127.0.0.1') {
+          // We're on the redirect page but can't read the full URL due to the page not loading
+          // Try to read it anyway
+          const href = ncspotPopup.location.href;
+          console.log('Got href after origin check:', href);
+          clearInterval(ncspotPollInterval);
+          ncspotPopup.close();
+          handleNcspotRedirect(href);
+        }
+      } catch (e2) {
+        // Still cross-origin on Spotify domain, keep polling
+      }
     }
   }, 200);
 }
