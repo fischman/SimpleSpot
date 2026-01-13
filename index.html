@@ -518,22 +518,32 @@ function shareLink(type, id, text, onclick) {
 // Radio - get recommendations and add to queue
 async function startRadio(type, id) {
   let seedParam = '';
+  let seedTrackUris = []; // Track URIs to queue before recommendations
+  
   if (type === 'track') {
     seedParam = `seed_tracks=${id}`;
+    seedTrackUris = [`spotify:track:${id}`];
   } else if (type === 'artist') {
     seedParam = `seed_artists=${id}`;
+    // For artists, get their top tracks to queue first
+    const topTracks = await api(`/artists/${id}/top-tracks?market=US`);
+    seedTrackUris = topTracks.tracks?.slice(0, 5).map(t => t.uri) || [];
   } else if (type === 'album') {
     // Use first 5 tracks from album as seeds
     const album = await api(`/albums/${id}`);
-    const trackIds = album.tracks?.items?.slice(0, 5).map(t => t.id).join(',') || '';
+    const tracks = album.tracks?.items?.slice(0, 5) || [];
+    const trackIds = tracks.map(t => t.id).join(',');
     if (!trackIds) return;
     seedParam = `seed_tracks=${trackIds}`;
+    seedTrackUris = tracks.map(t => t.uri);
   } else if (type === 'playlist') {
     // Use first 5 tracks from playlist as seeds
     const playlist = await api(`/playlists/${id}/tracks?limit=5`);
-    const trackIds = playlist.items?.map(i => i.track?.id).filter(Boolean).join(',') || '';
+    const tracks = playlist.items?.map(i => i.track).filter(Boolean) || [];
+    const trackIds = tracks.map(t => t.id).join(',');
     if (!trackIds) return;
     seedParam = `seed_tracks=${trackIds}`;
+    seedTrackUris = tracks.map(t => t.uri);
   }
   
   const recs = await api(`/recommendations?${seedParam}&limit=20`);
@@ -542,11 +552,11 @@ async function startRadio(type, id) {
     return;
   }
   
-  // Add recommended tracks to local queue
-  const firstTrackUri = recs.tracks[0]?.uri;
-  recs.tracks.forEach(t => {
-    if (!localQueue.includes(t.uri)) {
-      localQueue.push(t.uri);
+  // Add seed tracks first, then recommendations
+  const firstTrackUri = seedTrackUris[0] || recs.tracks[0]?.uri;
+  [...seedTrackUris, ...recs.tracks.map(t => t.uri)].forEach(uri => {
+    if (!localQueue.includes(uri)) {
+      localQueue.push(uri);
     }
   });
   saveLocalQueue();
