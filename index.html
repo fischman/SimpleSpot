@@ -271,51 +271,82 @@ async function login() {
 function showNcspotLoginModal(authUrl) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
+  modal.id = 'ncspot-modal';
   modal.innerHTML = `
     <div class="modal" style="max-width:500px">
       <h2>Login with Spotify (ncspot)</h2>
-      <p>Using ncspot's client ID requires a manual step:</p>
-      <ol style="color:#b3b3b3;line-height:1.8;margin:16px 0;padding-left:20px">
-        <li>Click the button below to open Spotify auth in a new tab</li>
-        <li>Authorize the app in that tab</li>
-        <li>You'll be redirected to a URL that <strong>won't load</strong> (127.0.0.1)</li>
-        <li>Copy the entire URL from the address bar</li>
-        <li>Paste it below and click Continue</li>
-      </ol>
-      <button onclick="window.open('${authUrl}', '_blank')" style="width:100%;margin-bottom:16px">
-        Open Spotify Auth (new tab)
+      <p id="ncspot-status" style="color:#b3b3b3;margin:16px 0">Click below to open Spotify authorization...</p>
+      <button id="ncspot-auth-btn" onclick="openNcspotPopup('${authUrl}')" style="width:100%;margin-bottom:16px">
+        Authorize with Spotify
       </button>
-      <input type="text" id="ncspot-url" placeholder="Paste the redirect URL here..." 
-        style="width:100%;padding:10px;border-radius:4px;border:1px solid #444;background:#181818;color:#fff;margin-bottom:16px" />
-      <div style="display:flex;gap:8px">
-        <button onclick="this.closest('.modal-overlay').remove()" 
-          style="flex:1;background:#333">Cancel</button>
-        <button onclick="handleNcspotUrl()" style="flex:1">Continue</button>
-      </div>
+      <button onclick="this.closest('.modal-overlay').remove()" style="width:100%;background:#333">Cancel</button>
     </div>
   `;
   document.body.appendChild(modal);
 }
 
-async function handleNcspotUrl() {
-  const input = document.getElementById('ncspot-url');
-  const url = input.value.trim();
-  if (!url) return;
+let ncspotPopup = null;
+let ncspotPollInterval = null;
+
+function openNcspotPopup(authUrl) {
+  // Open popup
+  ncspotPopup = window.open(authUrl, 'spotify-auth', 'width=500,height=700,menubar=no,toolbar=no');
   
+  if (!ncspotPopup) {
+    alert('Popup blocked. Please allow popups for this site.');
+    return;
+  }
+  
+  // Update UI
+  document.getElementById('ncspot-status').textContent = 'Waiting for authorization...';
+  document.getElementById('ncspot-auth-btn').disabled = true;
+  document.getElementById('ncspot-auth-btn').textContent = 'Waiting...';
+  
+  // Poll for redirect
+  ncspotPollInterval = setInterval(() => {
+    try {
+      if (ncspotPopup.closed) {
+        clearInterval(ncspotPollInterval);
+        document.getElementById('ncspot-status').textContent = 'Popup closed. Click to try again.';
+        document.getElementById('ncspot-auth-btn').disabled = false;
+        document.getElementById('ncspot-auth-btn').textContent = 'Authorize with Spotify';
+        return;
+      }
+      
+      const popupUrl = ncspotPopup.location.href;
+      if (popupUrl.startsWith('http://127.0.0.1/')) {
+        clearInterval(ncspotPollInterval);
+        ncspotPopup.close();
+        handleNcspotRedirect(popupUrl);
+      }
+    } catch (e) {
+      // Cross-origin - popup still on Spotify domain, keep polling
+    }
+  }, 200);
+}
+
+async function handleNcspotRedirect(url) {
   try {
     const parsedUrl = new URL(url);
     const code = parsedUrl.searchParams.get('code');
     if (!code) {
-      alert('No authorization code found in URL');
+      document.getElementById('ncspot-status').textContent = 'Error: No authorization code found';
+      document.getElementById('ncspot-auth-btn').disabled = false;
+      document.getElementById('ncspot-auth-btn').textContent = 'Try Again';
       return;
     }
-    // Process the code as if we received it via redirect
-    document.querySelector('.modal-overlay').remove();
+    
+    document.getElementById('ncspot-status').textContent = 'Processing...';
+    
+    // Process the code
+    const modal = document.getElementById('ncspot-modal');
+    if (modal) modal.remove();
+    
     if (!await processAuthCode(code, false, true)) {
       alert('Authentication failed. Please try again.');
     }
   } catch (e) {
-    alert('Invalid URL: ' + e.message);
+    alert('Error processing redirect: ' + e.message);
   }
 }
 
