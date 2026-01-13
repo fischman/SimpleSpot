@@ -350,9 +350,9 @@ async function refreshToken() {
   return refreshPromise;
 }
 
-async function api(endpoint, opts = {}) {
-  // Check if token needs refresh before API call
-  if (Date.now() > getAuth('token_expiry')) {
+async function api(endpoint, opts = {}, _retry = false) {
+  // Check if token needs refresh before API call (with 60s buffer)
+  if (Date.now() > getAuth('token_expiry') - 60000) {
     if (!await refreshToken()) {
       forceRelogin();
       return null;
@@ -365,6 +365,19 @@ async function api(endpoint, opts = {}) {
     headers: { Authorization: 'Bearer ' + accessToken, ...opts.headers }
   });
   if (res.status === 204 || res.status === 202) return null;
+  
+  // On 401, try refreshing token and retry once
+  if (res.status === 401 && !_retry) {
+    console.log('Got 401, attempting token refresh and retry');
+    if (await refreshToken()) {
+      accessToken = getAuth('access_token');
+      return api(endpoint, opts, true);
+    } else {
+      forceRelogin();
+      return null;
+    }
+  }
+  
   if (!res.ok) {
     console.error('API error:', res.status, res.statusText, endpoint);
     return null;
@@ -397,7 +410,8 @@ function initPlayer() {
   player = new Spotify.Player({
     name: getDeviceName(),
     getOAuthToken: async cb => {
-      if (Date.now() > getAuth('token_expiry')) {
+      // Refresh with 60s buffer to avoid race conditions
+      if (Date.now() > getAuth('token_expiry') - 60000) {
         if (!await refreshToken()) {
           forceRelogin();
           return;
