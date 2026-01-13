@@ -38,6 +38,8 @@
     .track-num { color: #b3b3b3; font-size: 14px; min-width: 24px; text-align: center; }
     .track-num-col { display: flex; flex-direction: column; align-items: center; min-width: 24px; gap: 2px; }
     .track-num-col .queue-btn { font-size: 14px; padding: 0; line-height: 1; }
+    .track-num-col .radio-btn { font-size: 12px; padding: 0; line-height: 1; background: none; border: none; color: #b3b3b3; cursor: pointer; }
+    .track-num-col .radio-btn:hover { color: #1db954; }
     .device-picker { position: relative; }
     .device-picker button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; }
     .device-menu { position: absolute; bottom: 100%; right: 0; background: #282828; border-radius: 8px; padding: 8px; min-width: 200px; display: none; }
@@ -513,6 +515,50 @@ function shareLink(type, id, text, onclick) {
   return `<a href="${url}" onclick="event.preventDefault(); ${onclick}">${text}</a>`;
 }
 
+// Radio - get recommendations and add to queue
+async function startRadio(type, id) {
+  let seedParam = '';
+  if (type === 'track') {
+    seedParam = `seed_tracks=${id}`;
+  } else if (type === 'artist') {
+    seedParam = `seed_artists=${id}`;
+  } else if (type === 'album') {
+    // Use first 5 tracks from album as seeds
+    const album = await api(`/albums/${id}`);
+    const trackIds = album.tracks?.items?.slice(0, 5).map(t => t.id).join(',') || '';
+    if (!trackIds) return;
+    seedParam = `seed_tracks=${trackIds}`;
+  } else if (type === 'playlist') {
+    // Use first 5 tracks from playlist as seeds
+    const playlist = await api(`/playlists/${id}/tracks?limit=5`);
+    const trackIds = playlist.items?.map(i => i.track?.id).filter(Boolean).join(',') || '';
+    if (!trackIds) return;
+    seedParam = `seed_tracks=${trackIds}`;
+  }
+  
+  const recs = await api(`/recommendations?${seedParam}&limit=20`);
+  if (!recs?.tracks?.length) {
+    alert('No recommendations found');
+    return;
+  }
+  
+  // Add recommended tracks to local queue
+  recs.tracks.forEach(t => {
+    if (!localQueue.includes(t.uri)) {
+      localQueue.push(t.uri);
+    }
+  });
+  saveLocalQueue();
+  
+  // Show feedback
+  alert(`Added ${recs.tracks.length} tracks to queue`);
+  
+  // Refresh queue view if currently showing
+  if (document.querySelector('.breadcrumb')?.textContent?.includes('Queue')) {
+    showQueue();
+  }
+}
+
 // Progress & Volume
 function updateProgress() {
   if (!currentState) return;
@@ -583,7 +629,10 @@ function renderSearchResults(data) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Albums</h3>';
     html += data.albums.items.slice(0, 5).map((a, i) => `
       <li class="track" onclick="loadAlbum('${a.id}')">
-        <span class="track-num">${i + 1}</span>
+        <div class="track-num-col">
+          <span class="track-num">${i + 1}</span>
+          <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
+        </div>
         <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
           <img src="${a.images[2]?.url || ''}" />
           <div class="play-overlay"></div>
@@ -620,6 +669,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
           ? `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>`
           : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}')" title="Add to queue">+</button>`
         }
+        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('track', '${trackId}')" title="Start radio">📻</button>
       </div>
       <div class="track-art" onclick="event.stopPropagation(); ${playAction}">
         <img src="${t.album?.images?.[2]?.url || ''}" />
@@ -784,7 +834,10 @@ async function loadSavedAlbums() {
     const a = item.album;
     return `
     <li class="track" onclick="loadAlbum('${a.id}')">
-      <span class="track-num">${i + 1}</span>
+      <div class="track-num-col">
+        <span class="track-num">${i + 1}</span>
+        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
+      </div>
       <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
         <img src="${a.images?.[2]?.url || ''}" />
         <div class="play-overlay"></div>
@@ -804,7 +857,10 @@ async function loadPlaylists() {
   const el = document.getElementById('tracks');
   el.innerHTML = data.items.map((p, i) => `
     <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
-      <span class="track-num">${i + 1}</span>
+      <div class="track-num-col">
+        <span class="track-num">${i + 1}</span>
+        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('playlist', '${p.id}')" title="Start radio">📻</button>
+      </div>
       <div class="track-art" onclick="event.stopPropagation(); playContext('spotify:playlist:${p.id}')">
         <img src="${p.images?.[0]?.url || ''}" />
         <div class="play-overlay"></div>
@@ -824,7 +880,10 @@ async function loadTopArtists() {
   const el = document.getElementById('tracks');
   el.innerHTML = data.items.map((a, i) => `
     <li class="track" onclick="loadArtist('${a.id}')">
-      <span class="track-num">${i + 1}</span>
+      <div class="track-num-col">
+        <span class="track-num">${i + 1}</span>
+        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('artist', '${a.id}')" title="Start radio">📻</button>
+      </div>
       <div class="track-art">
         <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
       </div>
@@ -917,7 +976,10 @@ async function loadArtist(id) {
     html += '<h3 style="padding:8px 16px;color:#b3b3b3">Discography</h3>';
     html += albums.items.map((a, i) => `
       <li class="track" onclick="loadAlbum('${a.id}')">
-        <span class="track-num">${i + 1}</span>
+        <div class="track-num-col">
+          <span class="track-num">${i + 1}</span>
+          <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
+        </div>
         <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
           <img src="${a.images?.[2]?.url || ''}" />
           <div class="play-overlay"></div>
