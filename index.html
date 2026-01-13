@@ -1247,6 +1247,7 @@ function renderQueue(spotifyData, localQueueTracks) {
 function renderLocalQueueItems(tracks) {
   return tracks.map((t, i) => {
     if (!t) return '';
+    const trackId = t.uri?.split(':')[2] || t.id;
     const artistLinks = t.artists?.map(a => 
       `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
     ).join(', ') || '';
@@ -1255,6 +1256,7 @@ function renderLocalQueueItems(tracks) {
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>
+        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('track', '${trackId}')" title="Start radio">📻</button>
       </div>
       <div class="track-art" onclick="event.stopPropagation(); playFromLocalQueue(${i})">
         <img src="${t.album?.images?.[2]?.url || ''}" />
