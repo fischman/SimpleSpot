@@ -543,6 +543,7 @@ async function startRadio(type, id) {
   }
   
   // Add recommended tracks to local queue
+  const firstTrackUri = recs.tracks[0]?.uri;
   recs.tracks.forEach(t => {
     if (!localQueue.includes(t.uri)) {
       localQueue.push(t.uri);
@@ -550,12 +551,10 @@ async function startRadio(type, id) {
   });
   saveLocalQueue();
   
-  // Show feedback
-  alert(`Added ${recs.tracks.length} tracks to queue`);
-  
-  // Refresh queue view if currently showing
-  if (document.querySelector('.breadcrumb')?.textContent?.includes('Queue')) {
-    showQueue();
+  // Switch to queue view and start playing first track
+  await showQueue();
+  if (firstTrackUri) {
+    playTrack(firstTrackUri);
   }
 }
 
