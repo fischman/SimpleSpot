@@ -15,7 +15,8 @@
     #app.show { display: flex; }
     .header { padding: 16px; background: #181818; display: flex; gap: 2px; align-items: center; flex-shrink: 0; }
     .header input[type="text"] { flex: 1; padding: 10px 16px; border-radius: 20px; border: none; background: #282828; color: #fff; }
-    .header button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; color: #b3b3b3; }
+    .header button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; color: #b3b3b3; border-radius: 8px; }
+    .header button.active { background: #1db954; }
     .player { background: #181818; padding: 16px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
     .player img { width: 56px; height: 56px; border-radius: 4px; }
     .player-info { flex: 1; }
@@ -96,11 +97,11 @@
   <div id="app">
     <div class="header">
       <input type="text" id="search" placeholder="Search tracks..." />
-      <button onclick="loadLikedSongs()" title="Liked Songs">❤️</button>
-      <button onclick="loadSavedAlbums()" title="Saved Albums">💿</button>
-      <button onclick="loadPlaylists()" title="My Playlists">📜</button>
-      <button onclick="loadTopArtists()" title="Top Artists">⬆️A</button>
-      <button onclick="loadTopTracks()" title="Top Tracks">⬆️T</button>
+      <button id="nav-liked" onclick="loadLikedSongs()" title="Liked Songs">❤️</button>
+      <button id="nav-albums" onclick="loadSavedAlbums()" title="Saved Albums">💿</button>
+      <button id="nav-playlists" onclick="loadPlaylists()" title="My Playlists">📜</button>
+      <button id="nav-topArtists" onclick="loadTopArtists()" title="Top Artists">⬆️A</button>
+      <button id="nav-topTracks" onclick="loadTopTracks()" title="Top Tracks">⬆️T</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
       <button onclick="logout()" title="Logout">🚪</button>
       <button onclick="showAbout()" title="About" style="font-weight:bold">?</button>
@@ -130,7 +131,7 @@
         <span>🔊</span>
         <input type="range" id="volume-slider" min="0" max="100" value="50" title="50%" />
       </div>
-      <button class="queue-btn" onclick="showQueue()" title="Queue">☰</button>
+      <button id="nav-queue" class="queue-btn" onclick="showQueue()" title="Queue">☰</button>
       <div class="device-picker">
         <button onclick="toggleDevices()" title="Devices">📱</button>
         <div class="device-menu" id="device-menu"></div>
@@ -189,6 +190,15 @@ function navigate(route, params = {}, replace = false) {
       history.pushState(state, '', location.pathname);
     }
   }
+  setActiveNav(route);
+}
+
+function setActiveNav(route) {
+  // Clear all active states
+  document.querySelectorAll('.header button.active, .player button.active').forEach(b => b.classList.remove('active'));
+  // Set active on matching nav button
+  const btn = document.getElementById('nav-' + route);
+  if (btn) btn.classList.add('active');
 }
 
 function handleNavigation(state) {
