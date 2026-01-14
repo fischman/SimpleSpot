@@ -393,9 +393,14 @@ async function refreshToken() {
       if (data.access_token) {
         setAuth('access_token', data.access_token);
         setAuth('token_expiry', Date.now() + data.expires_in * 1000);
+        // Spotify may issue a new refresh token - save it if present
+        if (data.refresh_token) {
+          console.log('New refresh token received, saving');
+          setAuth('refresh_token', data.refresh_token);
+        }
         return true;
       }
-      console.warn('Token refresh failed:', data.error || 'no access_token');
+      console.warn('Token refresh failed:', data.error || 'no access_token', data);
       return false;
     } catch (e) {
       console.error('Token refresh error:', e);
