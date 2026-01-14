@@ -314,10 +314,11 @@ async function handleNcspotUrl() {
 
 function logout() {
   if (!confirm('Log out of Spotify?')) return;
-  forceRelogin();
+  forceRelogin('user logout');
 }
 
-function forceRelogin() {
+function forceRelogin(reason = 'unknown') {
+  console.error('FORCE RELOGIN:', reason, new Error().stack);
   if (player) player.disconnect();
   clearAuth();
   window.location.reload();
@@ -364,10 +365,18 @@ async function processAuthCode(code, clearUrl = false, reload = false) {
 let refreshPromise = null;
 async function refreshToken() {
   // Prevent concurrent refresh attempts
-  if (refreshPromise) return refreshPromise;
+  if (refreshPromise) {
+    console.log('Token refresh already in progress, waiting...');
+    return refreshPromise;
+  }
   
   const refresh = getAuth('refresh_token');
-  if (!refresh) return false;
+  if (!refresh) {
+    console.warn('No refresh token available!');
+    return false;
+  }
+  
+  console.log('Starting token refresh...');
   
   refreshPromise = (async () => {
     try {
@@ -402,8 +411,9 @@ async function refreshToken() {
 async function api(endpoint, opts = {}, _retry = false) {
   // Check if token needs refresh before API call (with 60s buffer)
   if (Date.now() > getAuth('token_expiry') - 60000) {
+    console.log('Token expiring soon, refreshing before API call');
     if (!await refreshToken()) {
-      forceRelogin();
+      forceRelogin('api: token refresh failed before call');
       return null;
     }
     accessToken = getAuth('access_token');
@@ -422,7 +432,7 @@ async function api(endpoint, opts = {}, _retry = false) {
       accessToken = getAuth('access_token');
       return api(endpoint, opts, true);
     } else {
-      forceRelogin();
+      forceRelogin('api: token refresh failed after 401');
       return null;
     }
   }
@@ -461,8 +471,9 @@ function initPlayer() {
     getOAuthToken: async cb => {
       // Refresh with 60s buffer to avoid race conditions
       if (Date.now() > getAuth('token_expiry') - 60000) {
+        console.log('SDK requesting token, refreshing (expiry soon)');
         if (!await refreshToken()) {
-          forceRelogin();
+          forceRelogin('SDK getOAuthToken: token refresh failed');
           return;
         }
       }
@@ -1554,7 +1565,8 @@ function setBreadcrumb(items) {
   
   if (callbackOk || getAuth('access_token')) {
     if (Date.now() > getAuth('token_expiry')) {
-      if (!await refreshToken()) { forceRelogin(); return; }
+      console.log('Token expired at init, attempting refresh');
+      if (!await refreshToken()) { forceRelogin('init: token refresh failed'); return; }
     }
     accessToken = getAuth('access_token');
     document.getElementById('login').style.display = 'none';
@@ -1613,6 +1625,7 @@ window.addEventListener('beforeunload', () => {
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && getAuth('access_token')) {
     if (Date.now() > getAuth('token_expiry')) {
+      console.log('Tab became visible, token expired, attempting refresh');
       if (await refreshToken()) {
         accessToken = getAuth('access_token');
         if (player) {
@@ -1620,7 +1633,7 @@ document.addEventListener('visibilitychange', async () => {
           initPlayer();
         }
       } else {
-        forceRelogin();
+        forceRelogin('visibilitychange: token refresh failed');
       }
     }
   }
