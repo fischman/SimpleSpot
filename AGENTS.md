@@ -112,6 +112,7 @@ Spotify may issue a new refresh token on each refresh. Always save `data.refresh
 - Don't use localStorage directly for auth - use `getAuth()`/`setAuth()`
 - Don't assume track.uri matches playlist entries (relinking!)
 - Don't try to auto-detect popup redirects (cross-origin blocks it)
+- **Don't modify server.py** - it serves only index.html on port 8000 and must stay that way
 
 ## Git Commits
 
