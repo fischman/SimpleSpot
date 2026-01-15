@@ -2,6 +2,12 @@
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
+# Allowed static files for PWA support
+STATIC_FILES = {
+    '/manifest.json': ('manifest.json', 'application/manifest+json'),
+    '/logo.svg': ('logo.svg', 'image/svg+xml'),
+}
+
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         # Log request with headers
@@ -14,6 +20,17 @@ class Handler(BaseHTTPRequestHandler):
                 client_ip = self.address_string()
             f.write(f"{datetime.now().isoformat()} {client_ip} {self.requestline}\n")
         
+        # Serve allowed static files
+        if self.path in STATIC_FILES:
+            filename, content_type = STATIC_FILES[self.path]
+            self.send_response(200)
+            self.send_header('Content-Type', content_type)
+            self.end_headers()
+            with open(filename, 'rb') as f:
+                self.wfile.write(f.read())
+            return
+        
+        # Default: serve index.html
         self.send_response(200)
         self.send_header('Content-Type', 'text/html')
         self.end_headers()
