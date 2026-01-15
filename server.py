@@ -4,7 +4,6 @@ from datetime import datetime
 
 # Allowed static files for PWA support
 STATIC_FILES = {
-    '/manifest.json': ('manifest.json', 'application/manifest+json'),
     '/logo.svg': ('logo.svg', 'image/svg+xml'),
 }
 
