@@ -1026,7 +1026,7 @@ async function fetchAndShowLyrics() {
   
   try {
     const query = encodeURIComponent(trackKey);
-    const res = await fetch(`https://lyricsapi.vercel.app/api/lyrics?name=${query}`);
+    const res = await fetch(`/lyrics?name=${query}`);
     const data = await res.json();
     
     if (!data || data.length === 0) {
