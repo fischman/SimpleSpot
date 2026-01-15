@@ -203,8 +203,8 @@ function navigate(route, params = {}, replace = false) {
 }
 
 function setActiveNav(route) {
-  // Clear all active states
-  document.querySelectorAll('.header button.active, .player button.active').forEach(b => b.classList.remove('active'));
+  // Clear all active states (except loop button which has its own state)
+  document.querySelectorAll('.header button.active, .player button.active:not(#loop-btn)').forEach(b => b.classList.remove('active'));
   // Set active on matching nav button
   const btn = document.getElementById('nav-' + route);
   if (btn) btn.classList.add('active');
