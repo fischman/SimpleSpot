@@ -112,7 +112,8 @@ Spotify may issue a new refresh token on each refresh. Always save `data.refresh
 - Don't use localStorage directly for auth - use `getAuth()`/`setAuth()`
 - Don't assume track.uri matches playlist entries (relinking!)
 - Don't try to auto-detect popup redirects (cross-origin blocks it)
-- **Don't modify server.py** - it serves index.html plus PWA files (logo.svg) on port 8000; don't add other files
+- **Don't hide the header or player bars** - new views/overlays should only occupy the middle content area
+- **Coordinate server.py changes** - it serves index.html plus proxies (e.g., /lyrics); changes may be needed for new features
 - **No arbitrary sleeps** - Don't use `sleep` in shell commands or `setTimeout` in JS unless there's a specific event being waited for
 
 ## Git Commits
