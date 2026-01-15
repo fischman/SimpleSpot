@@ -5,6 +5,8 @@ from datetime import datetime
 # Allowed static files for PWA support
 STATIC_FILES = {
     '/logo.svg': ('logo.svg', 'image/svg+xml'),
+    '/logo-192.png': ('logo-192.png', 'image/png'),
+    '/logo-512.png': ('logo-512.png', 'image/png'),
 }
 
 class Handler(BaseHTTPRequestHandler):
