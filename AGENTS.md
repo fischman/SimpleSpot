@@ -112,10 +112,19 @@ Spotify may issue a new refresh token on each refresh. Always save `data.refresh
 - Don't use localStorage directly for auth - use `getAuth()`/`setAuth()`
 - Don't assume track.uri matches playlist entries (relinking!)
 - Don't try to auto-detect popup redirects (cross-origin blocks it)
-- **Don't modify server.py** - it serves index.html plus PWA files (manifest.json, logo.svg) on port 8000; don't add other files
+- **Don't modify server.py** - it serves index.html plus PWA files (logo.svg) on port 8000; don't add other files
+- **No arbitrary sleeps** - Don't use `sleep` in shell commands or `setTimeout` in JS unless there's a specific event being waited for
 
 ## Git Commits
 
 - Write clear, concise commit messages
 - One logical change per commit
 - Include context for non-obvious changes
+
+## Development Server
+
+To restart server.py after changes:
+```bash
+pkill -f "^python3 server.py$" 2>/dev/null || true; cd /home/exedev/spotify-client && python3 server.py &
+```
+Use the anchored regexp to avoid killing the shell running the command.
