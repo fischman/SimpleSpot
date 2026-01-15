@@ -4,6 +4,16 @@ from datetime import datetime
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        # Log request with headers
+        with open('server.log', 'a') as f:
+            xff = self.headers.get('X-Forwarded-For')
+            if xff:
+                unique_ips = list(dict.fromkeys(ip.strip() for ip in xff.split(',')))
+                client_ip = ', '.join(unique_ips)
+            else:
+                client_ip = self.address_string()
+            f.write(f"{datetime.now().isoformat()} {client_ip} {self.requestline}\n")
+        
         self.send_response(200)
         self.send_header('Content-Type', 'text/html')
         self.end_headers()
@@ -11,8 +21,6 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(f.read())
     
     def log_message(self, format, *args):
-        client_ip = self.headers.get('X-Forwarded-For', self.address_string())
-        with open('server.log', 'a') as f:
-            f.write(f"{datetime.now().isoformat()} {client_ip} {format % args}\n")
+        pass  # Handled in do_GET
 
 HTTPServer(('', 8000), Handler).serve_forever()
