@@ -1551,6 +1551,19 @@ async function showQueue(fromHistory = false) {
     return;
   }
   
+  // Try saved play state (for page load before player connects)
+  const savedState = localStorage.getItem('play_state');
+  if (savedState) {
+    try {
+      const state = JSON.parse(savedState);
+      const age = Date.now() - state.timestamp;
+      if (age < 5 * 60 * 1000 && state.trackUri) {
+        await renderQueueFromSavedState(state);
+        return;
+      }
+    } catch (e) {}
+  }
+  
   // Fallback to API
   const data = await api('/me/player/queue');
   
@@ -1563,6 +1576,78 @@ async function showQueue(fromHistory = false) {
   }
   
   renderQueue(data, localQueueTracks);
+}
+
+async function renderQueueFromSavedState(state) {
+  const el = document.getElementById('tracks');
+  let html = '';
+  
+  // Check if DJ playlist
+  const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
+  
+  if (isDJ) {
+    html += `<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>`;
+    html += `
+      <li class="track">
+        <div class="track-art" style="width:40px;height:40px">
+          <img src="https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg" style="border-radius:4px" />
+        </div>
+        <div class="track-info">
+          <div class="track-name">DJ</div>
+          <div class="track-album">Spotify</div>
+        </div>
+      </li>`;
+  } else {
+    // Fetch current track info
+    const trackId = state.trackUri.split(':')[2];
+    const track = await api('/tracks/' + trackId);
+    if (track) {
+      html += `<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>`;
+      html += `
+        <li class="track">
+          <div class="track-art" style="width:40px;height:40px">
+            <img src="${track.album.images[0]?.url || ''}" style="border-radius:4px" />
+          </div>
+          <div class="track-info">
+            <div class="track-name">${escapeHtml(track.name)}</div>
+            <div class="track-album">${escapeHtml(track.artists.map(a => a.name).join(', '))}</div>
+          </div>
+        </li>`;
+    }
+  }
+  
+  // Show local queue if any
+  if (localQueue.length > 0) {
+    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
+    const tracksData = await api('/tracks?ids=' + trackIds);
+    const tracks = tracksData?.tracks || [];
+    
+    html += `<h3 style="padding:8px;color:#b3b3b3">Next in Queue (${tracks.length})</h3>`;
+    tracks.forEach((t, i) => {
+      if (!t) return;
+      html += `
+        <li class="track">
+          <div class="track-num-col">
+            <span class="track-num">${i + 1}</span>
+            <button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>
+          </div>
+          <div class="track-art" onclick="event.stopPropagation(); playFromLocalQueue(${i})">
+            <img src="${t.album.images[0]?.url || ''}" />
+            <div class="play-overlay"></div>
+          </div>
+          <div class="track-info">
+            <div class="track-name">${escapeHtml(t.name)}</div>
+            <div class="track-album">${escapeHtml(t.artists.map(a => a.name).join(', '))}</div>
+          </div>
+        </li>`;
+    });
+  }
+  
+  if (!html) {
+    html = '<li style="padding:16px;color:#b3b3b3">Queue is empty</li>';
+  }
+  
+  el.innerHTML = html;
 }
 
 async function renderQueueFromState(state) {
