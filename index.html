@@ -2178,7 +2178,7 @@ function showKeyboardShortcuts() {
     modal.onclick = e => { if (e.target === modal) hideKeyboardShortcuts(); };
     document.body.appendChild(modal);
   }
-  modal.innerHTML = `<div class="modal" style="width:180px"><h2 style="margin:0 0 16px;font-size:16px">Shortcuts</h2>${html}</div>`;
+  modal.innerHTML = `<div class="modal" style="white-space:nowrap"><h2 style="margin:0 0 16px;font-size:16px">Shortcuts</h2>${html}</div>`;
   modal.style.display = 'flex';
 }
 
