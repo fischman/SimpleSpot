@@ -1342,6 +1342,7 @@ async function loadLikedSongs(fromHistory = false) {
   if (!fromHistory) navigate('liked');
   setBreadcrumb([{ name: 'Liked Songs' }]);
   showLoading();
+  localStorage.setItem('last_view', 'liked');
   const data = await api('/me/tracks?limit=50');
   const tracks = data.items.map(i => i.track).filter(t => t);
   document.getElementById('tracks').innerHTML = renderTrackItems(tracks, null);
@@ -1351,6 +1352,7 @@ async function loadSavedAlbums(fromHistory = false) {
   if (!fromHistory) navigate('albums');
   setBreadcrumb([{ name: 'Saved Albums' }]);
   showLoading();
+  localStorage.setItem('last_view', 'albums');
   const data = await api('/me/albums?limit=50');
   const el = document.getElementById('tracks');
   el.innerHTML = data.items.map((item, i) => {
@@ -1378,6 +1380,7 @@ async function loadPlaylists(fromHistory = false) {
   if (!fromHistory) navigate('playlists');
   setBreadcrumb([{ name: 'Playlists' }]);
   showLoading();
+  localStorage.setItem('last_view', 'playlists');
   const data = await api('/me/playlists?limit=50');
   const playlists = data.items.filter(p => p.id !== DJ_PLAYLIST_ID);
   const el = document.getElementById('tracks');
@@ -1404,6 +1407,7 @@ async function loadTopArtists(fromHistory = false) {
   if (!fromHistory) navigate('topArtists');
   setBreadcrumb([{ name: 'Top Artists' }]);
   showLoading();
+  localStorage.setItem('last_view', 'topArtists');
   const data = await api('/me/top/artists?limit=50&time_range=medium_term');
   const el = document.getElementById('tracks');
   el.innerHTML = data.items.map((a, i) => `
@@ -1427,12 +1431,14 @@ async function loadTopTracks(fromHistory = false) {
   if (!fromHistory) navigate('topTracks');
   setBreadcrumb([{ name: 'Top Tracks' }]);
   showLoading();
+  localStorage.setItem('last_view', 'topTracks');
   const data = await api('/me/top/tracks?limit=50&time_range=medium_term');
   document.getElementById('tracks').innerHTML = renderTrackItems(data.items, null);
 }
 
 async function loadPlaylist(id, name, fromHistory = false) {
   if (!fromHistory) navigate('playlist', { id, name });
+  localStorage.setItem('last_view', 'playlist');
   setBreadcrumb([
     { name: 'Playlists', action: 'loadPlaylists()' },
     { name: name || 'Playlist' }
@@ -1446,6 +1452,7 @@ async function loadPlaylist(id, name, fromHistory = false) {
 // Albums
 async function loadAlbum(id, fromHistory = false) {
   if (!fromHistory) navigate('album', { id });
+  localStorage.setItem('last_view', 'album');
   const data = await api('/albums/' + id);
   setBreadcrumb([
     { name: 'Album: ' + data.name }
@@ -1480,6 +1487,7 @@ async function showCurrentAlbum() {
 // Artist
 async function loadArtist(id, fromHistory = false) {
   if (!fromHistory) navigate('artist', { id });
+  localStorage.setItem('last_view', 'artist');
   const [artist, topTracks, albums] = await Promise.all([
     api('/artists/' + id),
     api('/artists/' + id + '/top-tracks?market=US'),
