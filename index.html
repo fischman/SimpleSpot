@@ -1050,19 +1050,25 @@ async function fetchAndShowLyrics() {
     }
     const data = await res.json();
     
-    if (!data?.syncedLyrics) {
+    if (data?.syncedLyrics) {
+      // Parse LRC format: [mm:ss.xx]text
+      currentLyrics = data.syncedLyrics.split('\n').map(line => {
+        const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
+        if (!match) return null;
+        const time = parseInt(match[1]) * 60000 + parseFloat(match[2]) * 1000;
+        return { time, words: match[3] };
+      }).filter(l => l && (l.time > 0 || l.words.trim()));
+    } else if (data?.plainLyrics) {
+      // Fall back to plain lyrics (no timestamps)
+      currentLyrics = data.plainLyrics.split('\n').map((line, i) => ({
+        time: i, // Use line index as fake time so they display in order
+        words: line
+      })).filter(l => l.words.trim());
+    } else {
       currentLyrics = null;
-      lyricsView.innerHTML = '<div class="lyrics-error">No synced lyrics available</div>';
+      lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
       return;
     }
-    
-    // Parse LRC format: [mm:ss.xx]text
-    currentLyrics = data.syncedLyrics.split('\n').map(line => {
-      const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
-      if (!match) return null;
-      const time = parseInt(match[1]) * 60000 + parseFloat(match[2]) * 1000;
-      return { time, words: match[3] };
-    }).filter(l => l && (l.time > 0 || l.words.trim()));
     
     renderLyrics();
   } catch (e) {
