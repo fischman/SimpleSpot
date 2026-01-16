@@ -1918,7 +1918,7 @@ function restoreLastView() {
 function clearSearch() {
   const input = document.getElementById('search');
   input.value = '';
-  showQueue();
+  if (localStorage.getItem('last_view') !== 'queue') showQueue();
   input.focus();
 }
 
