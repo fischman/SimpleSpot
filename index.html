@@ -1150,7 +1150,7 @@ async function queueLoopRestart() {
   
   // Clear Spotify's auto-queued recommendations and add our tracks
   // We'll use localQueue for this
-  localQueue = trackUris.map(uri => ({ uri, addedAt: Date.now() }));
+  localQueue = trackUris;
   saveLocalQueue();
   
   // Update queue view if visible
