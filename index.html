@@ -2118,7 +2118,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space') {
     e.preventDefault();
     togglePlay();
-  } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+  } else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && !e.altKey) {
     e.preventDefault();
     player?.getCurrentState().then(state => {
       if (!state) return;
