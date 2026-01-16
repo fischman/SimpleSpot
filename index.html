@@ -2113,6 +2113,16 @@ function setColumnCount(count) {
 
 // Keyboard shortcuts (when not in input)
 document.addEventListener('keydown', e => {
+  // Escape works even in input fields
+  if (e.key === 'Escape') {
+    if (e.target.tagName === 'INPUT') {
+      e.target.blur();
+    } else {
+      hideKeyboardShortcuts();
+    }
+    return;
+  }
+  
   if (e.target.tagName === 'INPUT') return;
   
   if (e.code === 'Space') {
@@ -2128,8 +2138,6 @@ document.addEventListener('keydown', e => {
     });
   } else if (e.key === '?') {
     showKeyboardShortcuts();
-  } else if (e.key === 'Escape') {
-    hideKeyboardShortcuts();
   } else if (e.key === 'q') {
     hideLyrics(); showQueue();
   } else if (e.key === 'p') {
