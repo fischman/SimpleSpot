@@ -132,8 +132,9 @@
     <div style="display:flex;flex-direction:column;gap:12px;text-align:center">
       <button onclick="loginWith('ncspot')" autofocus style="display:flex;flex-direction:column;align-items:center;line-height:1.4">
         <span>Login using ncspot</span>
-        <span style="font-size:12px;opacity:0.7">(more complex login flow)</span>
+        <span id="ncspot-note" style="font-size:12px;opacity:0.7"></span>
       </button>
+      <script>document.getElementById('ncspot-note').textContent = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? '' : '(more complex login flow)';</script>
       <button onclick="loginWith('playpause')" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;background:#333">
         <span>Login using playpause</span>
         <span style="font-size:12px;opacity:0.7">(recommendations won't work)</span>
