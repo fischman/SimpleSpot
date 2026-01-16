@@ -208,9 +208,15 @@ function getClientId() {
 }
 
 function getRedirectUri(clientChoice) {
-  return clientChoice === 'ncspot' 
-    ? 'http://127.0.0.1/login' 
-    : window.location.href.split('?')[0].split('#')[0];
+  if (clientChoice === 'ncspot') {
+    // Try to use our origin if on localhost/127.0.0.1, otherwise fall back to manual paste flow
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return window.location.origin + '/login';
+    }
+    return 'http://127.0.0.1/login';
+  }
+  return window.location.href.split('?')[0].split('#')[0];
 }
 
 function isNcspotClient() {
@@ -334,7 +340,14 @@ async function loginWith(clientChoice) {
   const authUrl = 'https://accounts.spotify.com/authorize?' + params;
   
   if (clientChoice === 'ncspot') {
-    showNcspotLoginModal(authUrl);
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      // On localhost, redirect directly - we can handle the callback
+      window.location = authUrl;
+    } else {
+      // On hosted version, show manual paste modal
+      showNcspotLoginModal(authUrl);
+    }
   } else {
     window.location = authUrl;
   }
