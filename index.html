@@ -627,6 +627,11 @@ function initPlayer() {
       if (lyricsEnabled) {
         fetchAndShowLyrics();
       }
+      
+      // If loop enabled and this is the last track, queue up the loop
+      if (loopEnabled && loopState?.lastTrackUri && track.uri === loopState.lastTrackUri) {
+        queueLoopRestart();
+      }
     }
     
     // Detect track ending - position near end and paused, or next_tracks empty
@@ -641,14 +646,6 @@ function initPlayer() {
         playNextFromLocalQueue().finally(() => {
           playingFromQueueInProgress = false;
         });
-      } else if (loopEnabled && savedContextUri && !state.context?.uri) {
-        // Had a context but now we don't - context ended, loop it
-        playingFromQueueInProgress = true;
-        if (!restoreLoopState()) {
-          playingFromQueueInProgress = false;
-        } else {
-          setTimeout(() => { playingFromQueueInProgress = false; }, 1000);
-        }
       }
     }
   });
@@ -1099,15 +1096,68 @@ function updateLyricsHighlight() {
   }
 }
 
-function saveLoopState() {
+async function saveLoopState() {
+  let lastTrackUri = null;
+  
+  // If we have a context, fetch the last track
+  if (savedContextUri) {
+    const [, type, id] = savedContextUri.split(':');
+    if (type === 'album') {
+      const album = await api(`/albums/${id}`);
+      if (album?.tracks?.items?.length) {
+        lastTrackUri = album.tracks.items[album.tracks.items.length - 1].uri;
+      }
+    } else if (type === 'playlist') {
+      // Get total first, then fetch last page
+      const playlist = await api(`/playlists/${id}?fields=tracks.total`);
+      if (playlist?.tracks?.total > 0) {
+        const offset = Math.max(0, playlist.tracks.total - 1);
+        const lastPage = await api(`/playlists/${id}/tracks?offset=${offset}&limit=1`);
+        if (lastPage?.items?.length) {
+          lastTrackUri = lastPage.items[0].track.uri;
+        }
+      }
+    }
+  }
+  
   loopState = {
     localQueue: [...localQueue],
     savedContextUri,
     savedContextType,
     contextResumeTrackUri,
-    currentTrackUri
+    currentTrackUri,
+    lastTrackUri
   };
   localStorage.setItem('loop_state', JSON.stringify(loopState));
+}
+
+async function queueLoopRestart() {
+  // When last track starts, queue up the context to restart after it
+  if (!loopState?.savedContextUri) return;
+  
+  const [, type, id] = loopState.savedContextUri.split(':');
+  let trackUris = [];
+  
+  if (type === 'album') {
+    const album = await api(`/albums/${id}`);
+    trackUris = album?.tracks?.items?.map(t => t.uri) || [];
+  } else if (type === 'playlist') {
+    const playlist = await api(`/playlists/${id}/tracks?limit=50`);
+    trackUris = playlist?.items?.map(t => t.track.uri).filter(Boolean) || [];
+  }
+  
+  if (trackUris.length === 0) return;
+  
+  // Clear Spotify's auto-queued recommendations and add our tracks
+  // We'll use localQueue for this
+  localQueue = trackUris.map(uri => ({ uri, addedAt: Date.now() }));
+  saveLocalQueue();
+  
+  // Update queue view if visible
+  if (localStorage.getItem('last_view') === 'queue') {
+    const state = await player.getCurrentState();
+    if (state) renderQueueFromState(state);
+  }
 }
 
 function restoreLoopState() {
