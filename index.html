@@ -2114,6 +2114,7 @@ function setColumnCount(count) {
 // Keyboard shortcuts (when not in input)
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
+  
   if (e.code === 'Space') {
     e.preventDefault();
     togglePlay();
@@ -2125,8 +2126,62 @@ document.addEventListener('keydown', e => {
       const newPos = Math.max(0, Math.min(state.duration, state.position + delta));
       player.seek(newPos);
     });
+  } else if (e.key === '?') {
+    showKeyboardShortcuts();
+  } else if (e.key === 'Escape') {
+    hideKeyboardShortcuts();
+  } else if (e.key === 'q') {
+    hideLyrics(); showQueue();
+  } else if (e.key === 'p') {
+    hideLyrics(); loadPlaylists();
+  } else if (e.key === 'l') {
+    hideLyrics(); loadLikedSongs();
+  } else if (e.key === 'a') {
+    hideLyrics(); loadTopArtists();
+  } else if (e.key === 't') {
+    hideLyrics(); loadTopTracks();
+  } else if (e.key === 's') {
+    hideLyrics(); loadSavedAlbums();
+  } else if (e.key === 'd') {
+    hideLyrics(); playDJ();
   }
 });
+
+function showKeyboardShortcuts() {
+  const shortcuts = [
+    ['Space', 'Play / Pause'],
+    ['←', 'Seek back 10s'],
+    ['→', 'Seek forward 10s'],
+    ['q', 'Queue'],
+    ['p', 'Playlists'],
+    ['l', 'Liked Songs'],
+    ['a', 'Top Artists'],
+    ['t', 'Top Tracks'],
+    ['s', 'Saved Albums'],
+    ['d', 'DJ'],
+    ['?', 'Show this help'],
+    ['Esc', 'Close this dialog']
+  ];
+  const html = shortcuts.map(([key, action]) => 
+    `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#fff;font-weight:bold">${key}</span><span style="color:#b3b3b3">${action}</span></div>`
+  ).join('');
+  
+  let modal = document.getElementById('shortcuts-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'shortcuts-modal';
+    modal.className = 'modal-overlay';
+    modal.onclick = e => { if (e.target === modal) hideKeyboardShortcuts(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div class="modal" style="min-width:250px"><h2 style="margin:0 0 16px">Keyboard Shortcuts</h2>${html}</div>`;
+  modal.style.display = 'flex';
+}
+
+function hideKeyboardShortcuts() {
+  const modal = document.getElementById('shortcuts-modal');
+  if (modal) modal.style.display = 'none';
+}
 
 // Media Session API (MPRIS support)
 function updateMediaSession(track, state) {
