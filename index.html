@@ -100,10 +100,10 @@
     @media (max-width: 600px) {
       #column-count { display: none; }
       .header { gap: 8px; }
-      .header input[type="text"] { flex: 1; min-width: 60px; }
-      .header input[type="text"]:focus { position: absolute; left: 8px; right: 8px; width: auto; z-index: 10; }
+      .search-container { min-width: 60px; }
+      .search-container:focus-within { position: absolute; left: 8px; right: 8px; z-index: 10; }
       #search-clear { display: none; }
-      .header input[type="text"]:focus + #search-clear { display: block; z-index: 11; }
+      .search-container:focus-within #search-clear { display: block; }
       .tracks { column-count: 1; }
       .player { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0)); flex-wrap: wrap; gap: 8px; }
       .progress-container { width: 100%; order: 10; }
