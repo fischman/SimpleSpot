@@ -1127,6 +1127,10 @@ function restoreLoopState() {
   if (localQueue.length > 0) {
     playNextFromLocalQueue();
     return true;
+  } else if (loopState.savedContextUri) {
+    // Restart the album/playlist from the beginning
+    play({ context_uri: loopState.savedContextUri, offset: { position: 0 } });
+    return true;
   } else if (loopState.currentTrackUri) {
     playTrack(loopState.currentTrackUri);
     return true;
