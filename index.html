@@ -2044,18 +2044,33 @@ async function resumePlaybackIfNeeded() {
     // Only restore if saved within last 5 minutes
     if (age > 5 * 60 * 1000) return;
     
-    // Fetch track info to update UI
-    const trackData = await api('/tracks/' + state.trackUri.split(':')[2]);
-    if (trackData) {
-      document.getElementById('player-track').textContent = trackData.name;
-      document.getElementById('player-artist').textContent = trackData.artists.map(a => a.name).join(', ');
+    // Check if last context was DJ playlist
+    const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
+    
+    if (isDJ) {
+      // Show DJ info instead of actual track
+      document.getElementById('player-track').textContent = 'DJ';
+      document.getElementById('player-artist').textContent = 'Spotify';
       const art = document.getElementById('player-art');
-      art.src = trackData.album.images[0]?.url || '';
-      art.style.display = trackData.album.images[0]?.url ? 'block' : 'none';
-      document.getElementById('progress-current').textContent = formatTime(state.position);
-      document.getElementById('progress-total').textContent = formatTime(trackData.duration_ms);
-      document.getElementById('progress-fill').style.width = ((state.position / trackData.duration_ms) * 100) + '%';
-      currentAlbumUri = trackData.album.uri;
+      art.src = 'https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg';
+      art.style.display = 'block';
+      document.getElementById('progress-current').textContent = '0:00';
+      document.getElementById('progress-total').textContent = '0:00';
+      document.getElementById('progress-fill').style.width = '0%';
+    } else {
+      // Fetch track info to update UI
+      const trackData = await api('/tracks/' + state.trackUri.split(':')[2]);
+      if (trackData) {
+        document.getElementById('player-track').textContent = trackData.name;
+        document.getElementById('player-artist').textContent = trackData.artists.map(a => a.name).join(', ');
+        const art = document.getElementById('player-art');
+        art.src = trackData.album.images[0]?.url || '';
+        art.style.display = trackData.album.images[0]?.url ? 'block' : 'none';
+        document.getElementById('progress-current').textContent = formatTime(state.position);
+        document.getElementById('progress-total').textContent = formatTime(trackData.duration_ms);
+        document.getElementById('progress-fill').style.width = ((state.position / trackData.duration_ms) * 100) + '%';
+        currentAlbumUri = trackData.album.uri;
+      }
     }
     
     // Enable play button (don't auto-play due to browser autoplay policies)
