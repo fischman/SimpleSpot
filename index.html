@@ -1041,18 +1041,29 @@ async function fetchAndShowLyrics() {
   lyricsView.innerHTML = '<div class="lyrics-error">Loading lyrics...</div>';
   
   try {
-    const query = encodeURIComponent(trackKey);
-    const res = await fetch(`/lyrics?name=${query}`);
-    const data = await res.json();
-    
-    if (!data || data.length === 0) {
+    const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistName)}&track_name=${encodeURIComponent(trackName)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
       currentLyrics = null;
       lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
       return;
     }
+    const data = await res.json();
     
-    // Sort by time and filter out empty lines at time 0
-    currentLyrics = data.filter(l => l.time > 0 || l.words.trim()).sort((a, b) => a.time - b.time);
+    if (!data?.syncedLyrics) {
+      currentLyrics = null;
+      lyricsView.innerHTML = '<div class="lyrics-error">No synced lyrics available</div>';
+      return;
+    }
+    
+    // Parse LRC format: [mm:ss.xx]text
+    currentLyrics = data.syncedLyrics.split('\n').map(line => {
+      const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
+      if (!match) return null;
+      const time = parseInt(match[1]) * 60000 + parseFloat(match[2]) * 1000;
+      return { time, words: match[3] };
+    }).filter(l => l && (l.time > 0 || l.words.trim()));
+    
     renderLyrics();
   } catch (e) {
     console.error('Lyrics fetch error:', e);
