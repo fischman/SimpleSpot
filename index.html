@@ -85,6 +85,7 @@
     .lyrics-title { font-size: 32px; color: #b3b3b3; border-bottom: 1px solid #b3b3b3; display: inline-block; padding-bottom: 8px; }
     .lyrics-lines { padding: 0 20px 20px; }
     #lyrics-view .lyric-line { padding: 4px 16px; font-size: 24px; color: #666; transition: all 0.3s; cursor: pointer; }
+    #lyrics-view .lyric-line.plain { color: #fff; cursor: default; }
     #lyrics-view .lyric-line:hover { color: #999; }
     #lyrics-view .lyric-line.active { color: #fff; font-size: 28px; font-weight: bold; }
     #lyrics-view .lyrics-error { color: #b3b3b3; font-size: 18px; margin-top: 40px; }
@@ -243,6 +244,7 @@ let loopEnabled = localStorage.getItem('loop_enabled') === 'true';
 let lyricsEnabled = false;
 let currentLyrics = null;
 let lyricsTrackKey = null;
+let lyricsSynced = false;
 let loopState = null; // Saved state to restore when loop triggers
 
 // Navigation - integrates with browser history
@@ -1052,6 +1054,7 @@ async function fetchAndShowLyrics() {
     
     if (data?.syncedLyrics) {
       // Parse LRC format: [mm:ss.xx]text
+      lyricsSynced = true;
       currentLyrics = data.syncedLyrics.split('\n').map(line => {
         const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
         if (!match) return null;
@@ -1059,9 +1062,10 @@ async function fetchAndShowLyrics() {
         return { time, words: match[3] };
       }).filter(l => l && (l.time > 0 || l.words.trim()));
     } else if (data?.plainLyrics) {
-      // Fall back to plain lyrics (no timestamps)
+      // Fall back to plain lyrics (no timestamps, no highlighting)
+      lyricsSynced = false;
       currentLyrics = data.plainLyrics.split('\n').map((line, i) => ({
-        time: i, // Use line index as fake time so they display in order
+        time: i,
         words: line
       })).filter(l => l.words.trim());
     } else {
@@ -1088,12 +1092,15 @@ function renderLyrics() {
   const track = currentState?.track_window?.current_track;
   const title = track ? `<i>${track.name}</i> - ${track.artists.map(a => a.name).join(', ')} - <i>${track.album.name}</i>` : '';
   
+  const lineClass = lyricsSynced ? 'lyric-line' : 'lyric-line plain';
   lyricsView.innerHTML = `<div class="lyrics-title-wrap"><div class="lyrics-title">${title}</div></div><div class="lyrics-lines">` +
     currentLyrics.map((line, i) => 
-      `<div class="lyric-line" data-time="${line.time}" onclick="seekToLyric(${line.time})">${line.words || '♪'}</div>`
+      lyricsSynced 
+        ? `<div class="${lineClass}" data-time="${line.time}" onclick="seekToLyric(${line.time})">${line.words || '♪'}</div>`
+        : `<div class="${lineClass}">${line.words || ''}</div>`
     ).join('') + '</div>';
   
-  updateLyricsHighlight();
+  if (lyricsSynced) updateLyricsHighlight();
 }
 
 function seekToLyric(timeMs) {
@@ -1101,7 +1108,7 @@ function seekToLyric(timeMs) {
 }
 
 function updateLyricsHighlight() {
-  if (!lyricsEnabled || !currentLyrics || !lastPlayState) return;
+  if (!lyricsEnabled || !currentLyrics || !lastPlayState || !lyricsSynced) return;
   
   const position = lastPlayState.position;
   const lines = document.querySelectorAll('#lyrics-view .lyric-line');
