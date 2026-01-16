@@ -1643,6 +1643,48 @@ async function renderQueueFromSavedState(state) {
     });
   }
   
+  // Show next from context (playlist/album) if we have one
+  if (state.contextUri && !isDJ) {
+    const [, type, id] = state.contextUri.split(':');
+    let contextTracks = [];
+    let contextName = type;
+    
+    if (type === 'playlist') {
+      const data = await api(`/playlists/${id}?fields=name,tracks.items(track(uri,name,artists,album))`);
+      contextName = data?.name || 'playlist';
+      contextTracks = data?.tracks?.items?.map(i => i.track).filter(t => t) || [];
+    } else if (type === 'album') {
+      const data = await api(`/albums/${id}`);
+      contextName = data?.name || 'album';
+      contextTracks = data?.tracks?.items?.map(t => ({ ...t, album: { name: data.name, images: data.images } })) || [];
+    }
+    
+    // Find current track position and get tracks after it
+    const currentIdx = contextTracks.findIndex(t => t.uri === state.trackUri);
+    const nextTracks = currentIdx >= 0 ? contextTracks.slice(currentIdx + 1) : [];
+    
+    if (nextTracks.length > 0) {
+      html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${escapeHtml(contextName)} (${nextTracks.length})</h3>`;
+      nextTracks.forEach((t, i) => {
+        const artistName = t.artists?.map(a => a.name).join(', ') || '';
+        const albumArt = t.album?.images?.[0]?.url || '';
+        html += `
+          <li class="track">
+            <div class="track-num-col">
+              <span class="track-num">${i + 1}</span>
+            </div>
+            <div class="track-art">
+              <img src="${albumArt}" />
+            </div>
+            <div class="track-info">
+              <div class="track-name">${escapeHtml(t.name)}</div>
+              <div class="track-album">${escapeHtml(artistName)}</div>
+            </div>
+          </li>`;
+      });
+    }
+  }
+  
   if (!html) {
     html = '<li style="padding:16px;color:#b3b3b3">Queue is empty</li>';
   }
