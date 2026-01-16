@@ -912,7 +912,14 @@ function saveLocalQueue() {
 }
 
 function loadLocalQueue() {
-  try { localQueue = JSON.parse(localStorage.getItem('local_queue')) || []; }
+  try {
+    localQueue = JSON.parse(localStorage.getItem('local_queue')) || [];
+    // Migrate old format (objects with uri property) to new format (plain strings)
+    if (localQueue.length > 0 && typeof localQueue[0] === 'object') {
+      localQueue = localQueue.map(item => item.uri).filter(Boolean);
+      saveLocalQueue();
+    }
+  }
   catch (e) { localQueue = []; }
 }
 
@@ -1163,7 +1170,14 @@ async function queueLoopRestart() {
 function restoreLoopState() {
   if (!loopState) {
     const saved = localStorage.getItem('loop_state');
-    if (saved) loopState = JSON.parse(saved);
+    if (saved) {
+      loopState = JSON.parse(saved);
+      // Migrate old format localQueue (objects) to new format (strings)
+      if (loopState.localQueue?.length > 0 && typeof loopState.localQueue[0] === 'object') {
+        loopState.localQueue = loopState.localQueue.map(item => item.uri).filter(Boolean);
+        localStorage.setItem('loop_state', JSON.stringify(loopState));
+      }
+    }
   }
   if (!loopState) return false;
   
