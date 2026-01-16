@@ -83,7 +83,8 @@
     .lyrics-title-wrap { background: #121212; padding: 16px; position: sticky; top: -16px; margin: -16px -16px 0 -16px; padding: 16px; }
     .lyrics-title { font-size: 32px; color: #b3b3b3; border-bottom: 1px solid #b3b3b3; display: inline-block; padding-bottom: 8px; }
     .lyrics-lines { padding: 0 20px 20px; }
-    #lyrics-view .lyric-line { padding: 4px 16px; font-size: 24px; color: #666; transition: all 0.3s; }
+    #lyrics-view .lyric-line { padding: 4px 16px; font-size: 24px; color: #666; transition: all 0.3s; cursor: pointer; }
+    #lyrics-view .lyric-line:hover { color: #999; }
     #lyrics-view .lyric-line.active { color: #fff; font-size: 28px; font-weight: bold; }
     #lyrics-view .lyrics-error { color: #b3b3b3; font-size: 18px; margin-top: 40px; }
     .track-album { font-size: 12px; color: #b3b3b3; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1060,10 +1061,14 @@ function renderLyrics() {
   
   lyricsView.innerHTML = `<div class="lyrics-title-wrap"><div class="lyrics-title">${title}</div></div><div class="lyrics-lines">` +
     currentLyrics.map((line, i) => 
-      `<div class="lyric-line" data-time="${line.time}">${line.words || '♪'}</div>`
+      `<div class="lyric-line" data-time="${line.time}" onclick="seekToLyric(${line.time})">${line.words || '♪'}</div>`
     ).join('') + '</div>';
   
   updateLyricsHighlight();
+}
+
+function seekToLyric(timeMs) {
+  if (player) player.seek(timeMs);
 }
 
 function updateLyricsHighlight() {
