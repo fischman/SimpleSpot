@@ -641,8 +641,8 @@ function initPlayer() {
         playNextFromLocalQueue().finally(() => {
           playingFromQueueInProgress = false;
         });
-      } else if (loopEnabled && !state.track_window?.next_tracks?.length) {
-        // Queue empty and no context tracks left - try to loop
+      } else if (loopEnabled && savedContextUri && !state.context?.uri) {
+        // Had a context but now we don't - context ended, loop it
         playingFromQueueInProgress = true;
         if (!restoreLoopState()) {
           playingFromQueueInProgress = false;
