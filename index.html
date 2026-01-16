@@ -896,12 +896,21 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
   `}).join('');
 }
 
-async function play(body) {
-  await api('/me/player/play?device_id=' + deviceId, {
+async function play(body, retries = 2) {
+  const res = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'application/json' 
+    },
     body: JSON.stringify(body)
   });
+  
+  // Retry on 403 - device may not be fully registered yet
+  if (res.status === 403 && retries > 0) {
+    await new Promise(r => setTimeout(r, 500));
+    return play(body, retries - 1);
+  }
 }
 
 function playTrack(uri) {
