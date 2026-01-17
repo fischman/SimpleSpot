@@ -1776,6 +1776,10 @@ async function renderQueueFromState(state) {
     contextId = id;
     
     if (type === 'playlist') {
+      // Fetch playlist name
+      const playlistInfo = await api(`/playlists/${id}?fields=name`);
+      if (playlistInfo?.name) contextName = playlistInfo.name;
+      
       // Fetch all playlist tracks (handle pagination)
       let allTracks = [];
       let url = `/playlists/${id}/tracks?limit=100`;
@@ -1814,6 +1818,7 @@ async function renderQueueFromState(state) {
     } else if (type === 'album') {
       // Fetch album tracks and add album images
       const albumData = await api(`/albums/${id}`);
+      if (albumData?.name) contextName = albumData.name;
       const allTracks = (albumData?.tracks?.items || []).map(t => ({
         ...t,
         album: { id: albumData.id, name: albumData.name, images: albumData.images }
