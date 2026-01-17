@@ -2109,12 +2109,16 @@ function restoreLastView() {
 function clearSearch() {
   const input = document.getElementById('search');
   input.value = '';
+  localStorage.removeItem('last_search');
   if (localStorage.getItem('last_view') !== 'queue') showQueue();
   input.focus();
 }
 
 document.getElementById('search').addEventListener('keyup', e => {
-  if (e.key === 'Enter' && e.target.value) {
+  if (e.key === 'Enter' && !e.target.value) {
+    localStorage.removeItem('last_search');
+    e.target.blur();
+  } else if (e.key === 'Enter' && e.target.value) {
     hideLyrics();
     search(e.target.value);
     e.target.blur();
