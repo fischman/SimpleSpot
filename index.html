@@ -157,7 +157,7 @@
       <button id="nav-liked" onclick="hideLyrics(); loadLikedSongs()" title="Liked Songs">❤️</button>
       <button id="nav-topArtists" onclick="hideLyrics(); loadTopArtists()" title="Top Artists">⬆️A</button>
       <button id="nav-topTracks" onclick="hideLyrics(); loadTopTracks()" title="Top Tracks">⬆️T</button>
-      <button id="nav-featured" onclick="hideLyrics(); loadFeaturedPlaylists()" title="Featured Playlists">◎</button>
+      <button id="nav-explore" onclick="hideLyrics(); loadExplore()" title="Explore">◎</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
       <button onclick="logout()" title="Logout">🚪</button>
       <button onclick="showAbout()" title="About" style="font-weight:bold">?</button>
@@ -297,7 +297,7 @@ function handleNavigation(state) {
     case 'playlists': loadPlaylists(true); break;
     case 'topArtists': loadTopArtists(true); break;
     case 'topTracks': loadTopTracks(true); break;
-    case 'featured': loadFeaturedPlaylists(true); break;
+    case 'explore': loadExplore(true); break;
     case 'playlist': loadPlaylist(params.id, params.name, true); break;
     case 'album': loadAlbum(params.id, true); break;
     case 'artist': loadArtist(params.id, true); break;
@@ -1506,11 +1506,11 @@ function renderPlaylistSection(playlists, startNum = 1) {
   `).join('');
 }
 
-async function loadFeaturedPlaylists(fromHistory = false) {
-  if (!fromHistory) navigate('featured');
-  setBreadcrumb([{ name: 'Featured Playlists' }]);
+async function loadExplore(fromHistory = false) {
+  if (!fromHistory) navigate('explore');
+  setBreadcrumb([{ name: 'Explore' }]);
   showLoading();
-  localStorage.setItem('last_view', 'featured');
+  localStorage.setItem('last_view', 'explore');
   
   // Search for personalized playlists
   const personalizedSearches = [
@@ -2303,8 +2303,8 @@ document.addEventListener('keydown', e => {
     hideLyrics(); loadTopArtists();
   } else if (e.key === 't') {
     hideLyrics(); loadTopTracks();
-  } else if (e.key === 'f') {
-    hideLyrics(); loadFeaturedPlaylists();
+  } else if (e.key === 'e') {
+    hideLyrics(); loadExplore();
   } else if (e.key === 's') {
     hideLyrics(); loadSavedAlbums();
   } else if (e.key === 'd') {
@@ -2324,7 +2324,7 @@ function showKeyboardShortcuts() {
     ['l', 'Liked Songs'],
     ['a', 'Top Artists'],
     ['t', 'Top Tracks'],
-    ['f', 'Featured'],
+    ['e', 'Explore'],
     ['q', 'Queue'],
     ['Space', 'Play / Pause'],
     ['←', 'Seek back 10s'],
