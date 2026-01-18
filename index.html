@@ -132,7 +132,7 @@
 </head>
 <body>
   <div id="login">
-    <button onclick="showAbout()" title="About" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#b3b3b3">?</button>
+    <button onclick="showAbout()" title="About (?)" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#b3b3b3">?</button>
     <div style="display:flex;flex-direction:column;gap:12px;text-align:center">
       <button onclick="loginWith('ncspot')" autofocus style="display:flex;flex-direction:column;align-items:center;line-height:1.4">
         <span>Login using ncspot</span>
@@ -151,16 +151,16 @@
         <input type="text" id="search" placeholder="Search tracks..." />
         <span id="search-clear" onmousedown="event.preventDefault(); clearSearch()">⊗</span>
       </div>
-      <button id="nav-dj" onclick="hideLyrics(); playDJ()" title="DJ"><img src="https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg" style="width:20px;height:20px;border-radius:4px;vertical-align:middle"></button>
-      <button id="nav-playlists" onclick="hideLyrics(); loadPlaylists()" title="My Playlists">📜</button>
-      <button id="nav-albums" onclick="hideLyrics(); loadSavedAlbums()" title="Saved Albums">💿</button>
-      <button id="nav-liked" onclick="hideLyrics(); loadLikedSongs()" title="Liked Songs">❤️</button>
-      <button id="nav-topArtists" onclick="hideLyrics(); loadTopArtists()" title="Top Artists">⬆️A</button>
-      <button id="nav-topTracks" onclick="hideLyrics(); loadTopTracks()" title="Top Tracks">⬆️T</button>
-      <button id="nav-explore" onclick="hideLyrics(); loadExplore()" title="Explore">✨</button>
+      <button id="nav-dj" onclick="hideLyrics(); playDJ()" title="DJ (d)"><img src="https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg" style="width:20px;height:20px;border-radius:4px;vertical-align:middle"></button>
+      <button id="nav-playlists" onclick="hideLyrics(); loadPlaylists()" title="Playlists (p)">📜</button>
+      <button id="nav-albums" onclick="hideLyrics(); loadSavedAlbums()" title="Saved Albums (s)">💿</button>
+      <button id="nav-liked" onclick="hideLyrics(); loadLikedSongs()" title="Liked Songs (l)">❤️</button>
+      <button id="nav-topArtists" onclick="hideLyrics(); loadTopArtists()" title="Top Artists (a)">⬆️A</button>
+      <button id="nav-topTracks" onclick="hideLyrics(); loadTopTracks()" title="Top Tracks (t)">⬆️T</button>
+      <button id="nav-explore" onclick="hideLyrics(); loadExplore()" title="Explore (e)">✨</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
       <button onclick="logout()" title="Logout">🚪</button>
-      <button onclick="showAbout()" title="About" style="font-weight:bold">?</button>
+      <button onclick="showAbout()" title="About (?)" style="font-weight:bold">?</button>
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content">
@@ -187,11 +187,11 @@
         <span class="progress-time" id="progress-total">0:00</span>
       </div>
       <button id="loop-btn" onclick="toggleLoop()" title="Loop" style="font-size:20px">↻</button>
-      <button id="cc-btn" onclick="toggleLyrics()" title="Lyrics"><span class="cc-icon">CC</span></button>
+      <button id="cc-btn" onclick="toggleLyrics()" title="Lyrics (c)"><span class="cc-icon">CC</span></button>
       <div class="volume-container">
         <input type="range" id="volume-slider" min="0" max="100" value="50" title="Volume: 50%" />
       </div>
-      <button id="nav-queue" class="queue-btn" onclick="showQueue()" title="Queue">☰</button>
+      <button id="nav-queue" class="queue-btn" onclick="showQueue()" title="Queue (q)">☰</button>
       <div class="device-picker">
         <button onclick="toggleDevices()" title="Devices">📱</button>
         <div class="device-menu" id="device-menu"></div>
