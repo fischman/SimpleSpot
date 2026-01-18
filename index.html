@@ -927,6 +927,20 @@ async function play(body, retries = 2) {
     await new Promise(r => setTimeout(r, 500));
     return play(body, retries - 1);
   }
+  
+  // 404 means device is stale - reconnect player and retry
+  if (res.status === 404 && retries > 0) {
+    console.log('Device not found, reconnecting player...');
+    player.disconnect();
+    await new Promise(resolve => {
+      player.addListener('ready', ({ device_id }) => {
+        deviceId = device_id;
+        resolve();
+      });
+      player.connect();
+    });
+    return play(body, retries - 1);
+  }
 }
 
 function playTrack(uri) {
