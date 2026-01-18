@@ -1321,10 +1321,16 @@ async function togglePlay() {
     // Try to resume from saved state
     const saved = localStorage.getItem('play_state');
     if (saved) {
-      const s = JSON.parse(saved);
-      await play(s.contextUri
-        ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position }
-        : { uris: [s.trackUri], position_ms: s.position });
+      try {
+        const s = JSON.parse(saved);
+        if (!s.trackUri) return;
+        await play(s.contextUri
+          ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position || 0 }
+          : { uris: [s.trackUri], position_ms: s.position || 0 });
+      } catch (e) {
+        console.error('Failed to restore play state:', e);
+        localStorage.removeItem('play_state');
+      }
       return;
     }
   }
