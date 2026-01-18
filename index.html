@@ -124,6 +124,8 @@
     .modal h2 { margin: 0 0 16px 0; color: #1db954; }
     .modal p { color: #b3b3b3; line-height: 1.5; margin: 8px 0; }
     .modal button { background: #1db954; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; margin-top: 16px; }
+    .section-header { font-size: 18px; font-weight: bold; color: #fff; padding: 16px 0 8px 0; list-style: none; border-top: 1px solid #333; margin-top: 8px; }
+    .section-header:first-child { border-top: none; margin-top: 0; }
   </style>
 </head>
 <body>
@@ -1475,26 +1477,11 @@ async function loadTopTracks(fromHistory = false) {
   document.getElementById('tracks').innerHTML = renderTrackItems(data.items, null);
 }
 
-async function loadFeaturedPlaylists(fromHistory = false) {
-  if (!fromHistory) navigate('featured');
-  setBreadcrumb([{ name: 'Featured Playlists' }]);
-  showLoading();
-  localStorage.setItem('last_view', 'featured');
-  
-  // Paginate up to 300 playlists
-  let allPlaylists = [];
-  let url = '/browse/featured-playlists?limit=50';
-  while (url && allPlaylists.length < 300) {
-    const data = await api(url);
-    allPlaylists = allPlaylists.concat(data.playlists?.items || []);
-    url = data.playlists?.next ? data.playlists.next.replace('https://api.spotify.com/v1', '') : null;
-  }
-  
-  const el = document.getElementById('tracks');
-  el.innerHTML = allPlaylists.map((p, i) => `
+function renderPlaylistSection(playlists, startNum = 1) {
+  return playlists.map((p, i) => `
     <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
       <div class="track-num-col">
-        <span class="track-num">${i + 1}</span>
+        <span class="track-num">${startNum + i}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); addPlaylistToQueue('${p.id}')" title="Add to queue">+</button>
         <button class="radio-btn" onclick="event.stopPropagation(); startRadio('playlist', '${p.id}')" title="Start radio">📻</button>
       </div>
@@ -1508,6 +1495,79 @@ async function loadFeaturedPlaylists(fromHistory = false) {
       </div>
     </li>
   `).join('');
+}
+
+async function loadFeaturedPlaylists(fromHistory = false) {
+  if (!fromHistory) navigate('featured');
+  setBreadcrumb([{ name: 'Featured Playlists' }]);
+  showLoading();
+  localStorage.setItem('last_view', 'featured');
+  
+  // Search for personalized playlists
+  const personalizedSearches = [
+    'Release Radar', 'Discover Weekly',
+    'Daily Mix 1', 'Daily Mix 2', 'Daily Mix 3',
+    'Daily Mix 4', 'Daily Mix 5', 'Daily Mix 6'
+  ];
+  
+  // Fetch all searches in parallel
+  const searchPromises = personalizedSearches.map(q =>
+    api('/search?type=playlist&limit=5&q=' + encodeURIComponent(q))
+  );
+  const searchResults = await Promise.all(searchPromises);
+  
+  // Find the best match for each (owned by Spotify, exact or close name match)
+  const personalizedPlaylists = [];
+  const seenIds = new Set();
+  personalizedSearches.forEach((searchName, idx) => {
+    const results = searchResults[idx]?.playlists?.items || [];
+    // Prefer exact match owned by Spotify, otherwise first result with matching start
+    const match = results.find(p => 
+      p.name.toLowerCase() === searchName.toLowerCase() && p.owner?.id === 'spotify'
+    ) || results.find(p =>
+      p.name.toLowerCase().startsWith(searchName.toLowerCase())
+    );
+    if (match && !seenIds.has(match.id)) {
+      personalizedPlaylists.push(match);
+      seenIds.add(match.id);
+    }
+  });
+  
+  // Fetch Made For You category playlists
+  const madeForYouData = await api('/browse/categories/0JQ5DAt0tbjZptfcdMSKl3/playlists?limit=50');
+  const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter(p => p && !seenIds.has(p.id));
+  madeForYouPlaylists.forEach(p => seenIds.add(p.id));
+  
+  // Paginate up to 300 playlists for Featured
+  let featuredPlaylists = [];
+  let url = '/browse/featured-playlists?limit=50';
+  while (url && featuredPlaylists.length < 300) {
+    const data = await api(url);
+    const items = (data.playlists?.items || []).filter(p => p && !seenIds.has(p.id));
+    featuredPlaylists = featuredPlaylists.concat(items);
+    items.forEach(p => seenIds.add(p.id));
+    url = data.playlists?.next ? data.playlists.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  
+  const el = document.getElementById('tracks');
+  let html = '';
+  
+  if (personalizedPlaylists.length > 0) {
+    html += `<li class="section-header">Your Mixes</li>`;
+    html += renderPlaylistSection(personalizedPlaylists, 1);
+  }
+  
+  if (madeForYouPlaylists.length > 0) {
+    html += `<li class="section-header">Made For You</li>`;
+    html += renderPlaylistSection(madeForYouPlaylists, personalizedPlaylists.length + 1);
+  }
+  
+  if (featuredPlaylists.length > 0) {
+    html += `<li class="section-header">Featured Playlists</li>`;
+    html += renderPlaylistSection(featuredPlaylists, personalizedPlaylists.length + madeForYouPlaylists.length + 1);
+  }
+  
+  el.innerHTML = html;
 }
 
 async function loadPlaylist(id, name, fromHistory = false) {

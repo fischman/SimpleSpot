@@ -124,8 +124,5 @@ Spotify may issue a new refresh token on each refresh. Always save `data.refresh
 
 ## Development Server
 
-To restart server.py after changes:
-```bash
-pkill -f "^python3 server.py$" 2>/dev/null || true; cd /home/exedev/spotify-client && python3 server.py &
-```
-Use the anchored regexp to avoid killing the shell running the command.
+The server is managed externally - do not attempt to start/stop it or check logs.
+You cannot test this project directly; make changes and let the user verify.
