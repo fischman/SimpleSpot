@@ -1678,13 +1678,35 @@ async function showCurrentAlbum() {
 }
 
 // Artist
+function renderAlbumItems(albums, startNum = 1) {
+  return albums.map((a, i) => `
+    <li class="track" onclick="loadAlbum('${a.id}')">
+      <div class="track-num-col">
+        <span class="track-num">${startNum + i}</span>
+        <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}')" title="Add to queue">+</button>
+        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
+      </div>
+      <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
+        <img src="${a.images?.[2]?.url || ''}" />
+        <div class="play-overlay"></div>
+      </div>
+      <div class="track-info">
+        <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
+        <div class="track-artist">${a.album_type} • ${a.release_date?.slice(0,4)}</div>
+      </div>
+    </li>
+  `).join('');
+}
+
 async function loadArtist(id, fromHistory = false) {
   if (!fromHistory) navigate('artist', { id });
   localStorage.setItem('last_view', 'artist');
-  const [artist, topTracks, albums] = await Promise.all([
+  showLoading();
+  
+  const [artist, topTracks, albumsData] = await Promise.all([
     api('/artists/' + id),
     api('/artists/' + id + '/top-tracks?market=US'),
-    api('/artists/' + id + '/albums?include_groups=album,single&limit=20')
+    api('/artists/' + id + '/albums?include_groups=album,single&limit=50')
   ]);
   
   setBreadcrumb([{ name: artist.name }]);
@@ -1706,28 +1728,27 @@ async function loadArtist(id, fromHistory = false) {
     html += renderTrackItems(topTracks.tracks.slice(0, 5), null);
   }
   
-  if (albums.items?.length) {
+  let allAlbums = albumsData.items || [];
+  if (allAlbums.length) {
     html += '<h3 style="padding:8px 16px;color:#b3b3b3">Discography</h3>';
-    html += albums.items.map((a, i) => `
-      <li class="track" onclick="loadAlbum('${a.id}')">
-        <div class="track-num-col">
-          <span class="track-num">${i + 1}</span>
-          <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}')" title="Add to queue">+</button>
-          <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
-        </div>
-        <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
-          <img src="${a.images?.[2]?.url || ''}" />
-          <div class="play-overlay"></div>
-        </div>
-        <div class="track-info">
-          <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
-          <div class="track-artist">${a.album_type} • ${a.release_date?.slice(0,4)}</div>
-        </div>
-      </li>
-    `).join('');
+    html += `<div id="discography-section">${renderAlbumItems(allAlbums, 1)}</div>`;
   }
   
   el.innerHTML = html;
+  
+  // Paginate remaining albums
+  let nextUrl = albumsData.next ? albumsData.next.replace('https://api.spotify.com/v1', '') : null;
+  while (nextUrl) {
+    const data = await api(nextUrl);
+    if (data.items?.length) {
+      const section = document.getElementById('discography-section');
+      if (section) {
+        section.innerHTML += renderAlbumItems(data.items, allAlbums.length + 1);
+        allAlbums = allAlbums.concat(data.items);
+      }
+    }
+    nextUrl = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
 }
 
 // Queue
