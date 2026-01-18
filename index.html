@@ -2201,18 +2201,24 @@ function setBreadcrumb(items) {
 function restoreLastView() {
   const lastView = localStorage.getItem('last_view');
   
-  if (lastView === 'queue') {
-    showQueue();
-  } else {
-    const lastSearch = localStorage.getItem('last_search');
-    if (lastSearch) {
-      try {
-        const { query, data } = JSON.parse(lastSearch);
-        document.getElementById('search').value = query;
-        setBreadcrumb([{ name: 'Search: ' + query }]);
-        renderSearchResults(data);
-      } catch (e) {}
-    }
+  switch (lastView) {
+    case 'queue': showQueue(); break;
+    case 'liked': loadLikedSongs(); break;
+    case 'albums': loadSavedAlbums(); break;
+    case 'playlists': loadPlaylists(); break;
+    case 'topArtists': loadTopArtists(); break;
+    case 'topTracks': loadTopTracks(); break;
+    case 'explore': loadExplore(); break;
+    default:
+      const lastSearch = localStorage.getItem('last_search');
+      if (lastSearch) {
+        try {
+          const { query, data } = JSON.parse(lastSearch);
+          document.getElementById('search').value = query;
+          setBreadcrumb([{ name: 'Search: ' + query }]);
+          renderSearchResults(data);
+        } catch (e) {}
+      }
   }
 }
 
