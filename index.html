@@ -126,6 +126,8 @@
     .modal button { background: #1db954; color: #fff; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; margin-top: 16px; }
     .section-header { font-size: 18px; font-weight: bold; color: #fff; padding: 16px 0 8px 0; list-style: none; border-top: 1px solid #333; margin-top: 8px; }
     .section-header:first-child { border-top: none; margin-top: 0; }
+    .playlist-section { display: grid; grid-template-columns: repeat(var(--column-count, 3), 1fr); gap: 4px; list-style: none; padding: 0; margin: 0; }
+    .tracks.sectioned { column-count: unset; display: block; }
   </style>
 </head>
 <body>
@@ -687,7 +689,9 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 
 // Utility
 function showLoading() {
-  document.getElementById('tracks').innerHTML = '<li style="padding:16px;color:#b3b3b3">Loading...</li>';
+  const el = document.getElementById('tracks');
+  el.classList.remove('sectioned');
+  el.innerHTML = '<li style="padding:16px;color:#b3b3b3">Loading...</li>';
 }
 
 function formatTime(ms) {
@@ -1553,20 +1557,21 @@ async function loadFeaturedPlaylists(fromHistory = false) {
   let html = '';
   
   if (personalizedPlaylists.length > 0) {
-    html += `<li class="section-header">Your Mixes</li>`;
-    html += renderPlaylistSection(personalizedPlaylists, 1);
+    html += `<div class="section-header">Your Mixes</div>`;
+    html += `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`;
   }
   
   if (madeForYouPlaylists.length > 0) {
-    html += `<li class="section-header">Made For You</li>`;
-    html += renderPlaylistSection(madeForYouPlaylists, personalizedPlaylists.length + 1);
+    html += `<div class="section-header">Made For You</div>`;
+    html += `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, personalizedPlaylists.length + 1)}</ul>`;
   }
   
   if (featuredPlaylists.length > 0) {
-    html += `<li class="section-header">Featured Playlists</li>`;
-    html += renderPlaylistSection(featuredPlaylists, personalizedPlaylists.length + madeForYouPlaylists.length + 1);
+    html += `<div class="section-header">Featured Playlists</div>`;
+    html += `<ul class="playlist-section">${renderPlaylistSection(featuredPlaylists, personalizedPlaylists.length + madeForYouPlaylists.length + 1)}</ul>`;
   }
   
+  el.classList.add('sectioned');
   el.innerHTML = html;
 }
 
