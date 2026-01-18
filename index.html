@@ -1480,9 +1480,18 @@ async function loadFeaturedPlaylists(fromHistory = false) {
   setBreadcrumb([{ name: 'Featured Playlists' }]);
   showLoading();
   localStorage.setItem('last_view', 'featured');
-  const data = await api('/browse/featured-playlists?limit=50');
+  
+  // Paginate up to 300 playlists
+  let allPlaylists = [];
+  let url = '/browse/featured-playlists?limit=50';
+  while (url && allPlaylists.length < 300) {
+    const data = await api(url);
+    allPlaylists = allPlaylists.concat(data.playlists?.items || []);
+    url = data.playlists?.next ? data.playlists.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  
   const el = document.getElementById('tracks');
-  el.innerHTML = data.playlists.items.map((p, i) => `
+  el.innerHTML = allPlaylists.map((p, i) => `
     <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
