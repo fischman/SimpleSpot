@@ -680,6 +680,26 @@ function initPlayer() {
     }
   });
   
+  player.addListener('initialization_error', ({ message }) => {
+    console.error('SDK initialization error:', message);
+  });
+  
+  player.addListener('authentication_error', async ({ message }) => {
+    console.error('SDK authentication error:', message);
+    // Try refreshing token and reconnecting
+    if (await refreshToken()) {
+      accessToken = getAuth('access_token');
+      player.disconnect();
+      player.connect();
+    } else {
+      forceRelogin('SDK authentication error');
+    }
+  });
+  
+  player.addListener('playback_error', ({ message }) => {
+    console.error('SDK playback error:', message);
+  });
+  
   player.connect();
 }
 
