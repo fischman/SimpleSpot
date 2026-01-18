@@ -703,6 +703,10 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function stripHtml(s) {
+  return s.replace(/<[^>]*>/g, '');
+}
+
 // Generate shareable link - wraps text in <a> with Spotify URL
 // Left-click does onclick action, right-click gives native "Copy link" option
 function shareLink(type, id, text, onclick) {
@@ -1496,7 +1500,7 @@ function renderPlaylistSection(playlists, startNum = 1) {
       </div>
       <div class="track-info">
         <div class="track-name" title="${escapeHtml(p.name)}">${shareLink('playlist', p.id, escapeHtml(p.name), `event.stopPropagation(); loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')`)}</div>
-        <div class="track-album" title="${escapeHtml(p.description || '')}">${escapeHtml(p.description || '')}</div>
+        <div class="track-album" title="${stripHtml(p.description || '')}">${stripHtml(p.description || '')}</div>
       </div>
     </li>
   `).join('');
