@@ -1731,7 +1731,7 @@ async function loadArtist(id, fromHistory = false) {
   let allAlbums = albumsData.items || [];
   if (allAlbums.length) {
     html += '<h3 style="padding:8px 16px;color:#b3b3b3">Discography</h3>';
-    html += `<div id="discography-section">${renderAlbumItems(allAlbums, 1)}</div>`;
+    html += renderAlbumItems(allAlbums, 1);
   }
   
   el.innerHTML = html;
@@ -1741,11 +1741,8 @@ async function loadArtist(id, fromHistory = false) {
   while (nextUrl) {
     const data = await api(nextUrl);
     if (data.items?.length) {
-      const section = document.getElementById('discography-section');
-      if (section) {
-        section.innerHTML += renderAlbumItems(data.items, allAlbums.length + 1);
-        allAlbums = allAlbums.concat(data.items);
-      }
+      el.innerHTML += renderAlbumItems(data.items, allAlbums.length + 1);
+      allAlbums = allAlbums.concat(data.items);
     }
     nextUrl = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
   }
