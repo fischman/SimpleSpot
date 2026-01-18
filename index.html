@@ -1323,7 +1323,7 @@ async function togglePlay() {
     if (saved) {
       try {
         const s = JSON.parse(saved);
-        if (!s.trackUri) return;
+        if (!s.trackUri || !s.trackUri.startsWith('spotify:track:')) return;
         await play(s.contextUri
           ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position || 0 }
           : { uris: [s.trackUri], position_ms: s.position || 0 });
