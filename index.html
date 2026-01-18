@@ -2149,23 +2149,52 @@ async function clearQueue() {
   document.getElementById('tracks').innerHTML = '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
-// About modal
-function showAbout() {
+// Help modal (About + Keyboard Shortcuts)
+function showHelp() {
+  const shortcuts = [
+    ['/', 'Search'],
+    ['d', 'DJ'],
+    ['p', 'Playlists'],
+    ['s', 'Saved Albums'],
+    ['l', 'Liked Songs'],
+    ['a', 'Top Artists'],
+    ['t', 'Top Tracks'],
+    ['e', 'Explore'],
+    ['q', 'Queue'],
+    ['Space', 'Play / Pause'],
+    ['←', 'Seek back 10s'],
+    ['→', 'Seek forward 10s'],
+    ['Esc', 'Close']
+  ];
+  const rows = shortcuts.map(([key, action]) => 
+    `<tr><td style="color:#fff;font-weight:bold;padding:4px 2em 4px 0">${key}</td><td style="color:#b3b3b3;padding:4px 0">${action}</td></tr>`
+  ).join('');
+  
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
+  overlay.id = 'help-modal';
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
     <div class="modal">
       <h2>SimpleSpot</h2>
       <p>A minimal Spotify web client vibe-coded by <a href="https://exe.dev/docs/shelley" target="_blank" style="color:#1db954">Shelley</a> and <code style="background:#333;padding:2px 4px;border-radius:3px">claude-opus-4.5</code>.</p>
-      <p>Uses Spotify's <a href="https://developer.spotify.com/documentation/web-api" target="_blank" style="color:#1db954">Web</a> and <a href="https://developer.spotify.com/documentation/web-playback-sdk" target="_blank" style="color:#1db954">Web Playback</a> APIs.</p>
-      <p>Requires <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded)" target="_blank" style="color:#1db954">Spotify Premium</a> for playback.</p>
+      <p>Uses Spotify's <a href="https://developer.spotify.com/documentation/web-api" target="_blank" style="color:#1db954">Web</a> and <a href="https://developer.spotify.com/documentation/web-playback-sdk" target="_blank" style="color:#1db954">Web Playback</a> APIs. Requires <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded)" target="_blank" style="color:#1db954">Spotify Premium</a>.</p>
+      <h3 style="margin:16px 0 8px;font-size:14px;color:#b3b3b3">Keyboard Shortcuts</h3>
+      <table>${rows}</table>
       <button onclick="this.closest('.modal-overlay').remove()">Close</button>
     </div>
   `;
   document.body.appendChild(overlay);
   overlay.querySelector('button').focus();
 }
+
+function hideHelp() {
+  const modal = document.getElementById('help-modal');
+  if (modal) modal.remove();
+}
+
+// Legacy aliases
+const showAbout = showHelp;
 
 // Breadcrumb
 function setBreadcrumb(items) {
@@ -2324,7 +2353,7 @@ document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') {
       e.target.blur();
     } else {
-      hideKeyboardShortcuts();
+      hideHelp();
     }
     return;
   }
@@ -2344,7 +2373,7 @@ document.addEventListener('keydown', e => {
       player.seek(newPos);
     });
   } else if (e.key === '?') {
-    showKeyboardShortcuts();
+    showHelp();
   } else if (e.key === 'q') {
     hideLyrics(); showQueue();
   } else if (e.key === 'p') {
@@ -2366,44 +2395,6 @@ document.addEventListener('keydown', e => {
     document.getElementById('search').focus();
   }
 });
-
-function showKeyboardShortcuts() {
-  const shortcuts = [
-    ['/', 'Search'],
-    ['d', 'DJ'],
-    ['p', 'Playlists'],
-    ['s', 'Saved Albums'],
-    ['l', 'Liked Songs'],
-    ['a', 'Top Artists'],
-    ['t', 'Top Tracks'],
-    ['e', 'Explore'],
-    ['q', 'Queue'],
-    ['Space', 'Play / Pause'],
-    ['←', 'Seek back 10s'],
-    ['→', 'Seek forward 10s'],
-    ['?', 'This help'],
-    ['Esc', 'Close']
-  ];
-  const rows = shortcuts.map(([key, action]) => 
-    `<tr><td style="color:#fff;font-weight:bold;padding:4px 2em 4px 0">${key}</td><td style="color:#b3b3b3;padding:4px 0">${action}</td></tr>`
-  ).join('');
-  
-  let modal = document.getElementById('shortcuts-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'shortcuts-modal';
-    modal.className = 'modal-overlay';
-    modal.onclick = e => { if (e.target === modal) hideKeyboardShortcuts(); };
-    document.body.appendChild(modal);
-  }
-  modal.innerHTML = `<div class="modal"><h2 style="margin:0 0 16px;font-size:16px">Shortcuts</h2><table>${rows}</table></div>`;
-  modal.style.display = 'flex';
-}
-
-function hideKeyboardShortcuts() {
-  const modal = document.getElementById('shortcuts-modal');
-  if (modal) modal.style.display = 'none';
-}
 
 // Media Session API (MPRIS support)
 function updateMediaSession(track, state) {
