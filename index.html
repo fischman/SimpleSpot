@@ -2161,6 +2161,7 @@ function showHelp() {
     ['t', 'Top Tracks'],
     ['e', 'Explore'],
     ['q', 'Queue'],
+    ['c', 'Lyrics'],
     ['Space', 'Play / Pause'],
     ['←', 'Seek back 10s'],
     ['→', 'Seek forward 10s']
@@ -2393,6 +2394,8 @@ document.addEventListener('keydown', e => {
   } else if (e.key === '/') {
     e.preventDefault();
     document.getElementById('search').focus();
+  } else if (e.key === 'c') {
+    toggleLyrics();
   }
 });
 
