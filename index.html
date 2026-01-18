@@ -283,9 +283,12 @@ function navigate(route, params = {}, replace = false) {
 function setActiveNav(route) {
   // Clear all active states (except loop button which has its own state)
   document.querySelectorAll('.header button.active, .player button.active:not(#loop-btn)').forEach(b => b.classList.remove('active'));
-  // Set active on matching nav button
+  // Set active on matching nav button and focus it
   const btn = document.getElementById('nav-' + route);
-  if (btn) btn.classList.add('active');
+  if (btn) {
+    btn.classList.add('active');
+    btn.focus();
+  }
 }
 
 function handleNavigation(state) {
