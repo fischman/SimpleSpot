@@ -121,6 +121,7 @@ Spotify may issue a new refresh token on each refresh. Always save `data.refresh
 - Write clear, concise commit messages
 - One logical change per commit
 - Include context for non-obvious changes
+- Always `git push` immediately after every `git commit`
 
 ## Development Server
 
