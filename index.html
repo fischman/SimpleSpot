@@ -606,7 +606,10 @@ function initPlayer() {
     const track = state.track_window.current_track;
     currentAlbumUri = track.album.uri;
     document.getElementById('player-track').textContent = track.name;
-    document.getElementById('player-artist').textContent = track.artists.map(a => a.name).join(', ');
+    document.getElementById('player-artist').innerHTML = track.artists.map(a => {
+      const artistId = a.uri?.split(':')[2] || '';
+      return artistId ? `<a href="#" onclick="event.preventDefault(); loadArtist('${artistId}')" style="color:inherit;text-decoration:none">${escapeHtml(a.name)}</a>` : escapeHtml(a.name);
+    }).join(', ');
     const art = document.getElementById('player-art');
     art.src = track.album.images[0]?.url || '';
     art.style.display = track.album.images[0]?.url ? 'block' : 'none';
@@ -857,11 +860,13 @@ async function search(q, fromHistory = false) {
   showLoading();
   
   // Fetch albums and tracks with pagination
+  let allArtists = [];
   let allAlbums = [];
   let allTracks = [];
   
   // First request
-  const data = await api('/search?type=track,album&limit=50&q=' + encodeURIComponent(q));
+  const data = await api('/search?type=artist,track,album&limit=50&q=' + encodeURIComponent(q));
+  allArtists = data.artists?.items || [];
   allAlbums = data.albums?.items || [];
   allTracks = data.tracks?.items || [];
   
@@ -877,7 +882,7 @@ async function search(q, fromHistory = false) {
     allTracks = allTracks.concat(more?.items || []);
   }
   
-  const results = { albums: { items: allAlbums }, tracks: { items: allTracks } };
+  const results = { artists: { items: allArtists }, albums: { items: allAlbums }, tracks: { items: allTracks } };
   localStorage.setItem('last_search', JSON.stringify({ query: q, data: results }));
   localStorage.setItem('last_view', 'search');
   renderSearchResults(results);
@@ -886,6 +891,24 @@ async function search(q, fromHistory = false) {
 function renderSearchResults(data) {
   const el = document.getElementById('tracks');
   let html = '';
+  if (data.artists?.items.length) {
+    html += '<h3 style="padding:8px;color:#b3b3b3">Artists</h3>';
+    html += data.artists.items.map((a, i) => `
+      <li class="track" onclick="loadArtist('${a.id}')">
+        <div class="track-num-col">
+          <span class="track-num">${i + 1}</span>
+          <button class="radio-btn" onclick="event.stopPropagation(); startRadio('artist', '${a.id}')" title="Start radio">📻</button>
+        </div>
+        <div class="track-art">
+          <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
+        </div>
+        <div class="track-info">
+          <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`)}</div>
+          <div class="track-artist">${a.followers?.total?.toLocaleString() || 0} followers</div>
+        </div>
+      </li>
+    `).join('');
+  }
   if (data.albums?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Albums</h3>';
     html += data.albums.items.map((a, i) => `
@@ -2490,7 +2513,9 @@ async function resumePlaybackIfNeeded() {
       const trackData = await api('/tracks/' + state.trackUri.split(':')[2]);
       if (trackData) {
         document.getElementById('player-track').textContent = trackData.name;
-        document.getElementById('player-artist').textContent = trackData.artists.map(a => a.name).join(', ');
+        document.getElementById('player-artist').innerHTML = trackData.artists.map(a => 
+          `<a href="#" onclick="event.preventDefault(); loadArtist('${a.id}')" style="color:inherit;text-decoration:none">${escapeHtml(a.name)}</a>`
+        ).join(', ');
         const art = document.getElementById('player-art');
         art.src = trackData.album.images[0]?.url || '';
         art.style.display = trackData.album.images[0]?.url ? 'block' : 'none';
