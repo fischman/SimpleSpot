@@ -2370,7 +2370,7 @@ document.addEventListener('visibilitychange', async () => {
         accessToken = getAuth('access_token');
         if (player) {
           player.disconnect();
-          initPlayer();
+          player.connect();
         }
       } else {
         forceRelogin('visibilitychange: token refresh failed');
