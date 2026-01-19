@@ -1659,6 +1659,7 @@ async function loadPlaylist(id, name, fromHistory = false) {
     { name: 'Playlists', action: 'loadPlaylists()' },
     { name: name || 'Playlist' }
   ]);
+  showLoading();
   const contextUri = 'spotify:playlist:' + id;
   const data = await api('/playlists/' + id + '/tracks?limit=100');
   const tracks = data.items.map(i => i.track).filter(t => t);
