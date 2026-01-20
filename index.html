@@ -693,11 +693,12 @@ function initPlayer() {
   
   player.addListener('authentication_error', async ({ message }) => {
     console.error('SDK authentication error:', message);
-    // Try refreshing token and reconnecting
+    // Try refreshing token and recreating player
     if (await refreshToken()) {
       accessToken = getAuth('access_token');
       player.disconnect();
-      player.connect();
+      player = null;
+      initPlayer();
     } else {
       forceRelogin('SDK authentication error');
     }
@@ -2370,7 +2371,8 @@ document.addEventListener('visibilitychange', async () => {
         accessToken = getAuth('access_token');
         if (player) {
           player.disconnect();
-          player.connect();
+          player = null;
+          initPlayer();
         }
       } else {
         forceRelogin('visibilitychange: token refresh failed');
