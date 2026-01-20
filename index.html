@@ -689,6 +689,12 @@ function initPlayer() {
         playNextFromLocalQueue().finally(() => {
           playingFromQueueInProgress = false;
         });
+      } else if (loopEnabled && loopState?.savedContextUri) {
+        // Queue is empty but loop is on - restart the context
+        playingFromQueueInProgress = true;
+        play({ context_uri: loopState.savedContextUri }).finally(() => {
+          playingFromQueueInProgress = false;
+        });
       }
     }
   });
