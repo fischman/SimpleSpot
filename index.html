@@ -597,10 +597,7 @@ function initPlayer() {
   
   player.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
-    if (playerReadyResolve) {
-      playerReadyResolve();
-      playerReadyResolve = null;
-    }
+    if (playerReadyResolve) playerReadyResolve();
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
   });
