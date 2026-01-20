@@ -1379,7 +1379,9 @@ async function togglePlay() {
       try {
         const s = JSON.parse(saved);
         if (!s.trackUri || !s.trackUri.startsWith('spotify:track:')) return;
-        await play(s.contextUri
+        // Only use context if it's a valid playlist/album/artist
+        const validContext = s.contextUri && /^spotify:(playlist|album|artist):/.test(s.contextUri);
+        await play(validContext
           ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position || 0 }
           : { uris: [s.trackUri], position_ms: s.position || 0 });
       } catch (e) {
