@@ -242,6 +242,8 @@ function clearAuth() {
 let accessToken = null;
 let player = null;
 let deviceId = null;
+let playerReadyPromise = null;
+let playerReadyResolve = null;
 let currentState = null;
 let currentAlbumUri = null;
 
@@ -574,6 +576,9 @@ function getDeviceName() {
 }
 
 function initPlayer() {
+  // Create promise that resolves when player is ready
+  playerReadyPromise = new Promise(resolve => { playerReadyResolve = resolve; });
+  
   player = new Spotify.Player({
     name: getDeviceName(),
     getOAuthToken: async cb => {
@@ -592,6 +597,10 @@ function initPlayer() {
   
   player.addListener('ready', ({ device_id }) => {
     deviceId = device_id;
+    if (playerReadyResolve) {
+      playerReadyResolve();
+      playerReadyResolve = null;
+    }
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
   });
@@ -988,19 +997,15 @@ async function play(body, retries = 2) {
     return play(body, retries - 1);
   }
   
-  // 404 means device is stale - reconnect player and retry once
+  // 404 means device is stale - recreate player and retry once
   if (res.status === 404 && retries > 0) {
-    console.log('Device not found, reconnecting player...');
-    player.disconnect();
-    await new Promise(resolve => {
-      const onReady = ({ device_id }) => {
-        deviceId = device_id;
-        player.removeListener('ready', onReady);
-        resolve();
-      };
-      player.addListener('ready', onReady);
-      player.connect();
-    });
+    console.log('Device not found, recreating player...');
+    if (player) {
+      player.disconnect();
+      player = null;
+    }
+    initPlayer();
+    await playerReadyPromise;
     // Wait a bit for device to be fully registered
     await new Promise(r => setTimeout(r, 500));
     return play(body, 0); // No more retries after reconnect
