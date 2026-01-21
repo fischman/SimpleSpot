@@ -589,6 +589,7 @@ function initPlayer() {
           forceRelogin('SDK getOAuthToken: token refresh failed');
           return;
         }
+        accessToken = getAuth('access_token');
       }
       cb(getAuth('access_token'));
     },
@@ -988,7 +989,7 @@ async function play(body, retries = 2) {
   const res = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
     headers: { 
-      'Authorization': 'Bearer ' + accessToken,
+      'Authorization': 'Bearer ' + getAuth('access_token'),
       'Content-Type': 'application/json' 
     },
     body: JSON.stringify(body)
