@@ -985,7 +985,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
   `}).join('');
 }
 
-async function play(body, retries = 2) {
+async function play(body, retries = 3) {
   // Wait for player to be ready if it's initializing
   if (playerReadyPromise) await playerReadyPromise;
   
@@ -998,24 +998,19 @@ async function play(body, retries = 2) {
     body: JSON.stringify(body)
   });
   
-  // Retry on 403 - device may not be fully registered yet
-  if (res.status === 403 && retries > 0) {
-    await new Promise(r => setTimeout(r, 500));
-    return play(body, retries - 1);
-  }
-  
-  // 404 means device is stale - recreate player and retry once
-  if (res.status === 404 && retries > 0) {
-    console.log('Device not found, recreating player...');
-    if (player) {
-      player.disconnect();
-      player = null;
+  // Retry on 403/404 - device may not be registered yet or is stale
+  if ((res.status === 403 || res.status === 404) && retries > 0) {
+    // On first 404, recreate player
+    if (res.status === 404 && retries === 3) {
+      console.log('Device not found, recreating player...');
+      if (player) {
+        player.disconnect();
+        player = null;
+      }
+      initPlayer();
+      await playerReadyPromise;
     }
-    initPlayer();
-    await playerReadyPromise;
-    // Wait for device to be fully registered with Spotify
-    await new Promise(r => setTimeout(r, 1000));
-    return play(body, 0); // No more retries after reconnect
+    return play(body, retries - 1);
   }
 }
 
