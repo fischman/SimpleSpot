@@ -62,6 +62,11 @@
     .track-num-col .queue-btn { font-size: 14px; padding: 0; line-height: 1; }
     .track-num-col .radio-btn { font-size: 12px; padding: 0; line-height: 1; background: none; border: none; color: #b3b3b3; cursor: pointer; }
     .track-num-col .radio-btn:hover { color: #1db954; }
+    .drag-handle { cursor: grab; color: #666; padding: 8px; font-size: 16px; user-select: none; }
+    .drag-handle:hover { color: #b3b3b3; }
+    .drag-handle:active { cursor: grabbing; }
+    .track.dragging { opacity: 0.5; background: #333; }
+    .track.drag-over { border-top: 2px solid #1db954; }
     .device-picker { position: relative; }
     .device-picker button { background: none; border: none; font-size: 20px; cursor: pointer; padding: 8px; }
     .device-menu { position: absolute; bottom: 100%; right: 0; background: #282828; border-radius: 8px; padding: 8px; min-width: 200px; display: none; }
@@ -1890,7 +1895,9 @@ function renderLocalQueueItems(tracks) {
       `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
     ).join(', ') || '';
     return `
-    <li class="track">
+    <li class="track queue-item" draggable="true" data-index="${i}"
+        ondragstart="onQueueDragStart(event)" ondragend="onQueueDragEnd(event)"
+        ondragover="onQueueDragOver(event)" ondragleave="onQueueDragLeave(event)" ondrop="onQueueDrop(event)">
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>
@@ -1905,6 +1912,7 @@ function renderLocalQueueItems(tracks) {
         <div class="track-artist" title="${escapeHtml(artistNames)}">${artistLinks}</div>
         ${t.album ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
       </div>
+      <div class="drag-handle" title="Drag to reorder">≡</div>
     </li>
   `}).join('');
 }
@@ -1917,6 +1925,48 @@ async function playFromLocalQueue(index) {
   refreshQueueIfViewing();
 }
 
+// Queue drag and drop
+let draggedQueueIndex = null;
+
+function onQueueDragStart(e) {
+  draggedQueueIndex = parseInt(e.target.dataset.index);
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onQueueDragEnd(e) {
+  e.target.classList.remove('dragging');
+  document.querySelectorAll('.queue-item').forEach(el => el.classList.remove('drag-over'));
+  draggedQueueIndex = null;
+}
+
+function onQueueDragOver(e) {
+  e.preventDefault();
+  const target = e.target.closest('.queue-item');
+  if (target && parseInt(target.dataset.index) !== draggedQueueIndex) {
+    target.classList.add('drag-over');
+  }
+}
+
+function onQueueDragLeave(e) {
+  const target = e.target.closest('.queue-item');
+  if (target) target.classList.remove('drag-over');
+}
+
+function onQueueDrop(e) {
+  e.preventDefault();
+  const target = e.target.closest('.queue-item');
+  if (!target) return;
+  
+  const toIndex = parseInt(target.dataset.index);
+  if (draggedQueueIndex === null || draggedQueueIndex === toIndex) return;
+  
+  // Move item in queue
+  const [item] = localQueue.splice(draggedQueueIndex, 1);
+  localQueue.splice(toIndex, 0, item);
+  saveLocalQueue();
+  showQueue();
+}
 
 function clearPlayerUI() {
   currentState = null;
