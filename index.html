@@ -257,18 +257,14 @@ let queueRenderVersion = 0; // Incremented each render to detect stale renders
 let localQueue = []; // Array of track URIs
 let currentTrackUri = null;
 let playingFromQueueInProgress = false; // Guard against rapid duplicate calls
-let savedContextUri = null; // Remember context even when playing from local queue
-let savedContextType = null;
-let contextResumeTrackUri = null; // Track to resume from after local queue is exhausted
 let isNavigatingBack = false; // Flag to prevent pushing state during popstate
 
-// Loop mode
+// Loop mode - when enabled, finished tracks are re-added to end of queue
 let loopEnabled = localStorage.getItem('loop_enabled') === 'true';
 let lyricsEnabled = false;
 let currentLyrics = null;
 let lyricsTrackKey = null;
 let lyricsSynced = false;
-let loopState = null; // Saved state to restore when loop triggers
 
 // Navigation - integrates with browser history
 function navigate(route, params = {}, replace = false) {
@@ -648,15 +644,6 @@ function initPlayer() {
       timestamp: Date.now()
     };
     
-    // Save context when we have one (so we can use it after playing from local queue)
-    if (state.context?.uri) {
-      savedContextUri = state.context.uri;
-      const [, type] = state.context.uri.split(':');
-      savedContextType = type;
-      // Clear resume point when we're back in a context
-      contextResumeTrackUri = null;
-    }
-    
     // Track changed - refresh queue view and lyrics
     if (track.uri !== lastTrackUri || queueRefreshPending) {
       lastTrackUri = track.uri;
@@ -664,36 +651,30 @@ function initPlayer() {
       queueRefreshPending = false;
       
       if (localStorage.getItem('last_view') === 'queue') {
-        renderQueueFromState(state);
+        showQueue();
       }
       
       // Fetch new lyrics if lyrics view is active
       if (lyricsEnabled) {
         fetchAndShowLyrics();
       }
-      
-      // If loop enabled and this is the last track, queue up the loop
-      if (loopEnabled && loopState?.lastTrackUri && track.uri === loopState.lastTrackUri) {
-        queueLoopRestart();
-      }
     }
     
-    // Detect track ending - position near end and paused, or next_tracks empty
-    // Play next from local queue or loop if enabled
+    // Detect track ending - paused at position 0
     if (state.paused && state.position === 0 && track.uri === currentTrackUri) {
       // Guard against multiple rapid calls
       if (playingFromQueueInProgress) return;
       
+      // If loop enabled, re-add the finished track to end of queue
+      if (loopEnabled && track.uri) {
+        localQueue.push(track.uri);
+        saveLocalQueue();
+      }
+      
+      // Play next from queue if available
       if (localQueue.length > 0) {
         playingFromQueueInProgress = true;
-        // Track finished, play next from local queue
         playNextFromLocalQueue().finally(() => {
-          playingFromQueueInProgress = false;
-        });
-      } else if (loopEnabled && loopState?.savedContextUri) {
-        // Queue is empty but loop is on - restart the context
-        playingFromQueueInProgress = true;
-        play({ context_uri: loopState.savedContextUri }).finally(() => {
           playingFromQueueInProgress = false;
         });
       }
@@ -1015,15 +996,34 @@ async function play(body, retries = 3) {
 }
 
 function playTrack(uri) {
-  // Clear context since we're playing a single track
-  savedContextUri = null;
-  savedContextType = null;
-  contextResumeTrackUri = null;
   return play({ uris: [uri] });
 }
-const playContext = uri => {
-  return play({ context_uri: uri });
-};
+
+async function playContext(uri) {
+  // Fetch tracks from album/playlist and add to front of queue
+  const [, type, id] = uri.split(':');
+  let trackUris = [];
+  
+  if (type === 'album') {
+    const album = await api(`/albums/${id}`);
+    trackUris = album?.tracks?.items?.map(t => t.uri).filter(Boolean) || [];
+  } else if (type === 'playlist') {
+    // Paginate to get all tracks
+    let url = `/playlists/${id}/tracks?limit=100`;
+    while (url) {
+      const data = await api(url);
+      trackUris = trackUris.concat((data?.items || []).map(i => i.track?.uri).filter(Boolean));
+      url = data?.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    }
+  }
+  
+  if (trackUris.length === 0) return;
+  
+  // Insert at front of queue and play first track
+  localQueue = trackUris.concat(localQueue);
+  saveLocalQueue();
+  await playNextFromLocalQueue();
+}
 
 const DJ_PLAYLIST_ID = '37i9dQZF1EYkqdzj48dyYq';
 
@@ -1031,8 +1031,36 @@ async function playDJ() {
   await playContext(`spotify:playlist:${DJ_PLAYLIST_ID}`);
   showQueue();
 }
-const playFromContext = (contextUri, offset, trackUri) => 
-  play(contextUri ? { context_uri: contextUri, offset: { position: offset } } : { uris: [trackUri] });
+
+function playFromContext(contextUri, offset, trackUri) {
+  // Play specific track and queue the rest from that position
+  return playContextFromOffset(contextUri, offset);
+}
+
+async function playContextFromOffset(uri, offset) {
+  const [, type, id] = uri.split(':');
+  let trackUris = [];
+  
+  if (type === 'album') {
+    const album = await api(`/albums/${id}`);
+    trackUris = album?.tracks?.items?.map(t => t.uri).filter(Boolean) || [];
+  } else if (type === 'playlist') {
+    let url = `/playlists/${id}/tracks?limit=100`;
+    while (url) {
+      const data = await api(url);
+      trackUris = trackUris.concat((data?.items || []).map(i => i.track?.uri).filter(Boolean));
+      url = data?.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    }
+  }
+  
+  if (trackUris.length === 0) return;
+  
+  // Start from offset position
+  const tracksFromOffset = trackUris.slice(offset);
+  localQueue = tracksFromOffset.concat(localQueue);
+  saveLocalQueue();
+  await playNextFromLocalQueue();
+}
 
 function saveLocalQueue() {
   localStorage.setItem('local_queue', JSON.stringify(localQueue));
@@ -1106,15 +1134,6 @@ function toggleLoop() {
   loopEnabled = !loopEnabled;
   localStorage.setItem('loop_enabled', loopEnabled);
   updateLoopButton();
-  
-  if (loopEnabled) {
-    // Save current state for loop
-    saveLoopState();
-  } else {
-    // Clear saved loop state
-    loopState = null;
-    localStorage.removeItem('loop_state');
-  }
 }
 
 function updateLoopButton() {
@@ -1260,115 +1279,8 @@ function updateLyricsHighlight() {
   }
 }
 
-async function saveLoopState() {
-  let lastTrackUri = null;
-  
-  // If we have a context, fetch the last track
-  if (savedContextUri) {
-    const [, type, id] = savedContextUri.split(':');
-    if (type === 'album') {
-      const album = await api(`/albums/${id}`);
-      if (album?.tracks?.items?.length) {
-        lastTrackUri = album.tracks.items[album.tracks.items.length - 1].uri;
-      }
-    } else if (type === 'playlist') {
-      // Get total first, then fetch last page
-      const playlist = await api(`/playlists/${id}?fields=tracks.total`);
-      if (playlist?.tracks?.total > 0) {
-        const offset = Math.max(0, playlist.tracks.total - 1);
-        const lastPage = await api(`/playlists/${id}/tracks?offset=${offset}&limit=1`);
-        if (lastPage?.items?.length) {
-          lastTrackUri = lastPage.items[0].track.uri;
-        }
-      }
-    }
-  }
-  
-  loopState = {
-    localQueue: [...localQueue],
-    savedContextUri,
-    savedContextType,
-    contextResumeTrackUri,
-    currentTrackUri,
-    lastTrackUri
-  };
-  localStorage.setItem('loop_state', JSON.stringify(loopState));
-}
-
-async function queueLoopRestart() {
-  // When last track starts, queue up the context to restart after it
-  if (!loopState?.savedContextUri) return;
-  
-  const [, type, id] = loopState.savedContextUri.split(':');
-  let trackUris = [];
-  
-  if (type === 'album') {
-    const album = await api(`/albums/${id}`);
-    trackUris = album?.tracks?.items?.map(t => t.uri) || [];
-  } else if (type === 'playlist') {
-    const playlist = await api(`/playlists/${id}/tracks?limit=50`);
-    trackUris = playlist?.items?.map(t => t.track.uri).filter(Boolean) || [];
-  }
-  
-  if (trackUris.length === 0) return;
-  
-  // Clear Spotify's auto-queued recommendations and add our tracks
-  // We'll use localQueue for this
-  localQueue = trackUris;
-  saveLocalQueue();
-  
-  // Update queue view if visible
-  if (localStorage.getItem('last_view') === 'queue') {
-    const state = await player.getCurrentState();
-    if (state) renderQueueFromState(state);
-  }
-}
-
-function restoreLoopState() {
-  if (!loopState) {
-    const saved = localStorage.getItem('loop_state');
-    if (saved) {
-      loopState = JSON.parse(saved);
-      // Migrate old format localQueue (objects) to new format (strings)
-      if (loopState.localQueue?.length > 0 && typeof loopState.localQueue[0] === 'object') {
-        loopState.localQueue = loopState.localQueue.map(item => item.uri).filter(Boolean);
-        localStorage.setItem('loop_state', JSON.stringify(loopState));
-      }
-    }
-  }
-  if (!loopState) return false;
-  
-  localQueue = [...loopState.localQueue];
-  savedContextUri = loopState.savedContextUri;
-  savedContextType = loopState.savedContextType;
-  contextResumeTrackUri = loopState.contextResumeTrackUri;
-  saveLocalQueue();
-  
-  // Start playing from the beginning
-  if (localQueue.length > 0) {
-    playNextFromLocalQueue();
-    return true;
-  } else if (loopState.savedContextUri) {
-    // Restart the album/playlist from the beginning
-    play({ context_uri: loopState.savedContextUri, offset: { position: 0 } });
-    return true;
-  } else if (loopState.currentTrackUri) {
-    playTrack(loopState.currentTrackUri);
-    return true;
-  }
-  return false;
-}
-
 async function playNextFromLocalQueue() {
   if (localQueue.length === 0) return;
-  
-  // Before breaking context, save what track should play next from context
-  if (!contextResumeTrackUri && savedContextUri) {
-    const state = await player?.getCurrentState();
-    if (state?.track_window?.next_tracks?.[0]) {
-      contextResumeTrackUri = state.track_window.next_tracks[0].uri;
-    }
-  }
   
   const nextUri = localQueue.shift();
   saveLocalQueue();
@@ -1402,11 +1314,6 @@ async function togglePlay() {
 async function next() {
   if (localQueue.length > 0) {
     await playNextFromLocalQueue();
-  } else if (contextResumeTrackUri && savedContextUri) {
-    await play({ context_uri: savedContextUri, offset: { uri: contextResumeTrackUri } });
-    contextResumeTrackUri = null;
-  } else {
-    await api('/me/player/next', { method: 'POST' });
   }
   refreshQueueIfViewing();
 }
@@ -1828,24 +1735,9 @@ async function renderQueueFromSavedState(state) {
   const el = document.getElementById('tracks');
   let html = '';
   
-  // Check if DJ playlist
-  const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
-  
-  if (isDJ) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>`;
-    html += `
-      <li class="track">
-        <div class="track-art" style="width:40px;height:40px">
-          <img src="https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg" style="border-radius:4px" />
-        </div>
-        <div class="track-info">
-          <div class="track-name">DJ</div>
-          <div class="track-album">Spotify</div>
-        </div>
-      </li>`;
-  } else {
-    // Fetch current track info
-    const trackId = state.trackUri.split(':')[2];
+  // Now Playing
+  const trackId = state.trackUri?.split(':')[2];
+  if (trackId) {
     const track = await api('/tracks/' + trackId);
     if (track) {
       html += `<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>`;
@@ -1862,13 +1754,13 @@ async function renderQueueFromSavedState(state) {
     }
   }
   
-  // Show local queue if any
+  // Queue
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
     const tracksData = await api('/tracks?ids=' + trackIds);
     const tracks = tracksData?.tracks || [];
     
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next in Queue (${tracks.length})</h3>`;
+    html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${tracks.length})</h3>`;
     tracks.forEach((t, i) => {
       if (!t) return;
       html += `
@@ -1889,53 +1781,7 @@ async function renderQueueFromSavedState(state) {
     });
   }
   
-  // Show next from context (playlist/album) if we have one
-  if (state.contextUri && !isDJ) {
-    const [, type, id] = state.contextUri.split(':');
-    let contextTracks = [];
-    let contextName = type;
-    
-    if (type === 'playlist') {
-      const data = await api(`/playlists/${id}?fields=name,tracks.items(track(uri,name,artists,album))`);
-      contextName = data?.name || 'playlist';
-      contextTracks = data?.tracks?.items?.map(i => i.track).filter(t => t) || [];
-    } else if (type === 'album') {
-      const data = await api(`/albums/${id}`);
-      contextName = data?.name || 'album';
-      contextTracks = data?.tracks?.items?.map(t => ({ ...t, album: { name: data.name, images: data.images } })) || [];
-    }
-    
-    // Find current track position and get tracks after it
-    const currentIdx = contextTracks.findIndex(t => t.uri === state.trackUri);
-    const nextTracks = currentIdx >= 0 ? contextTracks.slice(currentIdx + 1) : [];
-    
-    if (nextTracks.length > 0) {
-      html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${escapeHtml(contextName)} (${nextTracks.length})</h3>`;
-      nextTracks.forEach((t, i) => {
-        const artistName = t.artists?.map(a => a.name).join(', ') || '';
-        const albumArt = t.album?.images?.[0]?.url || '';
-        html += `
-          <li class="track">
-            <div class="track-num-col">
-              <span class="track-num">${i + 1}</span>
-            </div>
-            <div class="track-art">
-              <img src="${albumArt}" />
-            </div>
-            <div class="track-info">
-              <div class="track-name" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</div>
-              <div class="track-album" title="${escapeHtml(artistName)}">${escapeHtml(artistName)}</div>
-            </div>
-          </li>`;
-      });
-    }
-  }
-  
-  if (!html) {
-    html = '<li style="padding:16px;color:#b3b3b3">Queue is empty</li>';
-  }
-  
-  el.innerHTML = html;
+  el.innerHTML = html || '<li style="padding:16px;color:#b3b3b3">Queue is empty</li>';
 }
 
 async function renderQueueFromState(state) {
@@ -1943,146 +1789,28 @@ async function renderQueueFromState(state) {
   const myVersion = ++queueRenderVersion;
 
   let html = '';
+  const currentTrack = state?.track_window?.current_track;
   
-  // Capture current track URI at start (before any async operations)
-  const currentTrack = state.track_window.current_track;
-  // Spotify uses track relinking - playlist may have original URI, SDK gives relinked URI
-  // Check both the current URI and linked_from URI when searching
-  const trackUriForLookup = currentTrack?.uri;
-  const linkedFromUri = currentTrack?.linked_from?.uri;
-  
-  // We'll render Now Playing after fetching context, so we can use playlist track data for correct album art
-  let nowPlayingTrack = null; // Will be set to playlist track if found, otherwise SDK track
-  
-  // Next tracks - fetch from context if available for full list
-  // Use saved context if current context is null (e.g., after playing from local queue)
-  const contextUri = state.context?.uri || savedContextUri;
-
-  let nextTracks = [];
-  let nextTracksOffset = 0;
-  let contextName = 'playlist';
-  let contextType = null;
-  let contextId = null;
-  
-  if (contextUri) {
-    const [, type, id] = contextUri.split(':');
-    contextName = type;
-    contextType = type;
-    contextId = id;
-    
-    if (type === 'playlist') {
-      // Fetch playlist name
-      const playlistInfo = await api(`/playlists/${id}?fields=name`);
-      if (playlistInfo?.name) contextName = playlistInfo.name;
-      
-      // Fetch all playlist tracks (handle pagination)
-      let allTracks = [];
-      let url = `/playlists/${id}/tracks?limit=100`;
-      while (url) {
-        const playlistData = await api(url);
-        allTracks = allTracks.concat(playlistData?.items?.map(i => i.track).filter(t => t) || []);
-        url = playlistData?.next ? playlistData.next.replace('https://api.spotify.com/v1', '') : null;
-      }
-      
-      // Find starting position
-      let startIndex = 0;
-      if (contextResumeTrackUri) {
-        startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
-        if (startIndex < 0) startIndex = 0;
-        nextTracks = allTracks.slice(startIndex);
-        nextTracksOffset = startIndex;
-      } else {
-        // Check both current URI and linked_from URI (for track relinking)
-        let currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
-        if (currentIndex < 0 && linkedFromUri) {
-          currentIndex = allTracks.findIndex(t => t.uri === linkedFromUri);
-        }
-
-        if (currentIndex >= 0) {
-          // Use playlist track for Now Playing (has correct album art for relinked tracks)
-          nowPlayingTrack = allTracks[currentIndex];
-          startIndex = currentIndex + 1;
-          nextTracks = allTracks.slice(startIndex);
-          nextTracksOffset = startIndex;
-        } else {
-          // Track not in this playlist - playing a queued track
-          // Don't show playlist tracks, fall through to queue API
-          nextTracks = [];
-        }
-      }
-    } else if (type === 'album') {
-      // Fetch album tracks and add album images
-      const albumData = await api(`/albums/${id}`);
-      if (albumData?.name) contextName = albumData.name;
-      const allTracks = (albumData?.tracks?.items || []).map(t => ({
-        ...t,
-        album: { id: albumData.id, name: albumData.name, images: albumData.images }
-      }));
-      
-      let startIndex = 0;
-      if (contextResumeTrackUri) {
-        startIndex = allTracks.findIndex(t => t.uri === contextResumeTrackUri);
-        if (startIndex < 0) startIndex = 0;
-      } else {
-        // Check both current URI and linked_from URI (for track relinking)
-        let currentIndex = allTracks.findIndex(t => t.uri === trackUriForLookup);
-        if (currentIndex < 0 && linkedFromUri) {
-          currentIndex = allTracks.findIndex(t => t.uri === linkedFromUri);
-        }
-        if (currentIndex >= 0) {
-          nowPlayingTrack = allTracks[currentIndex];
-          startIndex = currentIndex + 1;
-        }
-      }
-      nextTracks = allTracks.slice(startIndex);
-      nextTracksOffset = startIndex;
-    }
-  }
-  
-  // Fallback to queue API only if we have a real context
-  if (nextTracks.length === 0 && contextUri) {
-    const queueData = await api('/me/player/queue');
-    nextTracks = queueData?.queue || [];
-    nextTracksOffset = 0; // Queue API doesn't give us offset info
-  }
-  
-  // Now render Now Playing - use playlist/album track if found (correct art for relinked tracks)
+  // Now Playing
   if (currentTrack) {
     html = '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    if (nowPlayingTrack) {
-      html += renderTrackItems([nowPlayingTrack], contextUri, false, null, 0);
-    } else {
-      html += renderSdkTrackItem(currentTrack);
-    }
+    html += renderSdkTrackItem(currentTrack);
   }
   
-  // Local queue (moved after Now Playing)
+  // Queue
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
     const tracksData = await api('/tracks?ids=' + trackIds);
-    const localQueueTracks = tracksData?.tracks || [];
-    if (localQueueTracks.length > 0) {
-      html += `<h3 style="padding:8px;color:#b3b3b3">Queued (${localQueueTracks.length})</h3>`;
-      html += renderLocalQueueItems(localQueueTracks);
+    const queueTracks = tracksData?.tracks || [];
+    if (queueTracks.length > 0) {
+      html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${queueTracks.length})</h3>`;
+      html += renderLocalQueueItems(queueTracks);
     }
   }
   
-  if (nextTracks.length > 0 && contextUri) {
-    const contextLink = contextType === 'playlist' 
-      ? shareLink('playlist', contextId, contextName, `loadPlaylist('${contextId}', '${contextName}')`)
-      : contextType === 'album'
-      ? shareLink('album', contextId, contextName, `loadAlbum('${contextId}')`)
-      : contextName;
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${contextLink} (${nextTracks.length})</h3>`;
-    html += renderTrackItems(nextTracks, contextUri, false, 1, nextTracksOffset);
-  }
-  
-  // Only update DOM if this render is still current (not superseded by a newer one)
+  // Only update DOM if this render is still current
   if (myVersion === queueRenderVersion) {
-
     el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
-  } else {
-
   }
 }
 
@@ -2120,18 +1848,10 @@ function renderQueue(spotifyData, localQueueTracks) {
     html += renderTrackItems([spotifyData.currently_playing], null);
   }
   
-  // Local queue (user-added, can be removed)
+  // Queue
   if (localQueueTracks.length > 0) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Queued (${localQueueTracks.length})</h3>`;
+    html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${localQueueTracks.length})</h3>`;
     html += renderLocalQueueItems(localQueueTracks);
-  }
-  
-  // Spotify's context queue (from playlist/album, read-only)
-  // Only show if we have a saved context (otherwise it's just duplicates)
-  if (spotifyData?.queue?.length > 0 && savedContextUri) {
-    const [, type] = savedContextUri.split(':');
-    html += `<h3 style="padding:8px;color:#b3b3b3">Next from ${type} (${spotifyData.queue.length})</h3>`;
-    html += renderTrackItems(spotifyData.queue, savedContextUri);
   }
   
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
@@ -2197,9 +1917,6 @@ function clearPlayerUI() {
 async function clearQueue() {
   localQueue = [];
   saveLocalQueue();
-  savedContextUri = null;
-  savedContextType = null;
-  contextResumeTrackUri = null;
   await player.pause();
   localStorage.removeItem('play_state');
   clearPlayerUI();
