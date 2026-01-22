@@ -666,8 +666,8 @@ function initPlayer() {
       // Guard against multiple rapid calls
       if (playingFromQueueInProgress) return;
       
-      // If loop enabled, re-add the finished track to end of queue
-      if (loopEnabled && track.uri) {
+      // If loop enabled, re-add the finished track to end of queue (unless already there)
+      if (loopEnabled && track.uri && localQueue[localQueue.length - 1] !== track.uri) {
         localQueue.push(track.uri);
         saveLocalQueue();
       }
@@ -1320,8 +1320,8 @@ async function togglePlay() {
 }
 
 async function next() {
-  // If loop enabled, add current track to end of queue before skipping
-  if (loopEnabled && currentTrackUri) {
+  // If loop enabled, add current track to end of queue before skipping (unless already there)
+  if (loopEnabled && currentTrackUri && localQueue[localQueue.length - 1] !== currentTrackUri) {
     localQueue.push(currentTrackUri);
     saveLocalQueue();
   }
