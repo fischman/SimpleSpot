@@ -2,7 +2,7 @@
 
 ## Project Context
 
-SimpleSpot is a minimal Spotify web client. The entire application is a **single `index.html` file** - this is intentional and must be maintained. Do not split into multiple files.
+SimpleSpot is a simple web-based Spotify client. The entire application is a **single `index.html` file** - this is intentional and must be maintained. Do not split into multiple files.
 
 ## Code Style Preferences
 
@@ -59,6 +59,7 @@ localStorage.setItem('auth_d420a117a32841c2b3474932e49fb54b_token_expiry', Date.
 4. Fetch data with `await api(...)`
 5. Render to `document.getElementById('tracks')`
 6. Add case to `handleNavigation()` switch
+7. Add case to `restoreLastView()` if it should be restorable
 
 ### Adding a Button to List Items
 List items use a consistent structure:
@@ -74,6 +75,11 @@ List items use a consistent structure:
 </li>
 ```
 
+For queue items, add drag handle on right:
+```html
+<div class="drag-handle" title="Drag to reorder">≡</div>
+```
+
 ### API Calls
 Always use the `api()` wrapper - it handles:
 - Token refresh before expiry
@@ -84,6 +90,25 @@ Always use the `api()` wrapper - it handles:
 Use `shareLink(type, id, text, onclick)` to create links that:
 - Left-click: runs onclick handler
 - Right-click: browser "Copy link" to open.spotify.com URL
+
+### Adding to Queue
+- `addToQueue(uri, toFront)` - single track
+- `addAlbumToQueue(albumId, toFront)` - all album tracks
+- `addPlaylistToQueue(playlistId, toFront)` - all playlist tracks
+- `toFront=true` adds to beginning, `toFront=false` (default) adds to end
+- Pass `event.shiftKey` to enable Shift+click for "play next"
+
+## Playback Model
+
+SimpleSpot uses a **queue-only model**:
+
+1. **No Spotify contexts** - We don't use `context_uri` for playback. Playing an album/playlist fetches all tracks and adds them to `localQueue`.
+
+2. **Loop behavior** - When enabled (`loopEnabled`), finished/skipped tracks are re-added to the END of the queue (unless already there).
+
+3. **Previous track** - Uses `playHistory` array. Previous puts current track back at front of queue and plays from history.
+
+4. **Next track** - Pulls from `localQueue`. If loop enabled, current track is added to end first.
 
 ## Known Issues & Gotchas
 
@@ -104,6 +129,12 @@ document.querySelectorAll('.header button.active, .player button.active:not(#my-
 
 ### Token Refresh
 Spotify may issue a new refresh token on each refresh. Always save `data.refresh_token` if present, or subsequent refreshes fail with `invalid_grant`.
+
+### Player Recreation
+On 404 errors (stale device) or auth errors, the player must be fully recreated (`player.disconnect(); player = null; initPlayer();`). Just reconnecting doesn't get a fresh token.
+
+### escapeHtml
+Always use `escapeHtml()` for user-provided strings. It handles null/undefined safely.
 
 ## Don't Do
 
