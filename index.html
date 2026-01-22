@@ -255,6 +255,7 @@ let queueRenderVersion = 0; // Incremented each render to detect stale renders
 
 // Local queue management
 let localQueue = []; // Array of track URIs
+let playHistory = []; // Track URIs we've played (for previous)
 let currentTrackUri = null;
 let playingFromQueueInProgress = false; // Guard against rapid duplicate calls
 let isNavigatingBack = false; // Flag to prevent pushing state during popstate
@@ -1282,6 +1283,13 @@ function updateLyricsHighlight() {
 async function playNextFromLocalQueue() {
   if (localQueue.length === 0) return;
   
+  // Add current track to history before moving to next
+  if (currentTrackUri) {
+    playHistory.push(currentTrackUri);
+    // Limit history size
+    if (playHistory.length > 100) playHistory.shift();
+  }
+  
   const nextUri = localQueue.shift();
   saveLocalQueue();
   await playTrack(nextUri);
@@ -1325,7 +1333,17 @@ async function next() {
 }
 
 async function previous() {
-  await api('/me/player/previous', { method: 'POST' });
+  if (playHistory.length === 0) return;
+  
+  // Put current track back at front of queue
+  if (currentTrackUri) {
+    localQueue.unshift(currentTrackUri);
+    saveLocalQueue();
+  }
+  
+  // Play previous track from history
+  const prevUri = playHistory.pop();
+  await playTrack(prevUri);
   refreshQueueIfViewing();
 }
 
