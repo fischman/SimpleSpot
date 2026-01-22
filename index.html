@@ -2183,6 +2183,7 @@ document.addEventListener('visibilitychange', async () => {
           player.disconnect();
           player = null;
           initPlayer();
+          await playerReadyPromise;
         }
       } else {
         forceRelogin('visibilitychange: token refresh failed');
