@@ -149,7 +149,7 @@ Fetches lyrics from LRCLIB API (proxied through server.py). Supports:
 ```
 spotify-client/
 ├── index.html      # The entire application
-├── server.py       # Python HTTP server (serves index.html, proxies /lyrics)
+├── server.py       # Simple Python HTTP server for development
 ├── README.md       # User-facing documentation
 ├── ARCHITECTURE.md # This file
 └── AGENTS.md       # AI agent instructions
