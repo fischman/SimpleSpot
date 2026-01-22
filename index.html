@@ -986,6 +986,9 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
 }
 
 async function play(body, retries = 2) {
+  // Wait for player to be ready if it's initializing
+  if (playerReadyPromise) await playerReadyPromise;
+  
   const res = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
     headers: { 
@@ -1010,8 +1013,8 @@ async function play(body, retries = 2) {
     }
     initPlayer();
     await playerReadyPromise;
-    // Wait a bit for device to be fully registered
-    await new Promise(r => setTimeout(r, 500));
+    // Wait for device to be fully registered with Spotify
+    await new Promise(r => setTimeout(r, 1000));
     return play(body, 0); // No more retries after reconnect
   }
 }
