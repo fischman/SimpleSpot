@@ -987,8 +987,8 @@ async function play(body, retries = 3) {
   
   // Retry on 403/404 - device may not be registered yet or is stale
   if ((res.status === 403 || res.status === 404) && retries > 0) {
-    // On first 404, recreate player
-    if (res.status === 404 && retries === 3) {
+    // On first failure, recreate player and wait for device registration
+    if (retries === 3) {
       console.log('Device not found, recreating player...');
       if (player) {
         player.disconnect();
@@ -996,9 +996,22 @@ async function play(body, retries = 3) {
       }
       initPlayer();
       await playerReadyPromise;
+      await waitForDeviceRegistration();
     }
     return play(body, retries - 1);
   }
+}
+
+async function waitForDeviceRegistration(maxAttempts = 10) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const devices = await api('/me/player/devices');
+    if (devices?.devices?.some(d => d.id === deviceId)) {
+      return true;
+    }
+    await new Promise(r => setTimeout(r, 200));
+  }
+  console.warn('Device registration timeout');
+  return false;
 }
 
 function playTrack(uri) {
