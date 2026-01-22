@@ -1312,6 +1312,12 @@ async function togglePlay() {
 }
 
 async function next() {
+  // If loop enabled, add current track to end of queue before skipping
+  if (loopEnabled && currentTrackUri) {
+    localQueue.push(currentTrackUri);
+    saveLocalQueue();
+  }
+  
   if (localQueue.length > 0) {
     await playNextFromLocalQueue();
   }
