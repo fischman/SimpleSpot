@@ -1420,9 +1420,15 @@ async function loadLikedSongs(fromHistory = false) {
   setBreadcrumb([{ name: 'Liked Songs' }]);
   showLoading();
   localStorage.setItem('last_view', 'liked');
-  const data = await api('/me/tracks?limit=50');
-  const tracks = data.items.map(i => i.track).filter(t => t);
-  document.getElementById('tracks').innerHTML = renderTrackItems(tracks, null);
+  
+  let allTracks = [];
+  let url = '/me/tracks?limit=50';
+  while (url && allTracks.length < 300) {
+    const data = await api(url);
+    allTracks = allTracks.concat((data.items || []).map(i => i.track).filter(t => t));
+    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  document.getElementById('tracks').innerHTML = renderTrackItems(allTracks.slice(0, 300), null);
 }
 
 async function loadSavedAlbums(fromHistory = false) {
@@ -1430,11 +1436,17 @@ async function loadSavedAlbums(fromHistory = false) {
   setBreadcrumb([{ name: 'Saved Albums' }]);
   showLoading();
   localStorage.setItem('last_view', 'albums');
-  const data = await api('/me/albums?limit=50');
+  
+  let allAlbums = [];
+  let url = '/me/albums?limit=50';
+  while (url && allAlbums.length < 300) {
+    const data = await api(url);
+    allAlbums = allAlbums.concat((data.items || []).map(i => i.album).filter(a => a));
+    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  
   const el = document.getElementById('tracks');
-  el.innerHTML = data.items.map((item, i) => {
-    const a = item.album;
-    return `
+  el.innerHTML = allAlbums.slice(0, 300).map((a, i) => `
     <li class="track" onclick="loadAlbum('${a.id}')">
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
@@ -1450,7 +1462,7 @@ async function loadSavedAlbums(fromHistory = false) {
         <div class="track-artist" title="${a.artists.map(x => x.name).join(', ')}">${a.artists.map(x => shareLink('artist', x.id, escapeHtml(x.name), `event.stopPropagation(); loadArtist('${x.id}')`)).join(', ')}</div>
       </div>
     </li>
-  `}).join('');
+  `).join('');
 }
 
 async function loadPlaylists(fromHistory = false) {
@@ -1458,10 +1470,17 @@ async function loadPlaylists(fromHistory = false) {
   setBreadcrumb([{ name: 'Playlists' }]);
   showLoading();
   localStorage.setItem('last_view', 'playlists');
-  const data = await api('/me/playlists?limit=50');
-  const playlists = data.items.filter(p => p.id !== DJ_PLAYLIST_ID);
+  
+  let allPlaylists = [];
+  let url = '/me/playlists?limit=50';
+  while (url && allPlaylists.length < 300) {
+    const data = await api(url);
+    allPlaylists = allPlaylists.concat((data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID));
+    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  
   const el = document.getElementById('tracks');
-  el.innerHTML = playlists.map((p, i) => `
+  el.innerHTML = allPlaylists.slice(0, 300).map((p, i) => `
     <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
@@ -1485,9 +1504,17 @@ async function loadTopArtists(fromHistory = false) {
   setBreadcrumb([{ name: 'Top Artists' }]);
   showLoading();
   localStorage.setItem('last_view', 'topArtists');
-  const data = await api('/me/top/artists?limit=50&time_range=medium_term');
+  
+  let allArtists = [];
+  let url = '/me/top/artists?limit=50&time_range=medium_term';
+  while (url && allArtists.length < 300) {
+    const data = await api(url);
+    allArtists = allArtists.concat(data.items || []);
+    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  
   const el = document.getElementById('tracks');
-  el.innerHTML = data.items.map((a, i) => `
+  el.innerHTML = allArtists.slice(0, 300).map((a, i) => `
     <li class="track" onclick="loadArtist('${a.id}')">
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
@@ -1509,8 +1536,15 @@ async function loadTopTracks(fromHistory = false) {
   setBreadcrumb([{ name: 'Top Tracks' }]);
   showLoading();
   localStorage.setItem('last_view', 'topTracks');
-  const data = await api('/me/top/tracks?limit=50&time_range=medium_term');
-  document.getElementById('tracks').innerHTML = renderTrackItems(data.items, null);
+  
+  let allTracks = [];
+  let url = '/me/top/tracks?limit=50&time_range=medium_term';
+  while (url && allTracks.length < 300) {
+    const data = await api(url);
+    allTracks = allTracks.concat(data.items || []);
+    url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  document.getElementById('tracks').innerHTML = renderTrackItems(allTracks.slice(0, 300), null);
 }
 
 function renderPlaylistSection(playlists, startNum = 1) {
