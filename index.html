@@ -67,6 +67,8 @@
     .track-num-col .queue-btn { font-size: 14px; padding: 0; line-height: 1; }
     .track-num-col .radio-btn { font-size: 12px; padding: 0; line-height: 1; background: none; border: none; color: #b3b3b3; cursor: pointer; }
     .track-num-col .radio-btn:hover { color: #1db954; }
+    .track-num-col .radio-btn.unavailable { opacity: 0.4; cursor: not-allowed; }
+    .track-num-col .radio-btn.unavailable:hover { color: #b3b3b3; }
     .drag-handle { cursor: grab; color: #666; padding: 8px; font-size: 16px; user-select: none; }
     .drag-handle:hover { color: #b3b3b3; }
     .drag-handle:active { cursor: grabbing; }
@@ -240,6 +242,22 @@ function getRedirectUri(clientChoice) {
 
 function isNcspotClient() {
   return localStorage.getItem('chosen_client') === 'ncspot';
+}
+
+function isPlaypauseClient() {
+  return localStorage.getItem('chosen_client') === 'playpause';
+}
+
+// DJ playlist ID - looked up at page load
+let djPlaylistId = null;
+let djPlaylistPromise = null;
+
+// Helper for radio button - disabled for playpause client (no /recommendations scope)
+function radioBtn(type, id) {
+  if (isPlaypauseClient()) {
+    return `<button class="radio-btn unavailable" title="Start radio - Unavailable" disabled>📻</button>`;
+  }
+  return `<button class="radio-btn" onclick="event.stopPropagation(); startRadio('${type}', '${id}')" title="Start radio">📻</button>`;
 }
 
 // Auth storage helpers - namespace by client ID so switching clients requires re-auth
@@ -926,7 +944,7 @@ function renderSearchResults(data) {
       <li class="track" onclick="loadArtist('${a.id}')">
         <div class="track-num-col">
           <span class="track-num">${i + 1}</span>
-          <button class="radio-btn" onclick="event.stopPropagation(); startRadio('artist', '${a.id}')" title="Start radio">📻</button>
+          ${radioBtn('artist', a.id)}
         </div>
         <div class="track-art">
           <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
@@ -945,7 +963,7 @@ function renderSearchResults(data) {
         <div class="track-num-col">
           <span class="track-num">${i + 1}</span>
           <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-          <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
+          ${radioBtn('album', a.id)}
         </div>
         <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
           <img src="${a.images[2]?.url || ''}" />
@@ -984,7 +1002,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
           ? `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>`
           : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>`
         }
-        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('track', '${trackId}')" title="Start radio">📻</button>
+        ${radioBtn('track', trackId)}
       </div>
       <div class="track-art" onclick="event.stopPropagation(); ${playAction}">
         <img src="${t.album?.images?.[2]?.url || ''}" />
@@ -1054,10 +1072,23 @@ async function playContext(uri) {
   await playNextFromLocalQueue();
 }
 
-const DJ_PLAYLIST_ID = '37i9dQZF1EYkqdzj48dyYq';
+async function lookupDJPlaylist() {
+  const data = await api('/search?type=playlist&limit=10&q=' + encodeURIComponent('DJ'));
+  const djPlaylist = data?.playlists?.items?.find(p => 
+    p.name === 'DJ' && p.owner?.id === 'spotify'
+  );
+  return djPlaylist?.id || null;
+}
 
 async function playDJ() {
-  await playContext(`spotify:playlist:${DJ_PLAYLIST_ID}`);
+  if (!djPlaylistId) {
+    if (djPlaylistPromise) djPlaylistId = await djPlaylistPromise;
+    if (!djPlaylistId) {
+      console.error('DJ playlist not found');
+      return;
+    }
+  }
+  await playContext(`spotify:playlist:${djPlaylistId}`);
   showQueue();
 }
 
@@ -1468,7 +1499,7 @@ function renderSavedAlbumItems(albums, startNum = 1) {
       <div class="track-num-col">
         <span class="track-num">${startNum + i}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
+        ${radioBtn('album', a.id)}
       </div>
       <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
         <img src="${a.images?.[2]?.url || ''}" />
@@ -1525,7 +1556,7 @@ function renderMyPlaylistItems(playlists, startNum = 1) {
       <div class="track-num-col">
         <span class="track-num">${startNum + i}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); addPlaylistToQueue('${p.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('playlist', '${p.id}')" title="Start radio">📻</button>
+        ${radioBtn('playlist', p.id)}
       </div>
       <div class="track-art" onclick="event.stopPropagation(); playContext('spotify:playlist:${p.id}')">
         <img src="${p.images?.[0]?.url || ''}" />
@@ -1552,7 +1583,7 @@ async function loadPlaylists(fromHistory = false) {
   // Reset pagination state
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
-    const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
+    const playlists = (data.items || []).filter(p => p && p.id !== djPlaylistId);
     const html = renderMyPlaylistItems(playlists, paginationCount + 1);
     return { html, count: playlists.length };
   };
@@ -1564,7 +1595,7 @@ async function loadPlaylists(fromHistory = false) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
     const data = await api(url);
     el.querySelector('.loading-more')?.remove();
-    const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
+    const playlists = (data.items || []).filter(p => p && p.id !== djPlaylistId);
     el.innerHTML += renderMyPlaylistItems(playlists, paginationCount + 1);
     paginationCount += playlists.length;
     url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
@@ -1581,7 +1612,7 @@ function renderTopArtistItems(artists, startNum = 1) {
     <li class="track" onclick="loadArtist('${a.id}')">
       <div class="track-num-col">
         <span class="track-num">${startNum + i}</span>
-        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('artist', '${a.id}')" title="Start radio">📻</button>
+        ${radioBtn('artist', a.id)}
       </div>
       <div class="track-art">
         <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
@@ -1674,7 +1705,7 @@ function renderPlaylistSection(playlists, startNum = 1) {
       <div class="track-num-col">
         <span class="track-num">${startNum + i}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); addPlaylistToQueue('${p.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('playlist', '${p.id}')" title="Start radio">📻</button>
+        ${radioBtn('playlist', p.id)}
       </div>
       <div class="track-art" onclick="event.stopPropagation(); playContext('spotify:playlist:${p.id}')">
         <img src="${p.images?.[0]?.url || ''}" />
@@ -1864,7 +1895,7 @@ function renderAlbumItems(albums, startNum = 1) {
       <div class="track-num-col">
         <span class="track-num">${startNum + i}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('album', '${a.id}')" title="Start radio">📻</button>
+        ${radioBtn('album', a.id)}
       </div>
       <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
         <img src="${a.images?.[2]?.url || ''}" />
@@ -2109,7 +2140,7 @@ function renderLocalQueueItems(tracks) {
       <div class="track-num-col">
         <span class="track-num">${i + 1}</span>
         <button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>
-        <button class="radio-btn" onclick="event.stopPropagation(); startRadio('track', '${trackId}')" title="Start radio">📻</button>
+        ${radioBtn('track', trackId)}
       </div>
       <div class="track-art" onclick="event.stopPropagation(); playFromLocalQueue(${i})">
         <img src="${t.album?.images?.[2]?.url || ''}" />
@@ -2306,6 +2337,16 @@ function setBreadcrumb(items) {
     loadLocalQueue();
     // Initialize loop button state
     updateLoopButton();
+    // Look up DJ playlist ID (async, don't block)
+    djPlaylistPromise = lookupDJPlaylist().then(id => { djPlaylistId = id; return id; });
+    // Disable Explore button for playpause client (no /recommendations scope)
+    if (isPlaypauseClient()) {
+      const exploreBtn = document.getElementById('nav-explore');
+      exploreBtn.disabled = true;
+      exploreBtn.style.opacity = '0.4';
+      exploreBtn.style.cursor = 'not-allowed';
+      exploreBtn.title = 'Explore (e) - Unavailable';
+    }
     
     if (window.Spotify) initPlayer();
     
@@ -2531,7 +2572,7 @@ async function resumePlaybackIfNeeded() {
     if (age > 5 * 60 * 1000) return;
     
     // Check if last context was DJ playlist
-    const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
+    const isDJ = djPlaylistId && state.contextUri === `spotify:playlist:${djPlaylistId}`;
     
     if (isDJ) {
       // Show DJ info instead of actual track
