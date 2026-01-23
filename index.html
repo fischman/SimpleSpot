@@ -579,6 +579,19 @@ async function api(endpoint, opts = {}, _retry = false) {
   }
 }
 
+// Fetch tracks by IDs, chunking to respect API limit of 50
+async function fetchTracksByIds(trackIds) {
+  if (!trackIds || trackIds.length === 0) return [];
+  const chunks = [];
+  for (let i = 0; i < trackIds.length; i += 50) {
+    chunks.push(trackIds.slice(i, i + 50));
+  }
+  const results = await Promise.all(chunks.map(chunk => 
+    api('/tracks?ids=' + chunk.join(','))
+  ));
+  return results.flatMap(r => r?.tracks || []);
+}
+
 function getDeviceName() {
   const ua = navigator.userAgent;
   if (/Android/i.test(ua)) return 'Android';
@@ -1950,9 +1963,8 @@ async function showQueue(fromHistory = false) {
   // Also get local queue track details
   let localQueueTracks = [];
   if (localQueue.length > 0) {
-    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
-    const tracksData = await api('/tracks?ids=' + trackIds);
-    localQueueTracks = tracksData?.tracks || [];
+    const trackIds = localQueue.map(uri => uri.split(':')[2]);
+    localQueueTracks = await fetchTracksByIds(trackIds);
   }
   
   renderQueue(data, localQueueTracks);
@@ -1983,9 +1995,8 @@ async function renderQueueFromSavedState(state) {
   
   // Queue
   if (localQueue.length > 0) {
-    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
-    const tracksData = await api('/tracks?ids=' + trackIds);
-    const tracks = tracksData?.tracks || [];
+    const trackIds = localQueue.map(uri => uri.split(':')[2]);
+    const tracks = await fetchTracksByIds(trackIds);
     
     html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${tracks.length})</h3>`;
     tracks.forEach((t, i) => {
@@ -2026,9 +2037,8 @@ async function renderQueueFromState(state) {
   
   // Queue
   if (localQueue.length > 0) {
-    const trackIds = localQueue.map(uri => uri.split(':')[2]).join(',');
-    const tracksData = await api('/tracks?ids=' + trackIds);
-    const queueTracks = tracksData?.tracks || [];
+    const trackIds = localQueue.map(uri => uri.split(':')[2]);
+    const queueTracks = await fetchTracksByIds(trackIds);
     if (queueTracks.length > 0) {
       html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${queueTracks.length})</h3>`;
       html += renderLocalQueueItems(queueTracks);
