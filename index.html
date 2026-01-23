@@ -24,6 +24,11 @@
   <title>SimpleSpot</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { width: 12px; height: 12px; }
+    ::-webkit-scrollbar-track { background: #121212; }
+    ::-webkit-scrollbar-thumb { background: #535353; border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #727272; }
+    * { scrollbar-width: thin; scrollbar-color: #535353 #121212; }
     html, body { height: 100%; overflow: hidden; }
     body { font-family: -apple-system, sans-serif; background: #121212; color: #fff; }
     #login { display: flex; align-items: center; justify-content: center; height: 100vh; height: 100dvh; }
