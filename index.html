@@ -274,6 +274,12 @@ let isNavigatingBack = false; // Flag to prevent pushing state during popstate
 
 // Loop mode - when enabled, finished tracks are re-added to end of queue
 let loopEnabled = localStorage.getItem('loop_enabled') === 'true';
+
+// Infinite scroll state for paginated views
+let paginationNextUrl = null;
+let paginationRenderFn = null;
+let paginationCount = 0;
+let paginationLoading = false;
 let lyricsEnabled = false;
 let currentLyrics = null;
 let lyricsTrackKey = null;
@@ -899,6 +905,7 @@ async function search(q, fromHistory = false) {
 
 function renderSearchResults(data) {
   const el = document.getElementById('tracks');
+  paginationNextUrl = null; // Clear pagination state
   let html = '';
   if (data.artists?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Artists</h3>';
@@ -1430,17 +1437,32 @@ async function loadLikedSongs(fromHistory = false) {
   const el = document.getElementById('tracks');
   el.classList.add('grid-view');
   el.innerHTML = '';
+  el.scrollTop = 0;
   
-  let count = 0;
+  // Reset pagination state
+  paginationNextUrl = null;
+  paginationRenderFn = (data) => {
+    const tracks = (data.items || []).map(i => i.track).filter(t => t);
+    const html = renderTrackItems(tracks, null, false, paginationCount + 1);
+    return { html, count: tracks.length };
+  };
+  paginationCount = 0;
+  paginationLoading = false;
+  
   let url = '/me/tracks?limit=50';
-  while (url && count < 300) {
+  while (url && paginationCount < 300) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
     const data = await api(url);
     el.querySelector('.loading-more')?.remove();
     const tracks = (data.items || []).map(i => i.track).filter(t => t);
-    el.innerHTML += renderTrackItems(tracks, null, false, count + 1);
-    count += tracks.length;
-    url = (count < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    el.innerHTML += renderTrackItems(tracks, null, false, paginationCount + 1);
+    paginationCount += tracks.length;
+    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  // Set up infinite scroll if more data available
+  paginationNextUrl = url;
+  if (paginationNextUrl) {
+    el.innerHTML += '<li class="loading-more">Loading...</li>';
   }
 }
 
@@ -1472,17 +1494,32 @@ async function loadSavedAlbums(fromHistory = false) {
   const el = document.getElementById('tracks');
   el.classList.add('grid-view');
   el.innerHTML = '';
+  el.scrollTop = 0;
   
-  let count = 0;
+  // Reset pagination state
+  paginationNextUrl = null;
+  paginationRenderFn = (data) => {
+    const albums = (data.items || []).map(i => i.album).filter(a => a);
+    const html = renderSavedAlbumItems(albums, paginationCount + 1);
+    return { html, count: albums.length };
+  };
+  paginationCount = 0;
+  paginationLoading = false;
+  
   let url = '/me/albums?limit=50';
-  while (url && count < 300) {
+  while (url && paginationCount < 300) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
     const data = await api(url);
     el.querySelector('.loading-more')?.remove();
     const albums = (data.items || []).map(i => i.album).filter(a => a);
-    el.innerHTML += renderSavedAlbumItems(albums, count + 1);
-    count += albums.length;
-    url = (count < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    el.innerHTML += renderSavedAlbumItems(albums, paginationCount + 1);
+    paginationCount += albums.length;
+    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  // Set up infinite scroll if more data available
+  paginationNextUrl = url;
+  if (paginationNextUrl) {
+    el.innerHTML += '<li class="loading-more">Loading...</li>';
   }
 }
 
@@ -1514,17 +1551,32 @@ async function loadPlaylists(fromHistory = false) {
   const el = document.getElementById('tracks');
   el.classList.add('grid-view');
   el.innerHTML = '';
+  el.scrollTop = 0;
   
-  let count = 0;
+  // Reset pagination state
+  paginationNextUrl = null;
+  paginationRenderFn = (data) => {
+    const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
+    const html = renderMyPlaylistItems(playlists, paginationCount + 1);
+    return { html, count: playlists.length };
+  };
+  paginationCount = 0;
+  paginationLoading = false;
+  
   let url = '/me/playlists?limit=50';
-  while (url && count < 300) {
+  while (url && paginationCount < 300) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
     const data = await api(url);
     el.querySelector('.loading-more')?.remove();
     const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
-    el.innerHTML += renderMyPlaylistItems(playlists, count + 1);
-    count += playlists.length;
-    url = (count < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    el.innerHTML += renderMyPlaylistItems(playlists, paginationCount + 1);
+    paginationCount += playlists.length;
+    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  // Set up infinite scroll if more data available
+  paginationNextUrl = url;
+  if (paginationNextUrl) {
+    el.innerHTML += '<li class="loading-more">Loading...</li>';
   }
 }
 
@@ -1554,17 +1606,32 @@ async function loadTopArtists(fromHistory = false) {
   const el = document.getElementById('tracks');
   el.classList.add('grid-view');
   el.innerHTML = '';
+  el.scrollTop = 0;
   
-  let count = 0;
+  // Reset pagination state
+  paginationNextUrl = null;
+  paginationRenderFn = (data) => {
+    const artists = data.items || [];
+    const html = renderTopArtistItems(artists, paginationCount + 1);
+    return { html, count: artists.length };
+  };
+  paginationCount = 0;
+  paginationLoading = false;
+  
   let url = '/me/top/artists?limit=50&time_range=medium_term';
-  while (url && count < 300) {
+  while (url && paginationCount < 300) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
     const data = await api(url);
     el.querySelector('.loading-more')?.remove();
     const artists = data.items || [];
-    el.innerHTML += renderTopArtistItems(artists, count + 1);
-    count += artists.length;
-    url = (count < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    el.innerHTML += renderTopArtistItems(artists, paginationCount + 1);
+    paginationCount += artists.length;
+    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  // Set up infinite scroll if more data available
+  paginationNextUrl = url;
+  if (paginationNextUrl) {
+    el.innerHTML += '<li class="loading-more">Loading...</li>';
   }
 }
 
@@ -1576,17 +1643,32 @@ async function loadTopTracks(fromHistory = false) {
   const el = document.getElementById('tracks');
   el.classList.add('grid-view');
   el.innerHTML = '';
+  el.scrollTop = 0;
   
-  let count = 0;
+  // Reset pagination state
+  paginationNextUrl = null;
+  paginationRenderFn = (data) => {
+    const tracks = data.items || [];
+    const html = renderTrackItems(tracks, null, false, paginationCount + 1);
+    return { html, count: tracks.length };
+  };
+  paginationCount = 0;
+  paginationLoading = false;
+  
   let url = '/me/top/tracks?limit=50&time_range=medium_term';
-  while (url && count < 300) {
+  while (url && paginationCount < 300) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
     const data = await api(url);
     el.querySelector('.loading-more')?.remove();
     const tracks = data.items || [];
-    el.innerHTML += renderTrackItems(tracks, null, false, count + 1);
-    count += tracks.length;
-    url = (count < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    el.innerHTML += renderTrackItems(tracks, null, false, paginationCount + 1);
+    paginationCount += tracks.length;
+    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  // Set up infinite scroll if more data available
+  paginationNextUrl = url;
+  if (paginationNextUrl) {
+    el.innerHTML += '<li class="loading-more">Loading...</li>';
   }
 }
 
@@ -1610,6 +1692,10 @@ function renderPlaylistSection(playlists, startNum = 1) {
   `).join('');
 }
 
+// Shared state for Explore pagination (needs seenIds across pages)
+let exploreSeenIds = new Set();
+let exploreTotalCount = 0;
+
 async function loadExplore(fromHistory = false) {
   if (!fromHistory) navigate('explore');
   setBreadcrumb([{ name: 'Explore' }]);
@@ -1618,9 +1704,14 @@ async function loadExplore(fromHistory = false) {
   const el = document.getElementById('tracks');
   el.classList.add('sectioned');
   el.innerHTML = '';
+  el.scrollTop = 0;
   
-  const seenIds = new Set();
-  let totalCount = 0;
+  // Reset pagination state
+  paginationNextUrl = null;
+  paginationCount = 0;
+  paginationLoading = false;
+  exploreSeenIds = new Set();
+  exploreTotalCount = 0;
   
   // Search for personalized playlists
   const personalizedSearches = [
@@ -1646,56 +1737,75 @@ async function loadExplore(fromHistory = false) {
     ) || results.find(p =>
       p.name.toLowerCase().startsWith(searchName.toLowerCase())
     );
-    if (match && !seenIds.has(match.id)) {
+    if (match && !exploreSeenIds.has(match.id)) {
       personalizedPlaylists.push(match);
-      seenIds.add(match.id);
+      exploreSeenIds.add(match.id);
     }
   });
   if (personalizedPlaylists.length > 0) {
     el.innerHTML += `<div class="section-header">Your Mixes</div>`;
     el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`;
-    totalCount += personalizedPlaylists.length;
+    exploreTotalCount += personalizedPlaylists.length;
   }
   
   // Render Made For You as soon as ready
   const madeForYouData = await madeForYouPromise;
-  const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter(p => p && !seenIds.has(p.id));
-  madeForYouPlaylists.forEach(p => seenIds.add(p.id));
+  const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
+  madeForYouPlaylists.forEach(p => exploreSeenIds.add(p.id));
   if (madeForYouPlaylists.length > 0) {
     el.innerHTML += `<div class="section-header">Made For You</div>`;
-    el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, totalCount + 1)}</ul>`;
-    totalCount += madeForYouPlaylists.length;
+    el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, exploreTotalCount + 1)}</ul>`;
+    exploreTotalCount += madeForYouPlaylists.length;
   }
   
   // Render Featured Playlists, paginating
-  let featuredPlaylists = [];
+  let featuredCount = 0;
   let featuredData = await featuredPromise;
-  let items = (featuredData?.playlists?.items || []).filter(p => p && !seenIds.has(p.id));
-  featuredPlaylists = featuredPlaylists.concat(items);
-  items.forEach(p => seenIds.add(p.id));
+  let items = (featuredData?.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
+  items.forEach(p => exploreSeenIds.add(p.id));
+  featuredCount += items.length;
   
   // Render first batch immediately
-  if (featuredPlaylists.length > 0) {
+  if (items.length > 0) {
     el.innerHTML += `<div class="section-header">Featured Playlists</div>`;
-    el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(featuredPlaylists, totalCount + 1)}</ul>`;
-    totalCount += featuredPlaylists.length;
+    el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, exploreTotalCount + 1)}</ul>`;
+    exploreTotalCount += items.length;
   }
   
-  // Continue paginating Featured
+  // Continue paginating Featured up to 300
   let url = featuredData?.playlists?.next ? featuredData.playlists.next.replace('https://api.spotify.com/v1', '') : null;
-  while (url && featuredPlaylists.length < 300) {
+  while (url && featuredCount < 300) {
     const data = await api(url);
-    const newItems = (data.playlists?.items || []).filter(p => p && !seenIds.has(p.id));
+    const newItems = (data.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
     if (newItems.length > 0) {
       const section = document.getElementById('featured-section');
       if (section) {
-        section.innerHTML += renderPlaylistSection(newItems, totalCount + 1);
-        totalCount += newItems.length;
+        section.innerHTML += renderPlaylistSection(newItems, exploreTotalCount + 1);
+        exploreTotalCount += newItems.length;
       }
-      newItems.forEach(p => seenIds.add(p.id));
-      featuredPlaylists = featuredPlaylists.concat(newItems);
+      newItems.forEach(p => exploreSeenIds.add(p.id));
+      featuredCount += newItems.length;
     }
     url = data.playlists?.next ? data.playlists.next.replace('https://api.spotify.com/v1', '') : null;
+  }
+  
+  // Set up infinite scroll for more Featured if available
+  paginationNextUrl = url;
+  paginationCount = featuredCount;
+  paginationRenderFn = (data) => {
+    const newItems = (data.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
+    if (newItems.length > 0) {
+      const section = document.getElementById('featured-section');
+      if (section) {
+        section.innerHTML += renderPlaylistSection(newItems, exploreTotalCount + 1);
+        exploreTotalCount += newItems.length;
+      }
+      newItems.forEach(p => exploreSeenIds.add(p.id));
+    }
+    return { html: null, count: newItems.length };  // html null since we render directly to section
+  };
+  if (paginationNextUrl) {
+    el.innerHTML += '<li class="loading-more">Loading...</li>';
   }
 }
 
@@ -1707,6 +1817,7 @@ async function loadPlaylist(id, name, fromHistory = false) {
     { name: name || 'Playlist' }
   ]);
   showLoading();
+  paginationNextUrl = null; // Clear pagination state
   const contextUri = 'spotify:playlist:' + id;
   const data = await api('/playlists/' + id + '/tracks?limit=100');
   const tracks = data.items.map(i => i.track).filter(t => t);
@@ -1717,6 +1828,7 @@ async function loadPlaylist(id, name, fromHistory = false) {
 async function loadAlbum(id, fromHistory = false) {
   if (!fromHistory) navigate('album', { id });
   localStorage.setItem('last_view', 'album');
+  paginationNextUrl = null; // Clear pagination state
   const data = await api('/albums/' + id);
   setBreadcrumb([
     { name: 'Album: ' + data.name }
@@ -1772,6 +1884,7 @@ function renderAlbumItems(albums, startNum = 1) {
 async function loadArtist(id, fromHistory = false) {
   if (!fromHistory) navigate('artist', { id });
   localStorage.setItem('last_view', 'artist');
+  paginationNextUrl = null; // Clear pagination state
   showLoading();
   
   const [artist, topTracks, albumsData] = await Promise.all([
@@ -1825,6 +1938,7 @@ async function showQueue(fromHistory = false) {
   setBreadcrumb([{ name: 'Queue', suffix: '<button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
   showLoading();
   localStorage.setItem('last_view', 'queue');
+  paginationNextUrl = null; // Clear pagination state
   
   // Try to use SDK state first (more up-to-date)
   const sdkState = await player?.getCurrentState();
@@ -2296,6 +2410,37 @@ function setColumnCount(count) {
     document.getElementById('column-count').value = saved;
   }
 })();
+
+// Infinite scroll for paginated views
+async function loadMorePaginated() {
+  if (!paginationNextUrl || paginationLoading) return;
+  paginationLoading = true;
+  const el = document.getElementById('tracks');
+  const data = await api(paginationNextUrl);
+  el.querySelector('.loading-more')?.remove();
+  if (data && paginationRenderFn) {
+    const result = paginationRenderFn(data);
+    if (result.html) {
+      el.innerHTML += result.html;
+    }
+    paginationCount += result.count;
+    // Handle both data.next (regular) and data.playlists.next (Explore/Featured)
+    const nextUrl = data.next || data.playlists?.next;
+    paginationNextUrl = nextUrl ? nextUrl.replace('https://api.spotify.com/v1', '') : null;
+    if (paginationNextUrl) {
+      el.innerHTML += '<li class="loading-more">Loading...</li>';
+    }
+  }
+  paginationLoading = false;
+}
+
+document.getElementById('tracks').addEventListener('scroll', function() {
+  if (!paginationNextUrl || paginationLoading) return;
+  const el = this;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
+    loadMorePaginated();
+  }
+});
 
 // Keyboard shortcuts (when not in input)
 document.addEventListener('keydown', e => {
