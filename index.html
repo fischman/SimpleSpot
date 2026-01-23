@@ -1075,7 +1075,7 @@ async function playContext(uri) {
 async function lookupDJPlaylist() {
   const data = await api('/search?type=playlist&limit=10&q=' + encodeURIComponent('DJ'));
   const djPlaylist = data?.playlists?.items?.find(p => 
-    p.name === 'DJ' && p.owner?.id === 'spotify'
+    p && p.name === 'DJ' && p.owner?.id === 'spotify'
   );
   return djPlaylist?.id || null;
 }
