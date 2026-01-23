@@ -986,9 +986,14 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
   `}).join('');
 }
 
-async function play(body, retries = 3) {
+async function play(body) {
   // Wait for player to be ready if it's initializing
   if (playerReadyPromise) await playerReadyPromise;
+  
+  if (!deviceId) {
+    console.error('No device ID - player not ready');
+    return;
+  }
   
   const res = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
@@ -999,33 +1004,11 @@ async function play(body, retries = 3) {
     body: JSON.stringify(body)
   });
   
-  // Retry on 403/404 - device may not be registered yet or is stale
-  if ((res.status === 403 || res.status === 404) && retries > 0) {
-    // On first failure, recreate player and wait for device registration
-    if (retries === 3) {
-      console.log('Device not found, recreating player...');
-      if (player) {
-        player.disconnect();
-        player = null;
-      }
-      initPlayer();
-      await playerReadyPromise;
-      await waitForDeviceRegistration();
-    }
-    return play(body, retries - 1);
+  // On 404 (stale device), reload page to get fresh player
+  if (res.status === 404) {
+    console.log('Device not found (404), reloading page...');
+    location.reload();
   }
-}
-
-async function waitForDeviceRegistration(maxAttempts = 10) {
-  for (let i = 0; i < maxAttempts; i++) {
-    const devices = await api('/me/player/devices');
-    if (devices?.devices?.some(d => d.id === deviceId)) {
-      return true;
-    }
-    await new Promise(r => setTimeout(r, 200));
-  }
-  console.warn('Device registration timeout');
-  return false;
 }
 
 function playTrack(uri) {
@@ -2381,18 +2364,9 @@ window.addEventListener('beforeunload', () => {
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && getAuth('access_token')) {
     if (Date.now() > getAuth('token_expiry')) {
-      console.log('Tab became visible, token expired, attempting refresh');
-      if (await refreshToken()) {
-        accessToken = getAuth('access_token');
-        if (player) {
-          player.disconnect();
-          player = null;
-          initPlayer();
-          await playerReadyPromise;
-        }
-      } else {
-        forceRelogin('visibilitychange: token refresh failed');
-      }
+      console.log('Tab became visible, token expired, reloading page');
+      // SDK's WebSocket state is tied to old token - simplest fix is reload
+      location.reload();
     }
   }
 });
