@@ -2339,13 +2339,19 @@ function setBreadcrumb(items) {
     updateLoopButton();
     // Look up DJ playlist ID (async, don't block)
     djPlaylistPromise = lookupDJPlaylist().then(id => { djPlaylistId = id; return id; });
-    // Disable Explore button for playpause client (no /recommendations scope)
+    // Disable Explore and DJ buttons for playpause client (missing scopes)
     if (isPlaypauseClient()) {
       const exploreBtn = document.getElementById('nav-explore');
       exploreBtn.disabled = true;
       exploreBtn.style.opacity = '0.4';
       exploreBtn.style.cursor = 'not-allowed';
       exploreBtn.title = 'Explore (e) - Unavailable';
+      
+      const djBtn = document.getElementById('nav-dj');
+      djBtn.disabled = true;
+      djBtn.style.opacity = '0.4';
+      djBtn.style.cursor = 'not-allowed';
+      djBtn.title = 'DJ (d) - Unavailable';
     }
     
     if (window.Spotify) initPlayer();
