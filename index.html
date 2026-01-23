@@ -1702,6 +1702,7 @@ async function loadExplore(fromHistory = false) {
   localStorage.setItem('last_view', 'explore');
   
   const el = document.getElementById('tracks');
+  el.classList.remove('grid-view');
   el.classList.add('sectioned');
   el.innerHTML = '';
   el.scrollTop = 0;
