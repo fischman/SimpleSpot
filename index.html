@@ -731,13 +731,26 @@ function initPlayer() {
     }
   });
   
-  player.addListener('initialization_error', ({ message }) => {
-    console.error('SDK initialization error:', message);
+  // Log all SDK events for debugging
+  const sdkEvents = [
+    'initialization_error',
+    'authentication_error', 
+    'account_error',
+    'playback_error',
+    'ready',
+    'not_ready',
+    'player_state_changed',
+    'autoplay_failed'
+  ];
+  
+  sdkEvents.forEach(eventName => {
+    player.addListener(eventName, (data) => {
+      console.log(`[SDK Event: ${eventName}]`, JSON.stringify(data, null, 2));
+    });
   });
   
+  // Handle specific events that need action
   player.addListener('authentication_error', async ({ message }) => {
-    console.error('SDK authentication error:', message);
-    // Try refreshing token and recreating player
     if (await refreshToken()) {
       accessToken = getAuth('access_token');
       player.disconnect();
@@ -746,10 +759,6 @@ function initPlayer() {
     } else {
       forceRelogin('SDK authentication error');
     }
-  });
-  
-  player.addListener('playback_error', ({ message }) => {
-    console.error('SDK playback error:', message);
   });
   
   player.connect();
