@@ -745,7 +745,7 @@ function initPlayer() {
   
   sdkEvents.forEach(eventName => {
     player.addListener(eventName, (data) => {
-      console.log(`[SDK Event: ${eventName}]`, JSON.stringify(data, null, 2));
+      console.log(`[SDK Event: ${eventName}]`, data);
     });
   });
   
