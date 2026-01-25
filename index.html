@@ -1139,11 +1139,14 @@ function loadLocalQueue() {
   updateQueueButtons();
 }
 
-// Enable play/next buttons if queue has items (even when nothing is playing)
+// Enable/disable play/next/prev buttons based on queue and history state
 function updateQueueButtons() {
   const hasQueue = localQueue.length > 0;
+  const hasHistory = playHistory.length > 0;
   const playBtn = document.getElementById('play-btn');
   const nextBtn = document.querySelector('.player-controls button[onclick="next()"]');
+  const prevBtn = document.querySelector('.player-controls button[onclick="previous()"]');
+  
   if (hasQueue) {
     playBtn.disabled = false;
     playBtn.style.opacity = '1';
@@ -1151,6 +1154,11 @@ function updateQueueButtons() {
       nextBtn.disabled = false;
       nextBtn.style.opacity = '1';
     }
+  }
+  
+  if (prevBtn) {
+    prevBtn.disabled = !hasHistory;
+    prevBtn.style.opacity = hasHistory ? '1' : '0.5';
   }
 }
 
@@ -1444,6 +1452,7 @@ async function previous() {
   // Play previous track from history
   const prevUri = playHistory.pop();
   await playTrack(prevUri);
+  updateQueueButtons();
   refreshQueueIfViewing();
 }
 
