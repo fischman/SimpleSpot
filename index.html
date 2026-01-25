@@ -1136,6 +1136,22 @@ function loadLocalQueue() {
     }
   }
   catch (e) { localQueue = []; }
+  updateQueueButtons();
+}
+
+// Enable play/next buttons if queue has items (even when nothing is playing)
+function updateQueueButtons() {
+  const hasQueue = localQueue.length > 0;
+  const playBtn = document.getElementById('play-btn');
+  const nextBtn = document.querySelector('.player-controls button[onclick="next()"]');
+  if (hasQueue) {
+    playBtn.disabled = false;
+    playBtn.style.opacity = '1';
+    if (nextBtn && localQueue.length > 1) {
+      nextBtn.disabled = false;
+      nextBtn.style.opacity = '1';
+    }
+  }
 }
 
 async function addToQueue(uri, toFront = false) {
@@ -1148,6 +1164,7 @@ async function addToQueue(uri, toFront = false) {
     }
     saveLocalQueue();
   }
+  updateQueueButtons();
   if (localStorage.getItem('last_view') === 'queue') showQueue();
   await autoPlayIfIdle(wasEmpty);
 }
@@ -1163,6 +1180,7 @@ async function addAlbumToQueue(albumId, toFront = false) {
     localQueue.push(...newUris);
   }
   saveLocalQueue();
+  updateQueueButtons();
   if (localStorage.getItem('last_view') === 'queue') showQueue();
   await autoPlayIfIdle(wasEmpty);
 }
@@ -1178,6 +1196,7 @@ async function addPlaylistToQueue(playlistId, toFront = false) {
     localQueue.push(...newUris);
   }
   saveLocalQueue();
+  updateQueueButtons();
   if (localStorage.getItem('last_view') === 'queue') showQueue();
   await autoPlayIfIdle(wasEmpty);
 }
@@ -1384,6 +1403,11 @@ async function togglePlay() {
       }
       return;
     }
+    // No saved state - play from queue if available
+    if (localQueue.length > 0) {
+      await playNextFromLocalQueue();
+      return;
+    }
   }
   player?.togglePlay();
 }
@@ -1396,6 +1420,13 @@ async function next() {
   }
   
   if (localQueue.length > 0) {
+    // Skip first item (current/next) and play second if nothing playing, else play first (next)
+    const state = await player?.getCurrentState();
+    if (!state && localQueue.length > 1) {
+      // Nothing playing - "next" means skip to second item in queue
+      localQueue.shift(); // discard first
+      saveLocalQueue();
+    }
     await playNextFromLocalQueue();
   }
   refreshQueueIfViewing();
