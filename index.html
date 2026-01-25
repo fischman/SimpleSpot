@@ -538,7 +538,7 @@ async function refreshToken() {
         }
         return true;
       }
-      console.warn('Token refresh failed:', data.error || 'no access_token', data);
+      console.error('Token refresh failed:', data.error, data.error_description, data);
       return false;
     } catch (e) {
       console.error('Token refresh error:', e);
@@ -2326,9 +2326,23 @@ function setBreadcrumb(items) {
   
   // Check if we have a valid session
   if (getClientId() && (callbackOk || getAuth('access_token'))) {
+    const tokenExpiry = getAuth('token_expiry');
+    const hasRefreshToken = !!getAuth('refresh_token');
+    console.log('Init auth check:', {
+      hasAccessToken: !!getAuth('access_token'),
+      hasRefreshToken,
+      tokenExpiry: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : null,
+      isExpired: tokenExpiry ? Date.now() > parseInt(tokenExpiry) : 'no expiry'
+    });
     if (Date.now() > getAuth('token_expiry')) {
-      console.log('Token expired at init, attempting refresh');
-      if (!await refreshToken()) { forceRelogin('init: token refresh failed'); return; }
+      console.log('Token expired at init, attempting refresh...');
+      const refreshed = await refreshToken();
+      console.log('Token refresh result:', refreshed);
+      if (!refreshed) {
+        console.error('Init refresh failed, but have refresh token?', hasRefreshToken);
+        forceRelogin('init: token refresh failed');
+        return;
+      }
     }
     accessToken = getAuth('access_token');
     document.getElementById('login').style.display = 'none';
@@ -2421,9 +2435,23 @@ window.addEventListener('beforeunload', () => {
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && getAuth('access_token')) {
     if (Date.now() > getAuth('token_expiry')) {
-      console.log('Tab became visible, token expired, reloading page');
-      // SDK's WebSocket state is tied to old token - simplest fix is reload
-      location.reload();
+      console.log('Tab became visible, token expired, attempting refresh first...');
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        console.log('Token refreshed successfully, recreating player...');
+        accessToken = getAuth('access_token');
+        if (player) {
+          player.disconnect();
+          player = null;
+        }
+        initPlayer();
+        // Wait for player to be ready before allowing playback
+        await playerReadyPromise;
+        console.log('Player recreated successfully after token refresh');
+      } else {
+        console.error('Token refresh failed on visibility change, reloading page');
+        location.reload();
+      }
     }
   }
 });
