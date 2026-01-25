@@ -2649,10 +2649,6 @@ async function resumePlaybackIfNeeded() {
   
   try {
     const state = JSON.parse(saved);
-    const age = Date.now() - state.timestamp;
-    
-    // Only restore if saved within last 5 minutes
-    if (age > 5 * 60 * 1000) return;
     
     // Check if last context was DJ playlist
     const isDJ = djPlaylistId && state.contextUri === `spotify:playlist:${djPlaylistId}`;
