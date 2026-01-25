@@ -752,18 +752,6 @@ function initPlayer() {
     console.error('SDK playback error:', message);
   });
   
-  player.addListener('not_ready', ({ device_id }) => {
-    console.warn('Player went offline, device_id:', device_id);
-    // Attempt to reconnect after a short delay
-    setTimeout(async () => {
-      console.log('Attempting to reconnect player...');
-      if (await refreshToken()) {
-        accessToken = getAuth('access_token');
-      }
-      player.connect();
-    }, 2000);
-  });
-  
   player.connect();
 }
 
