@@ -752,8 +752,41 @@ function initPlayer() {
     console.error('SDK playback error:', message);
   });
   
+  player.addListener('not_ready', ({ device_id }) => {
+    console.warn('Player not ready, device_id:', device_id);
+  });
+  
   player.connect();
 }
+
+// Reconnect player when tab becomes visible (handles stale connections)
+let reconnectAttempts = 0;
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && player && accessToken) {
+    try {
+      const state = await player.getCurrentState();
+      if (!state) {
+        console.log('Player state lost, reconnecting...');
+        // Token might be stale too
+        if (await refreshToken()) {
+          accessToken = getAuth('access_token');
+        }
+        player.disconnect();
+        player = null;
+        reconnectAttempts++;
+        if (reconnectAttempts <= 3) {
+          initPlayer();
+        } else {
+          console.error('Too many reconnect attempts, please reload');
+        }
+      } else {
+        reconnectAttempts = 0; // Reset on successful state fetch
+      }
+    } catch (e) {
+      console.error('Error checking player state:', e);
+    }
+  }
+});
 
 window.onSpotifyWebPlaybackSDKReady = () => {
   if (accessToken) initPlayer();
