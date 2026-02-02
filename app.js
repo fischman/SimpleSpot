@@ -55,6 +55,7 @@ function clearAuth() {
 let accessToken = null;
 let player = null;
 let deviceId = null;
+let wakeLock = null;
 let playerReadyPromise = null;
 let playerReadyResolve = null;
 let currentState = null;
@@ -334,6 +335,24 @@ async function refreshToken() {
   return refreshPromise;
 }
 
+// Wake Lock - keeps screen on during playback
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) {
+    // Wake lock request failed (e.g., low battery, tab not visible)
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
+  }
+}
+
 async function api(endpoint, opts = {}, _retry = false) {
   // Check if token needs refresh before API call (with 60s buffer)
   if (Date.now() > getAuth('token_expiry') - 60000) {
@@ -463,6 +482,9 @@ function initPlayer() {
     clearInterval(progressInterval);
     if (!state.paused) {
       progressInterval = setInterval(updateProgress, 1000);
+      acquireWakeLock();
+    } else {
+      releaseWakeLock();
     }
     
     // Update MPRIS / Media Session
@@ -2252,6 +2274,7 @@ document.getElementById('search').addEventListener('keyup', e => {
 
 // Save play state before page unload (before player disconnects and sets paused=true)
 window.addEventListener('beforeunload', () => {
+  releaseWakeLock();
   if (lastPlayState) {
     // Estimate current position based on elapsed time since last state update
     if (!lastPlayState.paused) {
@@ -2284,6 +2307,10 @@ document.addEventListener('visibilitychange', async () => {
         console.error('Token refresh failed on visibility change, reloading page');
         location.reload();
       }
+    }
+    // Re-acquire wake lock if playing (wake lock is released when tab is hidden)
+    if (currentState && !currentState.paused) {
+      acquireWakeLock();
     }
   }
 });
