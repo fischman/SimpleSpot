@@ -2,17 +2,16 @@
 
 ## Overview
 
-SimpleSpot is a simple web-based Spotify client implemented as a **single HTML file** (~2100 lines). It uses Spotify's Web API and Web Playback SDK to provide playback control, library browsing, and queue management.
+SimpleSpot is a simple web-based Spotify client implemented in two files (~2700 lines total). It uses Spotify's Web API and Web Playback SDK to provide playback control, library browsing, and queue management.
 
 ## Key Design Decisions
 
-### Single-File Architecture
-Everything is contained in `index.html`:
-- HTML structure
-- CSS styles (in `<style>` tag)
-- JavaScript application logic (in `<script>` tag)
+### Minimal File Architecture
+The application is split into two files:
+- `index.html` (~230 lines) - HTML structure and CSS styles
+- `app.js` (~2500 lines) - All JavaScript application logic
 
-This enables easy deployment and portability - just serve the single file.
+This enables easy deployment while keeping concerns separated.
 
 ### Client ID Support
 Two Spotify client IDs are supported:
@@ -147,9 +146,10 @@ Fetches lyrics from LRCLIB API (proxied through server.py). Supports:
 ## File Structure
 
 ```
-spotify-client/
-├── index.html      # The entire application
-├── server.py       # Simple Python HTTP server for development
+SimpleSpot/
+├── index.html      # HTML structure and CSS styles
+├── app.js          # JavaScript application logic
+├── server.py       # Simple Python HTTP server (serves index.html and app.js)
 ├── README.md       # User-facing documentation
 ├── ARCHITECTURE.md # This file
 └── AGENTS.md       # AI agent instructions

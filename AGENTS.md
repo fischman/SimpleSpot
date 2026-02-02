@@ -2,7 +2,9 @@
 
 ## Project Context
 
-SimpleSpot is a simple web-based Spotify client. The entire application is a **single `index.html` file** - this is intentional and must be maintained. Do not split into multiple files.
+SimpleSpot is a simple web-based Spotify client. The application consists of two files:
+- `index.html` - HTML structure and CSS styles (~230 lines)
+- `app.js` - All JavaScript application logic (~2500 lines)
 
 ## Code Style Preferences
 
@@ -10,7 +12,7 @@ SimpleSpot is a simple web-based Spotify client. The entire application is a **s
 - **Brevity over verbosity** - Keep code concise
 - **No unnecessary abstractions** - Direct, simple code preferred
 - **Vanilla JS only** - No frameworks, no build tools, no npm
-- **Single file** - All HTML, CSS, and JS in index.html
+- **Minimal files** - Keep everything in index.html + app.js
 
 ### JavaScript
 - Use `async/await` over `.then()` chains
@@ -138,7 +140,7 @@ Always use `escapeHtml()` for user-provided strings. It handles null/undefined s
 
 ## Don't Do
 
-- Don't create separate files (manifest.json, sw.js, etc.)
+- Don't create additional files beyond index.html and app.js
 - Don't add npm/build dependencies
 - Don't use localStorage directly for auth - use `getAuth()`/`setAuth()`
 - Don't assume track.uri matches playlist entries (relinking!)
