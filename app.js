@@ -338,17 +338,23 @@ async function refreshToken() {
 // Wake Lock - keeps screen on during playback
 async function acquireWakeLock() {
   if (!('wakeLock' in navigator)) return;
+  if (wakeLock) return; // Already held
   try {
     wakeLock = await navigator.wakeLock.request('screen');
-    wakeLock.addEventListener('release', () => { wakeLock = null; });
+    console.log('Wake lock acquired');
+    wakeLock.addEventListener('release', () => {
+      console.log('Wake lock released (by system)');
+      wakeLock = null;
+    });
   } catch (e) {
-    // Wake lock request failed (e.g., low battery, tab not visible)
+    console.log('Wake lock request failed:', e.message);
   }
 }
 
 function releaseWakeLock() {
   if (wakeLock) {
     wakeLock.release();
+    console.log('Wake lock released');
     wakeLock = null;
   }
 }
