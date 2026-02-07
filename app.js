@@ -700,7 +700,6 @@ function updateProgress() {
   });
 })();
 
-// AMI: CONTINUE HERE
 
 async function search(q, fromHistory = false) {
   if (!fromHistory) navigate('search', { q });
@@ -789,7 +788,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
       `<span class="artist-link">${shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`)}</span>`
     ).join(', ') || '';
     const playAction = contextUri
-      ? `playFromContext('${contextUri}', ${contextOffset + i}, '${t.uri}')`
+      ? `playFromContext('${contextUri}', ${contextOffset + i})`
       : `playTrack('${t.uri}')`;
     return `
     <li class="track">
@@ -797,7 +796,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
         <span class="track-num">${startNum + i}</span>
         ${isQueueRemove
           ? `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>`
-          : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue('${t.uri}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>`
+          : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue([${t.uri}], event.shiftKey)" title="Add to queue (Shift: play next)">+</button>`
         }
         ${radioBtn('track', trackId)}
       </div>
@@ -818,10 +817,7 @@ async function play(body) {
   // Wait for player to be ready if it's initializing
   if (playerReadyPromise) await playerReadyPromise;
 
-  if (!deviceId) {
-    console.error('No device ID - player not ready');
-    return;
-  }
+  assert(deviceId, 'No device ID - player not ready');
 
   const res = await fetch('https://api.spotify.com/v1/me/player/play?device_id=' + deviceId, {
     method: 'PUT',
@@ -843,47 +839,13 @@ function playTrack(uri) {
   return play({ uris: [uri] });
 }
 
+// Fetch tracks from album/playlist and add to front of queue.
 async function playContext(uri) {
-  // Fetch tracks from album/playlist and add to front of queue
-  const [, type, id] = uri.split(':');
-  let trackUris = [];
-
-  if (type === 'album') {
-    const album = await api(`/albums/${id}`);
-    trackUris = album?.tracks?.items?.map(t => t.uri).filter(Boolean) || [];
-  } else if (type === 'playlist') {
-    // Paginate to get all tracks
-    let url = `/playlists/${id}/tracks?limit=100`;
-    while (url) {
-      const data = await api(url);
-      trackUris = trackUris.concat((data?.items || []).map(i => i.track?.uri).filter(Boolean));
-      url = data?.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
-    }
-  }
-
-  if (trackUris.length === 0) return;
-
-  // Insert at front of queue and play first track
-  localQueue = trackUris.concat(localQueue);
-  saveLocalQueue();
-  await playNextFromLocalQueue();
+  return playFromContext(uri, 0);
 }
 
-async function isPlayingDJ() {
-  return player != null && (await player.getCurrentState()).context.metadata.context_description == 'DJ'
-}
-
-async function playDJ() {
-  await play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
-  showQueue();
-}
-
-function playFromContext(contextUri, offset, trackUri) {
-  // Play specific track and queue the rest from that position
-  return playContextFromOffset(contextUri, offset);
-}
-
-async function playContextFromOffset(uri, offset) {
+// Play specific track and queue the rest from that position.
+async function playFromContext(uri, offset) {
   const [, type, id] = uri.split(':');
   let trackUris = [];
 
@@ -905,7 +867,17 @@ async function playContextFromOffset(uri, offset) {
   const tracksFromOffset = trackUris.slice(offset);
   localQueue = tracksFromOffset.concat(localQueue);
   saveLocalQueue();
+  await showQueue();
   await playNextFromLocalQueue();
+}
+
+async function isPlayingDJ() {
+  return player != null && (await player.getCurrentState()).context.metadata.context_description == 'DJ'
+}
+
+async function playDJ() {
+  await play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
+  showQueue();
 }
 
 function saveLocalQueue() {
@@ -913,95 +885,57 @@ function saveLocalQueue() {
 }
 
 function loadLocalQueue() {
-  try {
-    localQueue = JSON.parse(localStorage.getItem('local_queue')) || [];
-    // Migrate old format (objects with uri property) to new format (plain strings)
-    if (localQueue.length > 0 && typeof localQueue[0] === 'object') {
-      localQueue = localQueue.map(item => item.uri).filter(Boolean);
-      saveLocalQueue();
-    }
-  }
-  catch (e) { localQueue = []; }
+  localQueue = JSON.parse(localStorage.getItem('local_queue')) || [];
   updateQueueButtons();
 }
 
-// Enable/disable play/next/prev buttons based on queue and history state
+// Enable/disable play/next/prev buttons based on queue and history state.
 function updateQueueButtons() {
   const hasQueue = localQueue.length > 0;
   const hasHistory = playHistory.length > 0;
   const playBtn = document.getElementById('play-btn');
   const nextBtn = document.querySelector('.player-controls button[onclick="next()"]');
   const prevBtn = document.querySelector('.player-controls button[onclick="previous()"]');
-
+  assert(playBtn && nextBtn && prevBtn, 'Missing button!');
   if (hasQueue) {
     playBtn.disabled = false;
     playBtn.style.opacity = '1';
-    if (nextBtn && localQueue.length > 1) {
+    if (localQueue.length > 1) {
       nextBtn.disabled = false;
       nextBtn.style.opacity = '1';
     }
   }
-
-  if (prevBtn) {
-    prevBtn.disabled = !hasHistory;
-    prevBtn.style.opacity = hasHistory ? '1' : '0.5';
-  }
+  prevBtn.disabled = !hasHistory;
+  prevBtn.style.opacity = hasHistory ? '1' : '0.5';
 }
 
-async function addToQueue(uri, toFront = false) {
-  const wasEmpty = localQueue.length === 0;
-  if (!localQueue.includes(uri)) {
-    if (toFront) {
-      localQueue.unshift(uri);
-    } else {
-      localQueue.push(uri);
-    }
-    saveLocalQueue();
+async function addToQueue(uris, toFront = false) {
+  if (toFront) {
+    localQueue.unshift(...uris);
+  } else {
+    localQueue.push(...uris);
   }
+  saveLocalQueue();
   updateQueueButtons();
-  if (localStorage.getItem('last_view') === 'queue') showQueue();
-  await autoPlayIfIdle(wasEmpty);
+  await showQueue();
+  return autoPlayIfIdle();
 }
 
 async function addAlbumToQueue(albumId, toFront = false) {
-  const wasEmpty = localQueue.length === 0;
   const data = await api(`/albums/${albumId}`);
   const trackUris = data.tracks?.items?.map(t => t.uri) || [];
-  const newUris = trackUris.filter(uri => !localQueue.includes(uri));
-  if (toFront) {
-    localQueue.unshift(...newUris);
-  } else {
-    localQueue.push(...newUris);
-  }
-  saveLocalQueue();
-  updateQueueButtons();
-  if (localStorage.getItem('last_view') === 'queue') showQueue();
-  await autoPlayIfIdle(wasEmpty);
+  return addToQueue(trackUris, toFront);
 }
 
 async function addPlaylistToQueue(playlistId, toFront = false) {
-  const wasEmpty = localQueue.length === 0;
   const data = await api(`/playlists/${playlistId}/tracks?limit=100`);
   const trackUris = data.items?.map(i => i.track?.uri).filter(Boolean) || [];
-  const newUris = trackUris.filter(uri => !localQueue.includes(uri));
-  if (toFront) {
-    localQueue.unshift(...newUris);
-  } else {
-    localQueue.push(...newUris);
-  }
-  saveLocalQueue();
-  updateQueueButtons();
-  if (localStorage.getItem('last_view') === 'queue') showQueue();
-  await autoPlayIfIdle(wasEmpty);
+  return addToQueue(trackUris, toFront);
 }
 
-async function autoPlayIfIdle(wasEmpty) {
-  if (!wasEmpty || localQueue.length === 0) return;
-  const state = await player?.getCurrentState();
-  // Start playing if nothing is playing or playback is paused with no track
-  if (!state || (!state.track_window?.current_track && state.paused)) {
-    playNextFromLocalQueue();
-  }
+async function autoPlayIfIdle() {
+  if (await player.getCurrentState().paused)
+    return playNextFromLocalQueue();
 }
 
 function removeFromQueue(index) {
@@ -1012,7 +946,6 @@ function removeFromQueue(index) {
   }
 }
 
-// Loop mode
 function toggleLoop() {
   loopEnabled = !loopEnabled;
   localStorage.setItem('loop_enabled', loopEnabled);
@@ -1056,12 +989,10 @@ async function fetchAndShowLyrics() {
     return;
   }
 
-  // Get track info from the player display
   const trackName = document.getElementById('player-track')?.textContent || '';
   const artistName = document.getElementById('player-artist')?.textContent || '';
   const trackKey = `${artistName} ${trackName}`;
 
-  // Don't refetch if same track
   if (trackKey === lyricsTrackKey && currentLyrics) {
     renderLyrics();
     return;
@@ -1081,21 +1012,22 @@ async function fetchAndShowLyrics() {
     const data = await res.json();
 
     if (data?.syncedLyrics) {
-      // Parse LRC format: [mm:ss.xx]text
+      // Parse LRC format: [mm:ss.xx]text.
       lyricsSynced = true;
       currentLyrics = data.syncedLyrics.split('\n').map(line => {
         const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
-        if (!match) return null;
+        assert(match, `Malformed lyrics line: [${line}]`);
         const time = parseInt(match[1]) * 60000 + parseFloat(match[2]) * 1000;
         return { time, words: match[3] };
       }).filter(l => l && (l.time > 0 || l.words.trim()));
     } else if (data?.plainLyrics) {
-      // Fall back to plain lyrics (no timestamps, no highlighting)
+      // Fall back to plain lyrics (no timestamps, no highlighting).
       lyricsSynced = false;
       currentLyrics = data.plainLyrics.split('\n').map((line, i) => ({
         time: i,
         words: line
       })).filter(l => l.words.trim());
+      currentLyrics.unshift({time: -1, words: "<p style='margin-top: 2em;margin-bottom: 2em;'>[missing time-sync data for these lyrics 😕]</p>"});
     } else {
       currentLyrics = null;
       lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
@@ -1174,36 +1106,33 @@ async function playNextFromLocalQueue() {
 
   const nextUri = localQueue.shift();
   saveLocalQueue();
+  if (localStorage.getItem('last_view') === 'queue') {
+    await showQueue();
+  }
   await playTrack(nextUri);
 }
 
 async function togglePlay() {
   const state = await player?.getCurrentState();
-  if (!state) {
-    // Try to resume from saved state
-    const saved = localStorage.getItem('play_state');
-    if (saved) {
-      try {
-        const s = JSON.parse(saved);
-        if (!s.trackUri || !s.trackUri.startsWith('spotify:track:')) return;
-        // Only use context if it's a valid playlist/album/artist
-        const validContext = s.contextUri && /^spotify:(playlist|album|artist):/.test(s.contextUri);
-        await play(validContext
-          ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position || 0 }
-          : { uris: [s.trackUri], position_ms: s.position || 0 });
-      } catch (e) {
-        console.error('Failed to restore play state:', e);
-        localStorage.removeItem('play_state');
-      }
-      return;
-    }
-    // No saved state - play from queue if available
+  if (state) {
+    player?.togglePlay();
+    return;
+  }
+
+  const saved = localStorage.getItem('play_state');
+  if (!saved) { // No saved state - play from queue if available.
     if (localQueue.length > 0) {
       await playNextFromLocalQueue();
-      return;
     }
+    return;
   }
-  player?.togglePlay();
+
+  const s = JSON.parse(saved);
+  assert(s.trackUri && s.trackUri.startsWith('spotify:track:'), `Malformed saved play_state: [${saved}]`);
+  const validContext = s.contextUri && /^spotify:(playlist|album|artist):/.test(s.contextUri);
+  await play(validContext
+             ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position || 0 }
+             : { uris: [s.trackUri], position_ms: s.position || 0 });
 }
 
 async function next() {
@@ -1211,7 +1140,7 @@ async function next() {
     return player.nextTrack();
   }
 
-  // If loop enabled, add current track to end of queue before skipping (unless already there)
+  // If loop enabled, add current track to end of queue before skipping (unless already there).
   if (loopEnabled && currentTrackUri && localQueue[localQueue.length - 1] !== currentTrackUri) {
     localQueue.push(currentTrackUri);
     saveLocalQueue();
@@ -1237,7 +1166,6 @@ async function previous() {
 
   if (playHistory.length === 0) return;
 
-  // Put current track back at front of queue
   if (currentTrackUri) {
     localQueue.unshift(currentTrackUri);
     saveLocalQueue();
@@ -1257,7 +1185,6 @@ function refreshQueueIfViewing() {
   }
 }
 
-// Devices
 async function loadDevices() {
   const data = await api('/me/player/devices');
   const menu = document.getElementById('device-menu');
@@ -1289,7 +1216,7 @@ async function transferPlayback(id) {
   document.getElementById('device-menu').classList.remove('show');
 }
 
-// Playlists
+// AMI: CONTINUE HERE
 async function loadLikedSongs(fromHistory = false) {
   if (!fromHistory) navigate('liked');
   setBreadcrumb([{ name: 'Liked Songs' }]);
