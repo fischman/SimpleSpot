@@ -365,10 +365,6 @@ async function api(endpoint, opts = {}, _retry = false) {
     }
   }
 
-  ////////////////////////////////////////////////////////////////////////////////
-  // AMI: CONTINUE HERE!
-  ////////////////////////////////////////////////////////////////////////////////
-
   const res = await fetch('https://api.spotify.com/v1' + endpoint, {
     ...opts,
     headers: { Authorization: 'Bearer ' + getAuth('access_token'), ...opts.headers }
@@ -393,9 +389,10 @@ async function api(endpoint, opts = {}, _retry = false) {
   const text = await res.text();
   if (!text) return null;
   try {
+    // Do this rather than asking for res.json() above b/c that doesn't distinguish between empty and malformed JSON.
     return JSON.parse(text);
   } catch (e) {
-    // Don't log for successful responses - some endpoints return non-JSON
+    // Don't log for successful responses - some endpoints return non-JSON.
     if (res.status >= 400) {
       console.error('API error response:', res.status, endpoint, text.substring(0, 200));
     }
@@ -403,7 +400,7 @@ async function api(endpoint, opts = {}, _retry = false) {
   }
 }
 
-// Fetch tracks by IDs, chunking to respect API limit of 50
+// Fetch tracks by IDs, chunking to respect API limit of 50.
 async function fetchTracksByIds(trackIds) {
   if (!trackIds || trackIds.length === 0) return [];
   const chunks = [];
@@ -428,13 +425,12 @@ function getDeviceName() {
 }
 
 function initPlayer() {
-  // Create promise that resolves when player is ready
   playerReadyPromise = new Promise(resolve => { playerReadyResolve = resolve; });
 
   player = new Spotify.Player({
     name: getDeviceName(),
     getOAuthToken: async cb => {
-      // Refresh with 60s buffer to avoid race conditions
+      // Refresh with 60s buffer to avoid race conditions.
       if (Date.now() > getAuth('token_expiry') - 60000) {
         console.log('SDK requesting token, refreshing (expiry soon)');
         if (!await refreshToken()) {
@@ -471,7 +467,7 @@ function initPlayer() {
     const art = document.getElementById('player-art');
     art.src = track.album.images[0]?.url || '';
     art.style.display = track.album.images[0]?.url ? 'block' : 'none';
-    // Re-enable all player controls
+    // Re-enable all player controls.
     document.querySelectorAll('.player-controls button').forEach(btn => {
       btn.disabled = false;
       btn.style.opacity = '1';
@@ -481,7 +477,6 @@ function initPlayer() {
     document.getElementById('progress-total').textContent = formatTime(state.duration);
     updateProgress();
 
-    // Use interval only when playing, update every second
     clearInterval(progressInterval);
     if (!state.paused) {
       progressInterval = setInterval(updateProgress, 1000);
@@ -490,10 +485,9 @@ function initPlayer() {
       releaseWakeLock();
     }
 
-    // Update MPRIS / Media Session
     updateMediaSession(track, state);
 
-    // Store play state in memory (saved to localStorage on beforeunload)
+    // Store play state in memory (saved to localStorage on beforeunload).
     lastPlayState = {
       trackUri: track.uri,
       position: state.position,
@@ -502,7 +496,7 @@ function initPlayer() {
       timestamp: Date.now()
     };
 
-    // Track changed - refresh queue view and lyrics
+    // Track changed - refresh queue view and lyrics.
     if (track.uri !== lastTrackUri || queueRefreshPending) {
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
@@ -539,27 +533,29 @@ function initPlayer() {
     }
   });
 
-  // Log all SDK events for debugging
-  const sdkEvents = [
-    'initialization_error',
+  // Log all
+  // https://developer.spotify.com/documentation/web-playback-sdk/reference#events
+  // and
+  // https://developer.spotify.com/documentation/web-playback-sdk/reference#errors
+  // for debugging.
+  [ 'account_error',
     'authentication_error',
-    'account_error',
-    'playback_error',
-    'ready',
+    'autoplay_failed',
+    'initialization_error',
     'not_ready',
+    'playback_error',
     'player_state_changed',
-    'autoplay_failed'
-  ];
-
-  sdkEvents.forEach(eventName => {
+    'ready'
+  ].forEach(eventName => {
     player.addListener(eventName, (data) => {
       console.log(`[SDK Event: ${eventName}]`, data);
     });
   });
 
-  // Handle specific events that need action
   player.addListener('authentication_error', async ({ message }) => {
+    console.log(`authentication_error: ${message}; attempting refresh...`);
     if (await refreshToken()) {
+      console.log(`Refresh succeeded; now disconnecting, dropping, and re-initPlayer()'ing.`);
       player.disconnect();
       player = null;
       initPlayer();
@@ -575,7 +571,6 @@ window.onSpotifyWebPlaybackSDKReady = () => {
   if (getAuth('access_token')) initPlayer();
 };
 
-// Utility
 function showLoading() {
   const el = document.getElementById('tracks');
   el.classList.remove('sectioned', 'grid-view');
@@ -596,8 +591,8 @@ function stripHtml(s) {
   return s.replace(/<[^>]*>/g, '');
 }
 
-// Generate shareable link - wraps text in <a> with Spotify URL
-// Left-click does onclick action, right-click gives native "Copy link" option
+// Generate shareable link - wraps text in <a> with Spotify URL.
+// Left-click does onclick action, right-click gives native "Copy link" option.
 function shareLink(type, id, text, onclick) {
   const url = `https://open.spotify.com/${type}/${id}`;
   return `<a href="${url}" onclick="event.preventDefault(); ${onclick}">${text}</a>`;
@@ -611,60 +606,44 @@ function radioBtn(type, id) {
   return `<button class="radio-btn" onclick="event.stopPropagation(); startRadio('${type}', '${id}')" title="Start radio">📻</button>`;
 }
 
-// Radio - get recommendations and add to queue
+// Radio: get recommendations and add to queue.
 async function startRadio(type, id) {
   let seedParam = '';
-  let seedTrackUris = []; // Track URIs to queue before recommendations
 
   if (type === 'track') {
     seedParam = `seed_tracks=${id}`;
-    seedTrackUris = [`spotify:track:${id}`];
   } else if (type === 'artist') {
     seedParam = `seed_artists=${id}`;
-    // For artists, get their top tracks to queue first
-    const topTracks = await api(`/artists/${id}/top-tracks?market=US`);
-    seedTrackUris = topTracks.tracks?.slice(0, 5).map(t => t.uri) || [];
   } else if (type === 'album') {
-    // Use first 5 tracks from album as seeds
-    const album = await api(`/albums/${id}`);
-    const tracks = album.tracks?.items?.slice(0, 5) || [];
-    const trackIds = tracks.map(t => t.id).join(',');
-    if (!trackIds) return;
+    const trackIds = (await api(`/albums/${id}`)).tracks?.items?.map(t => t.id).join(',');
+    assert(trackIds, `Failed to fetch tracks for /albums/${id}`);
     seedParam = `seed_tracks=${trackIds}`;
-    seedTrackUris = tracks.map(t => t.uri);
   } else if (type === 'playlist') {
-    // Use first 5 tracks from playlist as seeds
-    const playlist = await api(`/playlists/${id}/tracks?limit=5`);
-    const tracks = playlist.items?.map(i => i.track).filter(Boolean) || [];
-    const trackIds = tracks.map(t => t.id).join(',');
-    if (!trackIds) return;
+    // Use tracks from playlist as seeds.
+    const trackIds = (await api(`/playlists/${id}/tracks`)).items?.map(i => i.track).filter(Boolean)?.map(t => t.id).join(',');
+    assert(trackIds, `Failed to fetch /playlists/${id}/tracks`);
     seedParam = `seed_tracks=${trackIds}`;
-    seedTrackUris = tracks.map(t => t.uri);
   }
 
-  const recs = await api(`/recommendations?${seedParam}&limit=20`);
-  if (!recs?.tracks?.length) {
-    alert('No recommendations found');
-    return;
-  }
+  const recs = await api(`/recommendations?${seedParam}&limit=50`);
+  assert(recs?.tracks?.length, `No recommendations found for ${seedParam}`);
 
-  // Add seed tracks first, then recommendations
-  const firstTrackUri = seedTrackUris[0] || recs.tracks[0]?.uri;
-  [...seedTrackUris, ...recs.tracks.map(t => t.uri)].forEach(uri => {
+  await clearQueue();
+
+  if (type == 'track') {
+    localQueue.push(`spotify:track:${id}`);
+  }
+  recs.tracks.map(t => t.uri).forEach(uri => {
     if (!localQueue.includes(uri)) {
       localQueue.push(uri);
     }
   });
   saveLocalQueue();
 
-  // Switch to queue view and start playing first track
   await showQueue();
-  if (firstTrackUri) {
-    playTrack(firstTrackUri);
-  }
+  await next();
 }
 
-// Progress & Volume
 function updateProgress() {
   if (!currentState) return;
   player.getCurrentState().then(state => {
@@ -681,7 +660,6 @@ function updateProgress() {
   });
 }
 
-// Seek bar with tooltip
 (function() {
   const bar = document.getElementById('progress-bar');
   const tooltip = document.getElementById('seek-tooltip');
@@ -706,7 +684,6 @@ function updateProgress() {
   });
 })();
 
-// Volume slider
 (function() {
   const slider = document.getElementById('volume-slider');
   const saved = localStorage.getItem('volume');
@@ -723,7 +700,8 @@ function updateProgress() {
   });
 })();
 
-// Search
+// AMI: CONTINUE HERE
+
 async function search(q, fromHistory = false) {
   if (!fromHistory) navigate('search', { q });
   setBreadcrumb([{ name: 'Search: ' + q }]);
