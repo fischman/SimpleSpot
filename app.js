@@ -707,24 +707,20 @@ async function search(q, fromHistory = false) {
   setBreadcrumb([{ name: 'Search: ' + q }]);
   showLoading();
 
-  // Fetch albums and tracks with pagination
   let allArtists = [];
   let allAlbums = [];
   let allTracks = [];
 
-  // First request
   const data = await api('/search?type=artist,track,album&limit=50&q=' + encodeURIComponent(q));
   allArtists = data.artists?.items || [];
   allAlbums = data.albums?.items || [];
   allTracks = data.tracks?.items || [];
 
-  // Fetch more albums if available (up to 100 total)
+  // Fetch more albums & tracks if available (up to 100 total).
   if (data.albums?.next) {
     const more = await api(data.albums.next.replace('https://api.spotify.com/v1', ''));
     allAlbums = allAlbums.concat(more?.items || []);
   }
-
-  // Fetch more tracks if available (up to 100 total)
   if (data.tracks?.next) {
     const more = await api(data.tracks.next.replace('https://api.spotify.com/v1', ''));
     allTracks = allTracks.concat(more?.items || []);
@@ -738,7 +734,7 @@ async function search(q, fromHistory = false) {
 
 function renderSearchResults(data) {
   const el = document.getElementById('tracks');
-  paginationNextUrl = null; // Clear pagination state
+  paginationNextUrl = null;
   let html = '';
   if (data.artists?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Artists</h3>';
@@ -785,7 +781,6 @@ function renderSearchResults(data) {
   el.innerHTML = html;
 }
 
-// Tracks rendering with context
 function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 1, contextOffset = 0) {
   return tracks.map((t, i) => {
     const trackId = t.uri?.split(':')[2] || t.id;
