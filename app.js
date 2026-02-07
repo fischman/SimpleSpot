@@ -67,7 +67,6 @@ function clearAuth() {
 
  // TODO: review each of these pieces of global state for sanity.
 
-let accessToken = null;
 let player = null;
 let deviceId = null;
 let wakeLock = null;
@@ -257,19 +256,15 @@ async function handleCallback() {
 }
 
 async function processAuthCode(code, clearUrl = false, reload = false) {
-  const verifier = getAuth('code_verifier');
-  const clientId = getClientId();
-  const redirectUri = getRedirectUri();
-
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: clientId,
+      client_id: getClientId(),
       grant_type: 'authorization_code',
       code: code,
-      redirect_uri: redirectUri,
-      code_verifier: verifier
+      redirect_uri: getRedirectUri(),
+      code_verifier: getAuth('code_verifier')
     })
   });
   const data = await res.json();
@@ -302,9 +297,6 @@ async function refreshToken() {
 
   console.log('Starting token refresh...');
 
-  ////////////////////////////////////////////////////////////////////////////////
-  // AMI: CONTINUE HERE!
-  ////////////////////////////////////////////////////////////////////////////////
   refreshPromise = (async () => {
     try {
       const res = await fetch('https://accounts.spotify.com/api/token', {
@@ -320,9 +312,8 @@ async function refreshToken() {
       if (data.access_token) {
         setAuth('access_token', data.access_token);
         setAuth('token_expiry', Date.now() + data.expires_in * 1000);
-        // Spotify may issue a new refresh token - save it if present
         if (data.refresh_token) {
-          console.log('New refresh token received, saving');
+          console.log('Saving new refresh token received as part of token refresh.');
           setAuth('refresh_token', data.refresh_token);
         }
         return true;
@@ -358,8 +349,8 @@ async function acquireWakeLock() {
 
 function releaseWakeLock() {
   if (wakeLock) {
+    console.log('Wake lock releasing...');
     wakeLock.release();
-    console.log('Wake lock released');
     wakeLock = null;
   }
 }
@@ -372,12 +363,15 @@ async function api(endpoint, opts = {}, _retry = false) {
       forceRelogin('api: token refresh failed before call');
       return null;
     }
-    accessToken = getAuth('access_token');
   }
+
+  ////////////////////////////////////////////////////////////////////////////////
+  // AMI: CONTINUE HERE!
+  ////////////////////////////////////////////////////////////////////////////////
 
   const res = await fetch('https://api.spotify.com/v1' + endpoint, {
     ...opts,
-    headers: { Authorization: 'Bearer ' + accessToken, ...opts.headers }
+    headers: { Authorization: 'Bearer ' + getAuth('access_token'), ...opts.headers }
   });
   if (res.status === 204 || res.status === 202) return null;
 
@@ -385,7 +379,6 @@ async function api(endpoint, opts = {}, _retry = false) {
   if (res.status === 401 && !_retry) {
     console.log('Got 401, attempting token refresh and retry');
     if (await refreshToken()) {
-      accessToken = getAuth('access_token');
       return api(endpoint, opts, true);
     } else {
       forceRelogin('api: token refresh failed after 401');
@@ -448,7 +441,6 @@ function initPlayer() {
           forceRelogin('SDK getOAuthToken: token refresh failed');
           return;
         }
-        accessToken = getAuth('access_token');
       }
       cb(getAuth('access_token'));
     },
@@ -568,7 +560,6 @@ function initPlayer() {
   // Handle specific events that need action
   player.addListener('authentication_error', async ({ message }) => {
     if (await refreshToken()) {
-      accessToken = getAuth('access_token');
       player.disconnect();
       player = null;
       initPlayer();
@@ -581,7 +572,7 @@ function initPlayer() {
 }
 
 window.onSpotifyWebPlaybackSDKReady = () => {
-  if (accessToken) initPlayer();
+  if (getAuth('access_token')) initPlayer();
 };
 
 // Utility
@@ -2214,7 +2205,6 @@ function setBreadcrumb(items) {
         return;
       }
     }
-    accessToken = getAuth('access_token');
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').classList.add('show');
     // Load local queue from storage
@@ -2308,7 +2298,6 @@ document.addEventListener('visibilitychange', async () => {
       const refreshed = await refreshToken();
       if (refreshed) {
         console.log('Token refreshed successfully, recreating player...');
-        accessToken = getAuth('access_token');
         if (player) {
           player.disconnect();
           player = null;
