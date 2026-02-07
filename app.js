@@ -1,22 +1,21 @@
-// Client IDs
 const PLAYPAUSE_CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
 const NCSPOT_CLIENT_ID = 'd420a117a32841c2b3474932e49fb54b';
 const SCOPES = 'streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read';
 const DJ_PLAYLIST_ID = '37i9dQZF1EYkqdzj48dyYq';
 
-function assert(c, m) {
-  if (c) { return; }
+function assert(condition, message) {
+  if (condition) { return; }
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.id = 'assert-modal';
   modal.innerHTML = `
     <div class="modal" style="max-width:500px">
       <h2>Assertion failed!</h2>
-      <p style="color:#b3b3b3;margin:16px 0">${m}</p>
+      <p style="color:#b3b3b3;margin:16px 0">${message}</p>
     </div>
   `;
   document.body.appendChild(modal);
-  throw new Error(m);
+  throw new Error(message);
 }
 
 function setClientChoice(choice) {
@@ -31,12 +30,12 @@ function clearClientChoice() {
   localStorage.removeItem('chosen_client');
 }
 
-
 function getClientId() {
-  const choice = getClientChoice();
-  if (choice === 'ncspot') return NCSPOT_CLIENT_ID;
-  if (choice === 'playpause') return PLAYPAUSE_CLIENT_ID;
-  assert(false, `Unknown client choice: [${choice}]`);
+  switch (getClientChoice()) {
+  case 'ncspot': return NCSPOT_CLIENT_ID;
+  case 'playpause': return PLAYPAUSE_CLIENT_ID;
+  default: assert(false, `Unknown client choice: [${choice}]`);
+  }
 }
 
 function getRedirectUri() {
@@ -44,7 +43,7 @@ function getRedirectUri() {
   if (clientChoice === 'playpause') {
       return window.location.href.split('?')[0].split('#')[0];
   }
-  // Try to use our origin (including port!) if on 127.0.0.1, otherwise fall back to manual paste flow
+  // Try to use our origin (including port!) if on 127.0.0.1, otherwise fall back to manual paste flow.
   const host = window.location.hostname;
   if (host === '127.0.0.1') {
     return window.location.origin + '/login';
@@ -56,15 +55,7 @@ function areDeprecatedFeaturesUnavailable() {
   return localStorage.getItem('chosen_client') === 'playpause';
 }
 
-// Helper for radio button - disabled for playpause client (/recommendations is deprecated).
-function radioBtn(type, id) {
-  if (areDeprecatedFeaturesUnavailable()) {
-    return `<button class="radio-btn unavailable" title="Start radio - Unavailable" disabled>📻</button>`;
-  }
-  return `<button class="radio-btn" onclick="event.stopPropagation(); startRadio('${type}', '${id}')" title="Start radio">📻</button>`;
-}
-
-// Auth storage helpers - namespace by client ID so switching clients requires re-auth
+// Auth storage helpers - namespace by client ID so switching clients requires re-auth.
 function getAuthPrefix() { return `auth_${getClientId()}_`; }
 function getAuth(key) { return localStorage.getItem(getAuthPrefix() + key); }
 function setAuth(key, value) { localStorage.setItem(getAuthPrefix() + key, value); }
@@ -83,8 +74,7 @@ let currentState = null;
 let currentAlbumUri = null;
 
 let progressInterval = null;
-let lastTrackUri = null;
-let lastPlayState = null;
+let lastPlayState = null; // TODO: review for sanity.
 let queueRefreshPending = false;
 let queueRenderVersion = 0; // Incremented each render to detect stale renders
 
@@ -523,8 +513,7 @@ function initPlayer() {
     };
     
     // Track changed - refresh queue view and lyrics
-    if (track.uri !== lastTrackUri || queueRefreshPending) {
-      lastTrackUri = track.uri;
+    if (queueRefreshPending) {
       currentTrackUri = track.uri;
       queueRefreshPending = false;
       
@@ -622,6 +611,14 @@ function stripHtml(s) {
 function shareLink(type, id, text, onclick) {
   const url = `https://open.spotify.com/${type}/${id}`;
   return `<a href="${url}" onclick="event.preventDefault(); ${onclick}">${text}</a>`;
+}
+
+// Return the HTML for a (possibly disabled) radio button.
+function radioBtn(type, id) {
+  if (areDeprecatedFeaturesUnavailable()) {
+    return `<button class="radio-btn unavailable" title="Start radio - Unavailable" disabled>📻</button>`;
+  }
+  return `<button class="radio-btn" onclick="event.stopPropagation(); startRadio('${type}', '${id}')" title="Start radio">📻</button>`;
 }
 
 // Radio - get recommendations and add to queue
