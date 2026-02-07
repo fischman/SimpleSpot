@@ -64,6 +64,8 @@ function clearAuth() {
     localStorage.removeItem(getAuthPrefix() + k));
 }
 
+ // TODO: review each of these pieces of global state for sanity.
+
 let accessToken = null;
 let player = null;
 let deviceId = null;
@@ -74,21 +76,21 @@ let currentState = null;
 let currentAlbumUri = null;
 
 let progressInterval = null;
-let lastPlayState = null; // TODO: review for sanity.
+let lastPlayState = null;
 let queueRefreshPending = false;
-let queueRenderVersion = 0; // Incremented each render to detect stale renders
+let queueRenderVersion = 0; // Incremented each render to detect stale renders.
 
 // Local queue management
-let localQueue = []; // Array of track URIs
-let playHistory = []; // Track URIs we've played (for previous)
+let localQueue = []; // Array of track URIs.
+let playHistory = []; // Track URIs we've played (for previous).
 let currentTrackUri = null;
-let playingFromQueueInProgress = false; // Guard against rapid duplicate calls
-let isNavigatingBack = false; // Flag to prevent pushing state during popstate
+let playingFromQueueInProgress = false; // Guard against rapid duplicate calls.
+let isNavigatingBack = false; // Flag to prevent pushing state during popstate.
 
-// Loop mode - when enabled, finished tracks are re-added to end of queue
+// Loop mode - when enabled, finished tracks are re-added to end of queue.
 let loopEnabled = localStorage.getItem('loop_enabled') === 'true';
 
-// Infinite scroll state for paginated views
+// Infinite scroll state for paginated views.
 let paginationNextUrl = null;
 let paginationRenderFn = null;
 let paginationCount = 0;
@@ -98,7 +100,7 @@ let currentLyrics = null;
 let lyricsTrackKey = null;
 let lyricsSynced = false;
 
-// Navigation - integrates with browser history
+// Navigation - integrates with browser history.
 function navigate(route, params = {}, replace = false) {
   const state = { route, params };
   if (!isNavigatingBack) {
@@ -112,9 +114,9 @@ function navigate(route, params = {}, replace = false) {
 }
 
 function setActiveNav(route) {
-  // Clear all active states (except loop button which has its own state)
+  // Clear all active states (except loop button which has its own state).
   document.querySelectorAll('.header button.active, .player button.active:not(#loop-btn)').forEach(b => b.classList.remove('active'));
-  // Set active on matching nav button and focus it
+  // Set active on matching nav button and focus it.
   const btn = document.getElementById('nav-' + route);
   if (btn) {
     btn.classList.add('active');
@@ -146,7 +148,7 @@ window.addEventListener('popstate', (e) => {
   isNavigatingBack = false;
 });
 
-// PKCE helpers
+// PKCE helpers.
 function generateCodeVerifier() {
   const arr = new Uint8Array(64);
   crypto.getRandomValues(arr);
@@ -160,12 +162,10 @@ async function generateCodeChallenge(verifier) {
 }
 
 async function loginWith(clientChoice) {
-  // Store the client choice before starting auth flow
-  setClientChoice(clientChoice);
+  setClientChoice(clientChoice); // Store the client choice before starting auth flow.
   
   const clientId = getClientId();
   const redirectUri = getRedirectUri();
-  
   const verifier = generateCodeVerifier();
   setAuth('code_verifier', verifier);
   const challenge = await generateCodeChallenge(verifier);
@@ -224,10 +224,9 @@ async function handleNcspotUrl() {
   try {
     const parsedUrl = new URL(url);
     const code = parsedUrl.searchParams.get('code');
-    if (!code) {
-      alert('No authorization code found in URL');
-      return;
-    }
+    assert(code, `No authorization code found in URL: ${url}`);
+    throw new Error('AMI: WTF?');
+    
     // Process the code
     document.getElementById('ncspot-modal').remove();
     if (!await processAuthCode(code, false, true)) {
