@@ -2,42 +2,63 @@
 const PLAYPAUSE_CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
 const NCSPOT_CLIENT_ID = 'd420a117a32841c2b3474932e49fb54b';
 const SCOPES = 'streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read';
+const DJ_PLAYLIST_ID = '37i9dQZF1EYkqdzj48dyYq';
 
-// Dynamic client ID based on user choice (stored in localStorage)
+function assert(c, m) {
+  if (c) { return; }
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.id = 'assert-modal';
+  modal.innerHTML = `
+    <div class="modal" style="max-width:500px">
+      <h2>Assertion failed!</h2>
+      <p style="color:#b3b3b3;margin:16px 0">${m}</p>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  throw new Error(m);
+}
+
+function setClientChoice(choice) {
+  return localStorage.setItem('chosen_client', choice);
+}
+
+function getClientChoice() {
+  return localStorage.getItem('chosen_client');
+}
+
+function clearClientChoice() {
+  localStorage.removeItem('chosen_client');
+}
+
+
 function getClientId() {
-  const choice = localStorage.getItem('chosen_client');
+  const choice = getClientChoice();
   if (choice === 'ncspot') return NCSPOT_CLIENT_ID;
   if (choice === 'playpause') return PLAYPAUSE_CLIENT_ID;
-  return null;
+  assert(false, `Unknown client choice: [${choice}]`);
 }
 
-function getRedirectUri(clientChoice) {
-  if (clientChoice === 'ncspot') {
-    // Try to use our origin if on localhost/127.0.0.1, otherwise fall back to manual paste flow
-    const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return window.location.origin + '/login';
-    }
-    return 'http://127.0.0.1/login';
+function getRedirectUri() {
+  clientChoice = getClientChoice();
+  if (clientChoice === 'playpause') {
+      return window.location.href.split('?')[0].split('#')[0];
   }
-  return window.location.href.split('?')[0].split('#')[0];
+  // Try to use our origin (including port!) if on 127.0.0.1, otherwise fall back to manual paste flow
+  const host = window.location.hostname;
+  if (host === '127.0.0.1') {
+    return window.location.origin + '/login';
+  }
+  return 'http://127.0.0.1/login'; // Note excludes the port included in .origin above, will require manual paste.
 }
 
-function isNcspotClient() {
-  return localStorage.getItem('chosen_client') === 'ncspot';
-}
-
-function isPlaypauseClient() {
+function areDeprecatedFeaturesUnavailable() {
   return localStorage.getItem('chosen_client') === 'playpause';
 }
 
-// DJ playlist ID - looked up at page load
-let djPlaylistId = null;
-let djPlaylistPromise = null;
-
-// Helper for radio button - disabled for playpause client (no /recommendations scope)
+// Helper for radio button - disabled for playpause client (/recommendations is deprecated).
 function radioBtn(type, id) {
-  if (isPlaypauseClient()) {
+  if (areDeprecatedFeaturesUnavailable()) {
     return `<button class="radio-btn unavailable" title="Start radio - Unavailable" disabled>📻</button>`;
   }
   return `<button class="radio-btn" onclick="event.stopPropagation(); startRadio('${type}', '${id}')" title="Start radio">📻</button>`;
@@ -150,10 +171,10 @@ async function generateCodeChallenge(verifier) {
 
 async function loginWith(clientChoice) {
   // Store the client choice before starting auth flow
-  localStorage.setItem('chosen_client', clientChoice);
+  setClientChoice(clientChoice);
   
-  const clientId = clientChoice === 'ncspot' ? NCSPOT_CLIENT_ID : PLAYPAUSE_CLIENT_ID;
-  const redirectUri = getRedirectUri(clientChoice);
+  const clientId = getClientId();
+  const redirectUri = getRedirectUri();
   
   const verifier = generateCodeVerifier();
   setAuth('code_verifier', verifier);
@@ -171,8 +192,8 @@ async function loginWith(clientChoice) {
   
   if (clientChoice === 'ncspot') {
     const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      // On localhost, redirect directly - we can handle the callback
+    if (host === '127.0.0.1') {
+      // On 127.0.0.1, redirect directly - we can handle the callback
       window.location = authUrl;
     } else {
       // On hosted version, show manual paste modal
@@ -230,10 +251,6 @@ async function handleNcspotUrl() {
 function logout() {
   if (!confirm('Log out of Spotify?')) return;
   forceRelogin('user logout');
-}
-
-function clearClientChoice() {
-  localStorage.removeItem('chosen_client');
 }
 
 function forceRelogin(reason = 'unknown') {
@@ -883,7 +900,7 @@ async function playContext(uri) {
       url = data?.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
     }
   }
-  
+
   if (trackUris.length === 0) return;
   
   // Insert at front of queue and play first track
@@ -892,23 +909,12 @@ async function playContext(uri) {
   await playNextFromLocalQueue();
 }
 
-async function lookupDJPlaylist() {
-  const data = await api('/search?type=playlist&limit=10&q=' + encodeURIComponent('DJ'));
-  const djPlaylist = data?.playlists?.items?.find(p => 
-    p && p.name === 'DJ' && p.owner?.id === 'spotify'
-  );
-  return djPlaylist?.id || null;
+async function isPlayingDJ() {
+  return player != null && (await player.getCurrentState()).context.metadata.context_description == 'DJ'
 }
 
 async function playDJ() {
-  if (!djPlaylistId) {
-    if (djPlaylistPromise) djPlaylistId = await djPlaylistPromise;
-    if (!djPlaylistId) {
-      console.error('DJ playlist not found');
-      return;
-    }
-  }
-  await playContext(`spotify:playlist:${djPlaylistId}`);
+  await play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
   showQueue();
 }
 
@@ -1241,6 +1247,10 @@ async function togglePlay() {
 }
 
 async function next() {
+  if (isPlayingDJ()) {
+    return player.nextTrack();
+  }
+  
   // If loop enabled, add current track to end of queue before skipping (unless already there)
   if (loopEnabled && currentTrackUri && localQueue[localQueue.length - 1] !== currentTrackUri) {
     localQueue.push(currentTrackUri);
@@ -1261,6 +1271,10 @@ async function next() {
 }
 
 async function previous() {
+  if (isPlayingDJ()) {
+    return player.previousTrack();
+  }
+
   if (playHistory.length === 0) return;
   
   // Put current track back at front of queue
@@ -1443,7 +1457,7 @@ async function loadPlaylists(fromHistory = false) {
   // Reset pagination state
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
-    const playlists = (data.items || []).filter(p => p && p.id !== djPlaylistId);
+    const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
     const html = renderMyPlaylistItems(playlists, paginationCount + 1);
     return { html, count: playlists.length };
   };
@@ -1455,7 +1469,7 @@ async function loadPlaylists(fromHistory = false) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
     const data = await api(url);
     el.querySelector('.loading-more')?.remove();
-    const playlists = (data.items || []).filter(p => p && p.id !== djPlaylistId);
+    const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
     el.innerHTML += renderMyPlaylistItems(playlists, paginationCount + 1);
     paginationCount += playlists.length;
     url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
@@ -2211,10 +2225,8 @@ function setBreadcrumb(items) {
     loadLocalQueue();
     // Initialize loop button state
     updateLoopButton();
-    // Look up DJ playlist ID (async, don't block)
-    djPlaylistPromise = lookupDJPlaylist().then(id => { djPlaylistId = id; return id; });
     // Disable Explore and DJ buttons for playpause client (missing scopes)
-    if (isPlaypauseClient()) {
+    if (areDeprecatedFeaturesUnavailable()) {
       const exploreBtn = document.getElementById('nav-explore');
       exploreBtn.disabled = true;
       exploreBtn.style.opacity = '0.4';
@@ -2467,7 +2479,7 @@ async function resumePlaybackIfNeeded() {
     const state = JSON.parse(saved);
     
     // Check if last context was DJ playlist
-    const isDJ = djPlaylistId && state.contextUri === `spotify:playlist:${djPlaylistId}`;
+    const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
     
     if (isDJ) {
       // Show DJ info instead of actual track
