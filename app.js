@@ -1247,7 +1247,7 @@ async function togglePlay() {
 }
 
 async function next() {
-  if (isPlayingDJ()) {
+  if (await isPlayingDJ()) {
     return player.nextTrack();
   }
   
@@ -1271,7 +1271,7 @@ async function next() {
 }
 
 async function previous() {
-  if (isPlayingDJ()) {
+  if (await isPlayingDJ()) {
     return player.previousTrack();
   }
 
