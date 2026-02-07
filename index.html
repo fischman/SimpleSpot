@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23121212'/%3E%3Cpath d='M180 140 L180 372 L360 256 Z' fill='%231db954'/%3E%3Cpath d='M380 180 Q420 256 380 332' stroke='%231db954' stroke-width='24' fill='none' stroke-linecap='round'/%3E%3Cpath d='M420 140 Q480 256 420 372' stroke='%231db954' stroke-width='24' fill='none' stroke-linecap='round' opacity='0.6'/%3E%3C/svg%3E">
-
   <link rel="manifest" id="manifest-link">
   <script>
     // This JS is necessary to convert the inline SVG favicon above to
@@ -162,7 +161,7 @@
         <span>Login using ncspot</span>
         <span id="ncspot-note" style="font-size:12px;opacity:0.7"></span>
       </button>
-      <script>document.getElementById('ncspot-note').textContent = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? '' : '(more complex login flow)';</script>
+      <script>document.getElementById('ncspot-note').textContent = location.hostname === '127.0.0.1' ? '' : '(more complex login flow)';</script>
       <button onclick="loginWith('playpause')" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;background:#333">
         <span>Login using playpause</span>
         <span style="font-size:12px;opacity:0.7">(radio/recommendations, DJ, and Explore won't work)</span>
