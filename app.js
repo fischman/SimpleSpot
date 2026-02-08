@@ -2272,5 +2272,4 @@ async function resumePlaybackIfNeeded() {
   } catch (e) {
     console.log(`AMI: togglePlay triggered: ${e}`);
   }
-  console.log("AMI: yo!");
 }
