@@ -1,6 +1,5 @@
 // TODO:
 // - reconsider whether the player recreation in the visibilitychange handler is actually needed.
-// - de-dupe renderQueueFromState vs renderQueueFromSavedState vs renderQueue
 // - de-crazy loadMorePaginated impl of infinite scroll using global state.
 // - de-duplicate the many load<View> funcs which are largely identical.
 // - review each remaining piece of global state for sanity.
@@ -802,10 +801,12 @@ function renderSearchResults(data) {
 function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 1, contextOffset = 0) {
   return tracks.map((t, i) => {
     const trackId = t.uri?.split(':')[2] || t.id;
+    const albumId = t.album?.id || t.album?.uri?.split(':')[2] || '';
     const artistNames = t.artists?.map(a => a.name).join(', ') || '';
-    const artistLinks = t.artists?.map(a =>
-      `<span class="artist-link">${shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`)}</span>`
-    ).join(', ') || '';
+    const artistLinks = t.artists?.map(a => {
+      const artistId = a.id || a.uri?.split(':')[2] || '';
+      return `<span class="artist-link">${shareLink('artist', artistId, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${artistId}')`)}</span>`;
+    }).join(', ') || '';
     const playAction = contextUri
       ? `playFromContext('${contextUri}', ${contextOffset + i})`
       : `playTrack('${t.uri}')`;
@@ -826,7 +827,7 @@ function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 
       <div class="track-info">
         <div class="track-name" title="${escapeHtml(t.name)}">${shareLink('track', trackId, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`)}</div>
         <div class="track-artist" title="${escapeHtml(artistNames)}">${artistLinks}</div>
-        ${t.album ? `<div class="track-album" title="${escapeHtml(t.album.name)}">${shareLink('album', t.album.id, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${t.album.id}')`)}</div>` : ''}
+        ${t.album ? `<div class="track-album" title="${escapeHtml(t.album.name)}">${shareLink('album', albumId, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>` : ''}
       </div>
     </li>
   `}).join('');
@@ -1733,163 +1734,53 @@ async function showQueue(fromHistory = false) {
   setBreadcrumb([{ name: 'Queue', suffix: '<button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
   showLoading();
   localStorage.setItem('last_view', 'queue');
-  paginationNextUrl = null; // Clear pagination state
+  paginationNextUrl = null;
 
+  const myVersion = ++queueRenderVersion;
+
+  // Resolve "now playing" from best available source.
+  let nowPlayingHtml = '';
   if (await isPlayingDJ()) {
-    await renderQueueFromState(await player?.getCurrentState());
-    return;
-  }
-
-  const savedState = localStorage.getItem('play_state');
-  if (savedState) {
-    try {
-      const state = JSON.parse(savedState);
-      const age = Date.now() - state.timestamp;
-      if (age < 5 * 60 * 1000 && state.trackUri) {
-        await renderQueueFromSavedState(state);
-        return;
-      }
-    } catch (e) {}
-  }
-
-  // Currently-playing from API.
-  const data = await api('/me/player/queue');
-
-  // Also get local queue track details.
-  let localQueueTracks = [];
-  if (localQueue.length > 0) {
-    const trackIds = localQueue.map(uri => uri.split(':')[2]);
-    localQueueTracks = await fetchTracksByIds(trackIds);
-  }
-
-  renderQueue(data, localQueueTracks);
-}
-
-async function renderQueueFromSavedState(state) {
-  console.log("NP-1 renderQueueFromSavedState", state);
-  const el = document.getElementById('tracks');
-  let html = '';
-
-  // Now Playing.
-  const trackId = state.trackUri?.split(':')[2];
-  if (trackId) {
-    const track = await api('/tracks/' + trackId);
-    if (track) {
-      html += `<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>`;
-      html += `
-        <li class="track">
-          <div class="track-art" style="width:40px;height:40px">
-            <img src="${track.album.images[0]?.url || ''}" style="border-radius:4px" />
-          </div>
-          <div class="track-info">
-            <div class="track-name" title="${escapeHtml(track.name)}">${escapeHtml(track.name)}</div>
-            <div class="track-album" title="${escapeHtml(track.artists.map(a => a.name).join(', '))}">${escapeHtml(track.artists.map(a => a.name).join(', '))}</div>
-          </div>
-        </li>`;
+    const state = await player?.getCurrentState();
+    const current = state?.track_window?.current_track;
+    if (current) nowPlayingHtml = renderTrackItems([current], null);
+  } else {
+    let trackId = null;
+    const savedState = localStorage.getItem('play_state');
+    if (savedState) {
+      try {
+        const s = JSON.parse(savedState);
+        if (Date.now() - s.timestamp < 5 * 60 * 1000 && s.trackUri)
+          trackId = s.trackUri.split(':')[2];
+      } catch (e) {}
+    }
+    if (trackId) {
+      const track = await api('/tracks/' + trackId);
+      if (track) nowPlayingHtml = renderTrackItems([track], null);
+    } else {
+      const data = await api('/me/player/queue');
+      if (data?.currently_playing)
+        nowPlayingHtml = renderTrackItems([data.currently_playing], null);
     }
   }
 
-  // Queue.
+  // Render local queue (always the same path).
+  let queueHtml = '';
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]);
     const tracks = await fetchTracksByIds(trackIds);
-
-    html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${tracks.length})</h3>`;
-    tracks.forEach((t, i) => {
-      if (!t) return;
-      html += `
-        <li class="track">
-          <div class="track-num-col">
-            <span class="track-num">${i + 1}</span>
-            <button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>
-          </div>
-          <div class="track-art" onclick="event.stopPropagation(); playFromLocalQueue(${i})">
-            <img src="${t.album.images[0]?.url || ''}" />
-            <div class="play-overlay"></div>
-          </div>
-          <div class="track-info">
-            <div class="track-name" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</div>
-            <div class="track-album" title="${escapeHtml(t.artists.map(a => a.name).join(', '))}">${escapeHtml(t.artists.map(a => a.name).join(', '))}</div>
-          </div>
-        </li>`;
-    });
-  }
-
-  el.innerHTML = html || '<li style="padding:16px;color:#b3b3b3">Queue is empty</li>';
-}
-
-async function renderQueueFromState(state) {
-  console.log("NP-2 renderQueueFromState", state);
-
-  const el = document.getElementById('tracks');
-  const myVersion = ++queueRenderVersion;
-
-  let html = '';
-  const currentTrack = state?.track_window?.current_track;
-
-  // Now Playing.
-  if (currentTrack) {
-    html = '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderSdkTrackItem(currentTrack);
-  }
-
-  // Queue.
-  if (localQueue.length > 0) {
-    const trackIds = localQueue.map(uri => uri.split(':')[2]);
-    const queueTracks = await fetchTracksByIds(trackIds);
-    if (queueTracks.length > 0) {
-      html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${queueTracks.length})</h3>`;
-      html += renderLocalQueueItems(queueTracks);
+    if (tracks.length > 0) {
+      queueHtml = `<h3 style="padding:8px;color:#b3b3b3">Queue (${tracks.length})</h3>`;
+      queueHtml += renderLocalQueueItems(tracks);
     }
   }
 
-  // Only update DOM if this render is still current
-  if (myVersion === queueRenderVersion) {
-    el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
-  }
-}
-
-function renderSdkTrackItem(t) {
-  const trackId = t.uri?.split(':')[2] || t.id;
-  const albumId = t.album?.uri?.split(':')[2] || '';
-  const artistNames = t.artists?.map(a => a.name).join(', ') || '';
-  const artistLinks = t.artists?.map(a => {
-    const artistId = a.uri?.split(':')[2] || '';
-    return `<span class="artist-link">${shareLink('artist', artistId, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${artistId}')`)}</span>`;
-  }).join(', ') || '';
-  return `
-    <li class="track">
-      <div class="track-art" onclick="event.stopPropagation(); playTrack('${t.uri}')">
-        <img src="${t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || ''}" />
-        <div class="play-overlay"></div>
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(t.name)}">${shareLink('track', trackId, escapeHtml(t.name), `event.stopPropagation(); playTrack('${t.uri}')`)}</div>
-        <div class="track-artist" title="${escapeHtml(artistNames)}">${artistLinks}</div>
-        <div class="track-album" title="${escapeHtml(t.album?.name || '')}">${shareLink('album', albumId, escapeHtml(t.album?.name || ''), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>
-      </div>
-    </li>
-  `;
-}
-
-function renderQueue(spotifyData, localQueueTracks) {
-  console.log("NP-3 renderQueue", state);
-
+  // Only update DOM if this render is still current.
+  if (myVersion !== queueRenderVersion) return;
   const el = document.getElementById('tracks');
   let html = '';
-
-  // Now Playing.
-  if (spotifyData?.currently_playing) {
-    html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
-    html += renderTrackItems([spotifyData.currently_playing], null);
-  }
-
-  // Queue.
-  if (localQueueTracks.length > 0) {
-    html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${localQueueTracks.length})</h3>`;
-    html += renderLocalQueueItems(localQueueTracks);
-  }
-
+  if (nowPlayingHtml) html = '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>' + nowPlayingHtml;
+  html += queueHtml;
   el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
