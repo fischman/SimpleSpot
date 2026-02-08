@@ -1745,23 +1745,9 @@ async function showQueue(fromHistory = false) {
     const current = state?.track_window?.current_track;
     if (current) nowPlayingHtml = renderTrackItems([current], null);
   } else {
-    let trackId = null;
-    const savedState = localStorage.getItem('play_state');
-    if (savedState) {
-      try {
-        const s = JSON.parse(savedState);
-        if (Date.now() - s.timestamp < 5 * 60 * 1000 && s.trackUri)
-          trackId = s.trackUri.split(':')[2];
-      } catch (e) {}
-    }
-    if (trackId) {
-      const track = await api('/tracks/' + trackId);
-      if (track) nowPlayingHtml = renderTrackItems([track], null);
-    } else {
-      const data = await api('/me/player/queue');
-      if (data?.currently_playing)
-        nowPlayingHtml = renderTrackItems([data.currently_playing], null);
-    }
+    const data = await api('/me/player/queue');
+    if (data?.currently_playing)
+      nowPlayingHtml = renderTrackItems([data.currently_playing], null);
   }
 
   // Render local queue (always the same path).
