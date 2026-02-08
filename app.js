@@ -1766,6 +1766,7 @@ async function showQueue(fromHistory = false) {
 }
 
 async function renderQueueFromSavedState(state) {
+  console.log("NP-1 renderQueueFromSavedState", state);
   const el = document.getElementById('tracks');
   let html = '';
 
@@ -1818,6 +1819,8 @@ async function renderQueueFromSavedState(state) {
 }
 
 async function renderQueueFromState(state) {
+  console.log("NP-2 renderQueueFromState", state);
+
   const el = document.getElementById('tracks');
   const myVersion = ++queueRenderVersion;
 
@@ -1870,6 +1873,8 @@ function renderSdkTrackItem(t) {
 }
 
 function renderQueue(spotifyData, localQueueTracks) {
+  console.log("NP-3 renderQueue", state);
+
   const el = document.getElementById('tracks');
   let html = '';
 
