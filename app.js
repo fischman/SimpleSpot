@@ -891,7 +891,7 @@ async function playFromContext(uri, offset) {
 }
 
 async function isPlayingDJ() {
-  return player != null && (await player.getCurrentState()).context.metadata.context_description == 'DJ'
+  return player != null && (await player.getCurrentState())?.context.metadata.context_description == 'DJ'
 }
 
 async function playDJ() {
@@ -953,7 +953,7 @@ async function addPlaylistToQueue(playlistId, toFront = false) {
 }
 
 async function autoPlayIfIdle() {
-  if (await player.getCurrentState().paused)
+  if (await player.getCurrentState()?.paused)
     return playNextFromLocalQueue();
 }
 
