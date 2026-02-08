@@ -1738,36 +1738,18 @@ async function showQueue(fromHistory = false) {
 
   const myVersion = ++queueRenderVersion;
 
-  // Resolve "now playing" from best available source.
-  let nowPlayingHtml = '';
-  if (await isPlayingDJ()) {
-    const state = await player?.getCurrentState();
-    const current = state?.track_window?.current_track;
-    if (current) nowPlayingHtml = renderTrackItems([current], null);
-  } else {
-    const data = await api('/me/player/queue');
-    if (data?.currently_playing)
-      nowPlayingHtml = renderTrackItems([data.currently_playing], null);
-  }
-
-  // Render local queue (always the same path).
-  let queueHtml = '';
+  let html = '';
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]);
     const tracks = await fetchTracksByIds(trackIds);
     if (tracks.length > 0) {
-      queueHtml = `<h3 style="padding:8px;color:#b3b3b3">Queue (${tracks.length})</h3>`;
-      queueHtml += renderLocalQueueItems(tracks);
+      html = `<h3 style="padding:8px;color:#b3b3b3">Queue (${tracks.length})</h3>`;
+      html += renderLocalQueueItems(tracks);
     }
   }
 
-  // Only update DOM if this render is still current.
   if (myVersion !== queueRenderVersion) return;
-  const el = document.getElementById('tracks');
-  let html = '';
-  if (nowPlayingHtml) html = '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>' + nowPlayingHtml;
-  html += queueHtml;
-  el.innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+  document.getElementById('tracks').innerHTML = html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
 function renderLocalQueueItems(tracks) {
