@@ -1,3 +1,10 @@
+// TODO:
+// - reconsider whether the player recreation in the visibilitychange handler is actually needed.
+// - de-dupe renderQueueFromState vs renderQueueFromSavedState vs renderQueue
+// - de-crazy loadMorePaginated impl of infinite scroll using global state.
+// - de-duplicate the many load<View> funcs which are largely identical.
+// - review each remaining piece of global state for sanity.
+
 const PLAYPAUSE_CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
 const NCSPOT_CLIENT_ID = 'd420a117a32841c2b3474932e49fb54b';
 const SCOPES = 'streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read';
@@ -24,10 +31,6 @@ function setClientChoice(choice) {
 
 function getClientChoice() {
   return localStorage.getItem('chosen_client');
-}
-
-function clearClientChoice() {
-  localStorage.removeItem('chosen_client');
 }
 
 function getClientId() {
@@ -63,9 +66,8 @@ function setAuth(key, value) { localStorage.setItem(getAuthPrefix() + key, value
 function clearAuth() {
   ['access_token', 'refresh_token', 'token_expiry', 'code_verifier'].forEach(k =>
     localStorage.removeItem(getAuthPrefix() + k));
+  localStorage.removeItem('chosen_client');
 }
-
- // TODO: review each of these pieces of global state for sanity.
 
 let player = null;
 let deviceId = null;
@@ -96,6 +98,8 @@ let paginationNextUrl = null;
 let paginationRenderFn = null;
 let paginationCount = 0;
 let paginationLoading = false;
+
+// Lyrics.
 let lyricsEnabled = false;
 let currentLyrics = null;
 let lyricsTrackKey = null;
@@ -244,7 +248,6 @@ function forceRelogin(reason = 'unknown') {
   console.error('FORCE RELOGIN:', reason, new Error().stack);
   if (player) player.disconnect();
   clearAuth();
-  clearClientChoice();
   window.location.reload();
 }
 
@@ -394,7 +397,7 @@ async function api(endpoint, opts = {}, _retry = false) {
   } catch (e) {
     // Don't log for successful responses - some endpoints return non-JSON.
     if (res.status >= 400) {
-      console.error('API error response:', res.status, endpoint, text.substring(0, 200));
+      console.error('API error response:', res.status, endpoint, text.substring(0, 200), e);
     }
     return null;
   }
@@ -550,6 +553,22 @@ function initPlayer() {
     player.addListener(eventName, (data) => {
       console.log(`[SDK Event: ${eventName}]`, data);
     });
+  });
+
+  player.addListener('autoplay_failed', async ({ message }) => {
+    const settingsUrl = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:500px">
+        <h2 style="color:#fff">Autoplay <span style="color:#1db954">Blocked</span></h2>
+        <p>Please "allow" (not just "Automatic (default)" Sound in your browser site settings to enable autoplay:</p>
+        <p style="user-select:all;font-family:monospace;background:#333;padding:8px;border-radius:4px;word-break:break-all">${settingsUrl}</p>
+        <button onclick="this.closest('.modal-overlay').remove()">OK</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
   });
 
   player.addListener('authentication_error', async ({ message }) => {
@@ -1216,7 +1235,6 @@ async function transferPlayback(id) {
   document.getElementById('device-menu').classList.remove('show');
 }
 
-// AMI: CONTINUE HERE
 async function loadLikedSongs(fromHistory = false) {
   if (!fromHistory) navigate('liked');
   setBreadcrumb([{ name: 'Liked Songs' }]);
@@ -1227,7 +1245,6 @@ async function loadLikedSongs(fromHistory = false) {
   el.innerHTML = '';
   el.scrollTop = 0;
 
-  // Reset pagination state
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
     const tracks = (data.items || []).map(i => i.track).filter(t => t);
@@ -1284,7 +1301,6 @@ async function loadSavedAlbums(fromHistory = false) {
   el.innerHTML = '';
   el.scrollTop = 0;
 
-  // Reset pagination state
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
     const albums = (data.items || []).map(i => i.album).filter(a => a);
@@ -1304,7 +1320,6 @@ async function loadSavedAlbums(fromHistory = false) {
     paginationCount += albums.length;
     url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
   }
-  // Set up infinite scroll if more data available
   paginationNextUrl = url;
   if (paginationNextUrl) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
@@ -1341,7 +1356,6 @@ async function loadPlaylists(fromHistory = false) {
   el.innerHTML = '';
   el.scrollTop = 0;
 
-  // Reset pagination state
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
     const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
@@ -1361,7 +1375,6 @@ async function loadPlaylists(fromHistory = false) {
     paginationCount += playlists.length;
     url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
   }
-  // Set up infinite scroll if more data available
   paginationNextUrl = url;
   if (paginationNextUrl) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
@@ -1396,7 +1409,6 @@ async function loadTopArtists(fromHistory = false) {
   el.innerHTML = '';
   el.scrollTop = 0;
 
-  // Reset pagination state
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
     const artists = data.items || [];
@@ -1416,7 +1428,6 @@ async function loadTopArtists(fromHistory = false) {
     paginationCount += artists.length;
     url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
   }
-  // Set up infinite scroll if more data available
   paginationNextUrl = url;
   if (paginationNextUrl) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
@@ -1433,7 +1444,6 @@ async function loadTopTracks(fromHistory = false) {
   el.innerHTML = '';
   el.scrollTop = 0;
 
-  // Reset pagination state
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
     const tracks = data.items || [];
@@ -1453,7 +1463,6 @@ async function loadTopTracks(fromHistory = false) {
     paginationCount += tracks.length;
     url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
   }
-  // Set up infinite scroll if more data available
   paginationNextUrl = url;
   if (paginationNextUrl) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
@@ -1480,7 +1489,7 @@ function renderPlaylistSection(playlists, startNum = 1) {
   `).join('');
 }
 
-// Shared state for Explore pagination (needs seenIds across pages)
+// Shared state for Explore pagination (needs seenIds across pages).
 let exploreSeenIds = new Set();
 let exploreTotalCount = 0;
 
@@ -1495,7 +1504,7 @@ async function loadExplore(fromHistory = false) {
   el.innerHTML = '';
   el.scrollTop = 0;
 
-  // Reset pagination state
+  // Reset pagination state.
   paginationNextUrl = null;
   paginationCount = 0;
   paginationLoading = false;
@@ -1509,14 +1518,14 @@ async function loadExplore(fromHistory = false) {
     'Daily Mix 4', 'Daily Mix 5', 'Daily Mix 6'
   ];
 
-  // Start all fetches in parallel
+  // Start all fetches in parallel.
   const mixesPromise = Promise.all(
     personalizedSearches.map(q => api('/search?type=playlist&limit=5&q=' + encodeURIComponent(q)))
   );
   const madeForYouPromise = api('/browse/categories/0JQ5DAt0tbjZptfcdMSKl3/playlists?limit=50');
   const featuredPromise = api('/browse/featured-playlists?limit=50');
 
-  // Render Your Mixes as soon as ready
+  // Render Your Mixes as soon as ready.
   const searchResults = await mixesPromise;
   const personalizedPlaylists = [];
   personalizedSearches.forEach((searchName, idx) => {
@@ -1537,7 +1546,7 @@ async function loadExplore(fromHistory = false) {
     exploreTotalCount += personalizedPlaylists.length;
   }
 
-  // Render Made For You as soon as ready
+  // Render Made For You as soon as ready.
   const madeForYouData = await madeForYouPromise;
   const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
   madeForYouPlaylists.forEach(p => exploreSeenIds.add(p.id));
@@ -1547,21 +1556,21 @@ async function loadExplore(fromHistory = false) {
     exploreTotalCount += madeForYouPlaylists.length;
   }
 
-  // Render Featured Playlists, paginating
+  // Render Featured Playlists, paginating.
   let featuredCount = 0;
   let featuredData = await featuredPromise;
   let items = (featuredData?.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
   items.forEach(p => exploreSeenIds.add(p.id));
   featuredCount += items.length;
 
-  // Render first batch immediately
+  // Render first batch immediately.
   if (items.length > 0) {
     el.innerHTML += `<div class="section-header">Featured Playlists</div>`;
     el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, exploreTotalCount + 1)}</ul>`;
     exploreTotalCount += items.length;
   }
 
-  // Continue paginating Featured up to 300
+  // Continue paginating Featured up to 300.
   let url = featuredData?.playlists?.next ? featuredData.playlists.next.replace('https://api.spotify.com/v1', '') : null;
   while (url && featuredCount < 300) {
     const data = await api(url);
@@ -1578,8 +1587,11 @@ async function loadExplore(fromHistory = false) {
     url = data.playlists?.next ? data.playlists.next.replace('https://api.spotify.com/v1', '') : null;
   }
 
-  // Set up infinite scroll for more Featured if available
+  // Set up infinite scroll for more Featured if available.
   paginationNextUrl = url;
+  if (!paginationNextUrl) {
+    return;
+  }
   paginationCount = featuredCount;
   paginationRenderFn = (data) => {
     const newItems = (data.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
@@ -1593,9 +1605,8 @@ async function loadExplore(fromHistory = false) {
     }
     return { html: null, count: newItems.length };  // html null since we render directly to section
   };
-  if (paginationNextUrl) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-  }
+  el.innerHTML += '<li class="loading-more">Loading...</li>';
+
 }
 
 async function loadPlaylist(id, name, fromHistory = false) {
@@ -1613,11 +1624,10 @@ async function loadPlaylist(id, name, fromHistory = false) {
   document.getElementById('tracks').innerHTML = renderTrackItems(tracks, contextUri);
 }
 
-// Albums
 async function loadAlbum(id, fromHistory = false) {
   if (!fromHistory) navigate('album', { id });
   localStorage.setItem('last_view', 'album');
-  paginationNextUrl = null; // Clear pagination state
+  paginationNextUrl = null;
   const data = await api('/albums/' + id);
   setBreadcrumb([
     { name: 'Album: ' + data.name }
@@ -1649,7 +1659,6 @@ async function showCurrentAlbum() {
   loadAlbum(id);
 }
 
-// Artist
 function renderAlbumItems(albums, startNum = 1) {
   return albums.map((a, i) => `
     <li class="track" onclick="loadAlbum('${a.id}')">
@@ -1708,8 +1717,6 @@ async function loadArtist(id, fromHistory = false) {
   }
 
   el.innerHTML = html;
-
-  // Paginate remaining albums
   let nextUrl = albumsData.next ? albumsData.next.replace('https://api.spotify.com/v1', '') : null;
   while (nextUrl) {
     const data = await api(nextUrl);
@@ -1721,7 +1728,6 @@ async function loadArtist(id, fromHistory = false) {
   }
 }
 
-// Queue
 async function showQueue(fromHistory = false) {
   if (!fromHistory) navigate('queue');
   setBreadcrumb([{ name: 'Queue', suffix: '<button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
@@ -1729,14 +1735,11 @@ async function showQueue(fromHistory = false) {
   localStorage.setItem('last_view', 'queue');
   paginationNextUrl = null; // Clear pagination state
 
-  // Try to use SDK state first (more up-to-date)
-  const sdkState = await player?.getCurrentState();
-  if (sdkState) {
-    await renderQueueFromState(sdkState);
+  if (await isPlayingDJ()) {
+    await renderQueueFromState(await player?.getCurrentState());
     return;
   }
 
-  // Try saved play state (for page load before player connects)
   const savedState = localStorage.getItem('play_state');
   if (savedState) {
     try {
@@ -1749,10 +1752,10 @@ async function showQueue(fromHistory = false) {
     } catch (e) {}
   }
 
-  // Fallback to API
+  // Currently-playing from API.
   const data = await api('/me/player/queue');
 
-  // Also get local queue track details
+  // Also get local queue track details.
   let localQueueTracks = [];
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]);
@@ -1766,7 +1769,7 @@ async function renderQueueFromSavedState(state) {
   const el = document.getElementById('tracks');
   let html = '';
 
-  // Now Playing
+  // Now Playing.
   const trackId = state.trackUri?.split(':')[2];
   if (trackId) {
     const track = await api('/tracks/' + trackId);
@@ -1785,7 +1788,7 @@ async function renderQueueFromSavedState(state) {
     }
   }
 
-  // Queue
+  // Queue.
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]);
     const tracks = await fetchTracksByIds(trackIds);
@@ -1821,13 +1824,13 @@ async function renderQueueFromState(state) {
   let html = '';
   const currentTrack = state?.track_window?.current_track;
 
-  // Now Playing
+  // Now Playing.
   if (currentTrack) {
     html = '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
     html += renderSdkTrackItem(currentTrack);
   }
 
-  // Queue
+  // Queue.
   if (localQueue.length > 0) {
     const trackIds = localQueue.map(uri => uri.split(':')[2]);
     const queueTracks = await fetchTracksByIds(trackIds);
@@ -1843,7 +1846,7 @@ async function renderQueueFromState(state) {
   }
 }
 
-function renderSdkTrackItem(t, num = null) {
+function renderSdkTrackItem(t) {
   const trackId = t.uri?.split(':')[2] || t.id;
   const albumId = t.album?.uri?.split(':')[2] || '';
   const artistNames = t.artists?.map(a => a.name).join(', ') || '';
@@ -1853,7 +1856,6 @@ function renderSdkTrackItem(t, num = null) {
   }).join(', ') || '';
   return `
     <li class="track">
-      ${num !== null ? `<div class="track-num-col"><span class="track-num">${num}</span></div>` : ''}
       <div class="track-art" onclick="event.stopPropagation(); playTrack('${t.uri}')">
         <img src="${t.album?.images?.[2]?.url || t.album?.images?.[0]?.url || ''}" />
         <div class="play-overlay"></div>
@@ -1871,13 +1873,13 @@ function renderQueue(spotifyData, localQueueTracks) {
   const el = document.getElementById('tracks');
   let html = '';
 
-  // Now Playing
+  // Now Playing.
   if (spotifyData?.currently_playing) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Now Playing</h3>';
     html += renderTrackItems([spotifyData.currently_playing], null);
   }
 
-  // Queue
+  // Queue.
   if (localQueueTracks.length > 0) {
     html += `<h3 style="padding:8px;color:#b3b3b3">Queue (${localQueueTracks.length})</h3>`;
     html += renderLocalQueueItems(localQueueTracks);
@@ -1925,7 +1927,7 @@ async function playFromLocalQueue(index) {
   refreshQueueIfViewing();
 }
 
-// Queue drag and drop
+// Queue drag and drop.
 let draggedQueueIndex = null;
 
 function onQueueDragStart(e) {
@@ -1961,7 +1963,6 @@ function onQueueDrop(e) {
   const toIndex = parseInt(target.dataset.index);
   if (draggedQueueIndex === null || draggedQueueIndex === toIndex) return;
 
-  // Move item in queue
   const [item] = localQueue.splice(draggedQueueIndex, 1);
   localQueue.splice(toIndex, 0, item);
   saveLocalQueue();
@@ -1997,7 +1998,7 @@ async function clearQueue() {
   document.getElementById('tracks').innerHTML = '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
 }
 
-// Help modal (About + Keyboard Shortcuts)
+// Help modal (About + Keyboard Shortcuts).
 function showHelp() {
   const shortcuts = [
     ['/', 'Search'],
@@ -2025,8 +2026,23 @@ function showHelp() {
   overlay.innerHTML = `
     <div class="modal">
       <h2 style="color:#fff">About <span style="color:#1db954">SimpleSpot</span></h2>
-      <p>A simple web-based Spotify client vibe-coded with <a href="https://exe.dev/docs/shelley" target="_blank" style="color:#1db954">Shelley</a> and <code style="background:#333;padding:2px 4px;border-radius:3px">claude-opus-4.5</code>.</p>
-      <p>Uses Spotify's <a href="https://developer.spotify.com/documentation/web-api" target="_blank" style="color:#1db954">Web</a> and <a href="https://developer.spotify.com/documentation/web-playback-sdk" target="_blank" style="color:#1db954">Web Playback</a>, and <a href="https://lrclib.net/docs" target="_blank" style="color:#1db954">LRCLIB</a>'s APIs. Requires <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded)" target="_blank" style="color:#1db954">Spotify Premium</a>.</p>
+      <p>
+        A lightweight Spotify client. Almost all the functionality,
+        with almost none of the bloat; minimal CPU usage while
+        playing, near-zero while idle.
+      </p>
+      <p style="padding-bottom: 1em"></p>
+      <p>
+        Uses
+        Spotify's <a href="https://developer.spotify.com/documentation/web-api"
+        target="_blank" style="color:#1db954">Web</a>
+        and <a href="https://developer.spotify.com/documentation/web-playback-sdk"
+        target="_blank" style="color:#1db954">Web Playback</a>,
+        and <a href="https://lrclib.net/docs" target="_blank"
+        style="color:#1db954">LRCLIB</a>'s
+        APIs. Requires <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded)"
+        target="_blank" style="color:#1db954">Spotify Premium</a>.
+      </p>
       <hr style="border:none;border-top:1px solid #444;margin:16px 0">
       <h3 style="margin:0 0 8px;font-size:14px;color:#b3b3b3">Keyboard Shortcuts</h3>
       <table>${rows}</table>
@@ -2042,10 +2058,6 @@ function hideHelp() {
   if (modal) modal.remove();
 }
 
-// Legacy aliases
-const showAbout = showHelp;
-
-// Breadcrumb
 function setBreadcrumb(items) {
   const el = document.getElementById('breadcrumb');
   if (!items.length) {
@@ -2059,13 +2071,14 @@ function setBreadcrumb(items) {
       ? `<a onclick="${item.action}">${escapeHtml(item.name)}</a>${i < items.length - 1 ? ' › ' : ''}`
       : `<span>${escapeHtml(item.name)}${item.suffix || ''}</span>`
   ).join('');
-  // Update page title with last breadcrumb item
   const lastItem = items[items.length - 1];
   document.title = 'SimpleSpot - ' + lastItem.name;
 }
 
-// Init
+// Init.
 (async () => {
+  assert('mediaSession' in navigator, 'navigator.mediaSession missing!');
+
   const hasCodeInUrl = new URLSearchParams(window.location.search).has('code');
 
   // Only process callback if we have a chosen client (i.e., user initiated login)
@@ -2075,7 +2088,6 @@ function setBreadcrumb(items) {
   if (hasCodeInUrl && getClientId() && !callbackOk) {
     console.warn('OAuth callback failed, clearing state');
     clearAuth();
-    clearClientChoice();
     window.history.replaceState({}, '', window.location.href.split('?')[0]);
     return; // Will show login screen
   }
@@ -2089,7 +2101,7 @@ function setBreadcrumb(items) {
   if (getClientId() && (callbackOk || getAuth('access_token'))) {
     const tokenExpiry = getAuth('token_expiry');
     const hasRefreshToken = !!getAuth('refresh_token');
-    console.log('Init auth check:', {
+    console.log('Init auth check:', { // Debugging aid.
       hasAccessToken: !!getAuth('access_token'),
       hasRefreshToken,
       tokenExpiry: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : null,
@@ -2107,11 +2119,9 @@ function setBreadcrumb(items) {
     }
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').classList.add('show');
-    // Load local queue from storage
     loadLocalQueue();
-    // Initialize loop button state
     updateLoopButton();
-    // Disable Explore and DJ buttons for playpause client (missing scopes)
+
     if (areDeprecatedFeaturesUnavailable()) {
       const exploreBtn = document.getElementById('nav-explore');
       exploreBtn.disabled = true;
@@ -2128,7 +2138,12 @@ function setBreadcrumb(items) {
 
     if (window.Spotify) initPlayer();
 
-    // Restore last view from localStorage
+    const saved = localStorage.getItem('column_count');
+    if (saved) {
+      setColumnCount(saved);
+      document.getElementById('column-count').value = saved;
+    }
+
     restoreLastView();
   }
 })();
@@ -2137,23 +2152,26 @@ function restoreLastView() {
   const lastView = localStorage.getItem('last_view');
 
   switch (lastView) {
-    case 'queue': showQueue(); break;
-    case 'liked': loadLikedSongs(); break;
-    case 'albums': loadSavedAlbums(); break;
-    case 'playlists': loadPlaylists(); break;
-    case 'topArtists': loadTopArtists(); break;
-    case 'topTracks': loadTopTracks(); break;
-    case 'explore': loadExplore(); break;
-    default:
-      const lastSearch = localStorage.getItem('last_search');
-      if (lastSearch) {
-        try {
-          const { query, data } = JSON.parse(lastSearch);
-          document.getElementById('search').value = query;
-          setBreadcrumb([{ name: 'Search: ' + query }]);
-          renderSearchResults(data);
-        } catch (e) {}
-      }
+  case 'queue': showQueue(); break;
+  case 'liked': loadLikedSongs(); break;
+  case 'albums': loadSavedAlbums(); break;
+  case 'playlists': loadPlaylists(); break;
+  case 'topArtists': loadTopArtists(); break;
+  case 'topTracks': loadTopTracks(); break;
+  case 'explore': loadExplore(); break;
+  case 'search':
+    const lastSearch = localStorage.getItem('last_search');
+    if (lastSearch) {
+      try {
+        const { query, data } = JSON.parse(lastSearch);
+        document.getElementById('search').value = query;
+        setBreadcrumb([{ name: 'Search: ' + query }]);
+        renderSearchResults(data);
+      } catch (e) {}
+    }
+    break;
+  default:
+    assert(false, `Unexpected last_view: [${lastView}]`);
   }
 }
 
@@ -2176,64 +2194,55 @@ document.getElementById('search').addEventListener('keyup', e => {
   }
 });
 
-// Save play state before page unload (before player disconnects and sets paused=true)
+// Save play state before page unload (before player disconnects and sets paused=true).
 window.addEventListener('beforeunload', () => {
   releaseWakeLock();
   if (lastPlayState) {
     // Estimate current position based on elapsed time since last state update
     if (!lastPlayState.paused) {
-      const elapsed = Date.now() - lastPlayState.timestamp;
-      lastPlayState.position = lastPlayState.position + elapsed;
+      lastPlayState.position += Date.now() - lastPlayState.timestamp;
     }
     lastPlayState.timestamp = Date.now();
     localStorage.setItem('play_state', JSON.stringify(lastPlayState));
   }
 });
 
-// Refresh token when tab becomes visible (handles Chrome tab freeze)
+// Refresh token when tab becomes visible.
 document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && getAuth('access_token')) {
-    if (Date.now() > getAuth('token_expiry')) {
-      console.log('Tab became visible, token expired, attempting refresh first...');
-      const refreshed = await refreshToken();
-      if (refreshed) {
-        console.log('Token refreshed successfully, recreating player...');
-        if (player) {
-          player.disconnect();
-          player = null;
-        }
-        initPlayer();
-        // Wait for player to be ready before allowing playback
-        await playerReadyPromise;
-        console.log('Player recreated successfully after token refresh');
-      } else {
-        console.error('Token refresh failed on visibility change, reloading page');
-        location.reload();
-      }
+  if (!document.visibilityState === 'visible' || !getAuth('access_token')) {
+    return;
+  }
+
+  if (Date.now() > getAuth('token_expiry')) {
+    console.log('Tab became visible, token expired, attempting refresh first...');
+    const refreshed = await refreshToken();
+    if (refreshed) {
+      console.log('Token refreshed successfully. Hopefully existing player keeps working.');
+      // console.log('Token refreshed successfully, recreating player...');
+      // if (player) {
+      //   player.disconnect();
+      //   player = null;
+      // }
+      // initPlayer();
+      // // Wait for player to be ready before allowing playback
+      // await playerReadyPromise;
+      // console.log('Player recreated successfully after token refresh');
+    } else {
+      console.error('Token refresh failed on visibility change, reloading page');
+      location.reload();
     }
-    // Re-acquire wake lock if playing (wake lock is released when tab is hidden)
-    if (currentState && !currentState.paused) {
-      acquireWakeLock();
-    }
+  }
+  if (currentState && !currentState.paused) {
+    acquireWakeLock();
   }
 });
 
-// Column count control
 function setColumnCount(count) {
   document.documentElement.style.setProperty('--column-count', count);
   localStorage.setItem('column_count', count);
 }
 
-// Restore column count on load
-(function() {
-  const saved = localStorage.getItem('column_count');
-  if (saved) {
-    setColumnCount(saved);
-    document.getElementById('column-count').value = saved;
-  }
-})();
-
-// Infinite scroll for paginated views
+// Infinite scroll for paginated views.
 async function loadMorePaginated() {
   if (!paginationNextUrl || paginationLoading) return;
   paginationLoading = true;
@@ -2264,7 +2273,7 @@ document.getElementById('tracks').addEventListener('scroll', function() {
   }
 });
 
-// Keyboard shortcuts (when not in input)
+// Keyboard shortcuts (when not in input).
 document.addEventListener('keydown', e => {
   // Escape works even in input fields
   if (e.key === 'Escape') {
@@ -2316,10 +2325,8 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Media Session API (MPRIS support)
+// Media Session API (MPRIS support).
 function updateMediaSession(track, state) {
-  if (!('mediaSession' in navigator)) return;
-
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.name,
     artist: track.artists.map(a => a.name).join(', '),
@@ -2343,8 +2350,6 @@ function updateMediaSession(track, state) {
 }
 
 function setupMediaSessionHandlers() {
-  if (!('mediaSession' in navigator)) return;
-
   navigator.mediaSession.setActionHandler('play', () => player?.resume());
   navigator.mediaSession.setActionHandler('pause', () => player?.pause());
   navigator.mediaSession.setActionHandler('previoustrack', previous);
@@ -2360,44 +2365,48 @@ async function resumePlaybackIfNeeded() {
   const saved = localStorage.getItem('play_state');
   if (!saved) return;
 
-  try {
-    const state = JSON.parse(saved);
+  const state = JSON.parse(saved);
 
-    // Check if last context was DJ playlist
-    const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
+  // Check if last context was DJ playlist
+  const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
 
-    if (isDJ) {
-      // Show DJ info instead of actual track
-      document.getElementById('player-track').textContent = 'DJ';
-      document.getElementById('player-artist').textContent = 'Spotify';
+  if (isDJ) {
+    // Show DJ info instead of actual track
+    document.getElementById('player-track').textContent = 'DJ';
+    document.getElementById('player-artist').textContent = 'Spotify';
+    const art = document.getElementById('player-art');
+    art.src = 'https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg';
+    art.style.display = 'block';
+    document.getElementById('progress-current').textContent = '0:00';
+    document.getElementById('progress-total').textContent = '0:00';
+    document.getElementById('progress-fill').style.width = '0%';
+  } else {
+    // Fetch track info to update UI
+    const trackData = await api('/tracks/' + state.trackUri.split(':')[2]);
+    if (trackData) {
+      document.getElementById('player-track').textContent = trackData.name;
+      document.getElementById('player-artist').innerHTML = trackData.artists.map(a =>
+        `<a href="#" onclick="event.preventDefault(); loadArtist('${a.id}')" style="color:inherit;text-decoration:none">${escapeHtml(a.name)}</a>`
+      ).join(', ');
       const art = document.getElementById('player-art');
-      art.src = 'https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg';
-      art.style.display = 'block';
-      document.getElementById('progress-current').textContent = '0:00';
-      document.getElementById('progress-total').textContent = '0:00';
-      document.getElementById('progress-fill').style.width = '0%';
-    } else {
-      // Fetch track info to update UI
-      const trackData = await api('/tracks/' + state.trackUri.split(':')[2]);
-      if (trackData) {
-        document.getElementById('player-track').textContent = trackData.name;
-        document.getElementById('player-artist').innerHTML = trackData.artists.map(a =>
-          `<a href="#" onclick="event.preventDefault(); loadArtist('${a.id}')" style="color:inherit;text-decoration:none">${escapeHtml(a.name)}</a>`
-        ).join(', ');
-        const art = document.getElementById('player-art');
-        art.src = trackData.album.images[0]?.url || '';
-        art.style.display = trackData.album.images[0]?.url ? 'block' : 'none';
-        document.getElementById('progress-current').textContent = formatTime(state.position);
-        document.getElementById('progress-total').textContent = formatTime(trackData.duration_ms);
-        document.getElementById('progress-fill').style.width = ((state.position / trackData.duration_ms) * 100) + '%';
-        currentAlbumUri = trackData.album.uri;
-      }
+      art.src = trackData.album.images[0]?.url || '';
+      art.style.display = trackData.album.images[0]?.url ? 'block' : 'none';
+      document.getElementById('progress-current').textContent = formatTime(state.position);
+      document.getElementById('progress-total').textContent = formatTime(trackData.duration_ms);
+      document.getElementById('progress-fill').style.width = ((state.position / trackData.duration_ms) * 100) + '%';
+      currentAlbumUri = trackData.album.uri;
     }
+  }
 
-    // Enable play button (don't auto-play due to browser autoplay policies)
-    const playBtn = document.getElementById('play-btn');
-    playBtn.disabled = false;
-    playBtn.style.opacity = '1';
-    playBtn.textContent = '▶';
-  } catch (e) {}
+  // Enable play button (don't auto-play due to browser autoplay policies)
+  const playBtn = document.getElementById('play-btn');
+  playBtn.disabled = false;
+  playBtn.style.opacity = '1';
+  playBtn.textContent = '▶';
+  try {
+    togglePlay();
+  } catch (e) {
+    console.log(`AMI: togglePlay triggered: ${e}`);
+  }
+  console.log("AMI: yo!");
 }

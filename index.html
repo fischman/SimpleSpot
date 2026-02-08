@@ -155,7 +155,7 @@
 </head>
 <body>
   <div id="login">
-    <button onclick="showAbout()" title="About (?)" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#b3b3b3">?</button>
+    <button onclick="showHelp()" title="About (?)" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#b3b3b3">?</button>
     <div style="display:flex;flex-direction:column;gap:12px;text-align:center">
       <button onclick="loginWith('ncspot')" autofocus style="display:flex;flex-direction:column;align-items:center;line-height:1.4">
         <span>Login using ncspot</span>
@@ -183,7 +183,7 @@
       <button id="nav-explore" onclick="hideLyrics(); loadExplore()" title="Explore (e)">✨</button>
       <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
       <button onclick="logout()" title="Logout">🚪</button>
-      <button onclick="showAbout()" title="About (?)" style="font-weight:bold">?</button>
+      <button onclick="showHelp()" title="About (?)" style="font-weight:bold">?</button>
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content">
