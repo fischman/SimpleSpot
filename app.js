@@ -631,12 +631,13 @@ async function startRadio(type, id) {
   } else if (type === 'artist') {
     seedParam = `seed_artists=${id}`;
   } else if (type === 'album') {
-    const trackIds = (await api(`/albums/${id}`)).tracks?.items?.map(t => t.id).join(',');
+    // 5 seed item limit enforced by the API.
+    const trackIds = (await api(`/albums/${id}`)).tracks?.items?.map(t => t.id).slice(0, 5).join(',');
     assert(trackIds, `Failed to fetch tracks for /albums/${id}`);
     seedParam = `seed_tracks=${trackIds}`;
   } else if (type === 'playlist') {
-    // Use tracks from playlist as seeds.
-    const trackIds = (await api(`/playlists/${id}/tracks`)).items?.map(i => i.track).filter(Boolean)?.map(t => t.id).join(',');
+    // 5 seed item limit enforced by the API.
+    const trackIds = (await api(`/playlists/${id}/tracks`)).items?.map(i => i.track).filter(Boolean)?.map(t => t.id).slice(0, 5).join(',');
     assert(trackIds, `Failed to fetch /playlists/${id}/tracks`);
     seedParam = `seed_tracks=${trackIds}`;
   }
