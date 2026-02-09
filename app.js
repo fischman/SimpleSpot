@@ -1332,10 +1332,10 @@ async function transferPlayback(id) {
   document.getElementById('device-menu').classList.remove('show');
 }
 
-async function loadPaginatedView({ route, breadcrumb, lastView, url, extractItems, renderItems, fromHistory }) {
+async function loadPaginatedView({ route, breadcrumb, url, extractItems, renderItems, fromHistory }) {
   if (!fromHistory) navigate(route);
   setBreadcrumb(breadcrumb);
-  localStorage.setItem('last_view', lastView || route);
+  localStorage.setItem('last_view', route);
 
   const el = document.getElementById('tracks');
   el.classList.add('grid-view');
@@ -1402,16 +1402,12 @@ async function loadPlaylists(fromHistory = false) {
   });
 }
 
-function renderTopArtistItems(artists, startNum = 1) {
-  return renderItems(artists, artistMapper, startNum);
-}
-
 async function loadTopArtists(fromHistory = false) {
   return loadPaginatedView({
     route: 'topArtists', breadcrumb: [{ name: 'Top Artists' }],
     url: '/me/top/artists?limit=50&time_range=medium_term',
     extractItems: data => data.items || [],
-    renderItems: (artists, n) => renderTopArtistItems(artists, n),
+    renderItems: (artists, n) => renderItems(artists, artistMapper, n),
     fromHistory,
   });
 }
@@ -1567,7 +1563,7 @@ async function loadPlaylist(id, name, fromHistory = false) {
 
 async function loadAlbum(id, fromHistory = false) {
   if (!fromHistory) navigate('album', { id });
-  localStorage.setItem('last_view', 'album');
+  localStorage.setItem('last_view', `album:${id}`);
   paginationNextUrl = null;
   const data = await api('/albums/' + id);
   setBreadcrumb([
@@ -1606,7 +1602,7 @@ function renderAlbumItems(albums, startNum = 1) {
 
 async function loadArtist(id, fromHistory = false) {
   if (!fromHistory) navigate('artist', { id });
-  localStorage.setItem('last_view', 'artist');
+  localStorage.setItem('last_view', `artist:${id}`);
   paginationNextUrl = null; // Clear pagination state
   showLoading();
 
@@ -1912,9 +1908,21 @@ function setBreadcrumb(items) {
 function restoreLastView() {
   const lastView = localStorage.getItem('last_view');
 
-  if (lastView.startsWith("playlist:")) {
+  if (!lastView) { return showQueue(); }
+
+  if (lastView.startsWith('playlist:')) {
     const [, id, name] = lastView.split(':', 3);
     return loadPlaylist(id, name);
+  }
+
+  if (lastView.startsWith('artist:')) {
+    const [, id] = lastView.split(':', 2);
+    return loadArtist(id);
+  }
+
+  if (lastView.startsWith('album:')) {
+    const [, id] = lastView.split(':', 2);
+    return loadAlbum(id);
   }
 
   switch (lastView) {
