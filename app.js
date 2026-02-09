@@ -1,5 +1,4 @@
 // TODO:
-// - reconsider whether the player recreation in the visibilitychange handler is actually needed.
 // - de-crazy loadMorePaginated impl of infinite scroll using global state.
 // - (done) de-duplicate the many load<View> funcs which are largely identical.
 // - review each remaining piece of global state for sanity.
@@ -1998,16 +1997,7 @@ document.addEventListener('visibilitychange', async () => {
     console.log('Tab became visible, token expired, attempting refresh first...');
     const refreshed = await refreshToken();
     if (refreshed) {
-      console.log('Token refreshed successfully. Hopefully existing player keeps working.');
-      // console.log('Token refreshed successfully, recreating player...');
-      // if (player) {
-      //   player.disconnect();
-      //   player = null;
-      // }
-      // initPlayer();
-      // // Wait for player to be ready before allowing playback
-      // await playerReadyPromise;
-      // console.log('Player recreated successfully after token refresh');
+      console.log('Token refreshed successfully. If existing player fails to get new access token and playback fails with 4xx consider recreating the player.');
     } else {
       console.error('Token refresh failed on visibility change, reloading page');
       location.reload();
