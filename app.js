@@ -747,88 +747,179 @@ async function search(q, fromHistory = false) {
   renderSearchResults(results);
 }
 
+// Unified list item renderer. Each caller provides a mapper that returns a
+// descriptor; renderItem turns it into <li> HTML.
+function renderItem(d) {
+  const overlay = d.playAction ? '<div class="play-overlay"></div>' : '';
+  const artClick = d.playAction ? `onclick="event.stopPropagation(); ${d.playAction}"` : '';
+  const imgStyle = d.imgStyle ? ` style="${d.imgStyle}"` : '';
+  const liClick = d.liOnclick ? ` onclick="${d.liOnclick}"` : '';
+  const liClass = d.liClass ? `track ${d.liClass}` : 'track';
+  return `
+    <li class="${liClass}"${d.liAttr || ''}${liClick}>
+      <div class="track-num-col">
+        <span class="track-num">${d.num}</span>
+        ${d.queueBtn || ''}
+        ${d.radioType ? radioBtn(d.radioType, d.radioId) : ''}
+      </div>
+      <div class="track-art" ${artClick}>
+        <img src="${d.imgSrc || ''}"${imgStyle} />
+        ${overlay}
+      </div>
+      <div class="track-info">
+        <div class="track-name" title="${d.nameTitle || ''}">${d.nameHtml}</div>
+        <div class="track-artist"${d.subtitleTitle ? ` title="${d.subtitleTitle}"` : ''}>${d.subtitle || ''}</div>
+        ${d.extraLines || ''}
+      </div>
+      ${d.suffix || ''}
+    </li>`;
+}
+
+function renderItems(items, mapFn, startNum = 1) {
+  return items.map((item, i) => renderItem(mapFn(item, i, startNum + i))).join('');
+}
+
+// --- Shared mapper helpers ---
+
+function artistLinksHtml(artists) {
+  return (artists || []).map(a => {
+    const id = a.id || a.uri?.split(':')[2] || '';
+    return `<span class="artist-link">${shareLink('artist', id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${id}')`)}</span>`;
+  }).join(', ');
+}
+
+function queueAddBtn(onclick) {
+  return `<button class="queue-btn" onclick="event.stopPropagation(); ${onclick}" title="Add to queue (Shift: play next)">+</button>`;
+}
+
+function playlistOnclick(p) {
+  return `loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')`;
+}
+
+// --- Item mappers ---
+
+function trackMapper(contextUri, contextOffset = 0) {
+  return (t, i, num) => {
+    const trackId = t.uri?.split(':')[2] || t.id;
+    const albumId = t.album?.id || t.album?.uri?.split(':')[2] || '';
+    const playAction = contextUri
+      ? `playFromContext('${contextUri}', ${contextOffset + i})`
+      : `playTrack('${t.uri}')`;
+    return {
+      num,
+      queueBtn: queueAddBtn(`addToQueue([${t.uri}], event.shiftKey)`),
+      radioType: 'track', radioId: trackId,
+      imgSrc: t.album?.images?.[2]?.url || '',
+      playAction,
+      nameHtml: shareLink('track', trackId, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`),
+      nameTitle: escapeHtml(t.name),
+      subtitle: artistLinksHtml(t.artists),
+      subtitleTitle: escapeHtml(t.artists?.map(a => a.name).join(', ') || ''),
+      extraLines: t.album ? `<div class="track-album" title="${escapeHtml(t.album.name)}">${shareLink('album', albumId, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>` : '',
+    };
+  };
+}
+
+function albumMapper(a, i, num) {
+  return {
+    num,
+    queueBtn: queueAddBtn(`addAlbumToQueue('${a.id}', event.shiftKey)`),
+    radioType: 'album', radioId: a.id,
+    imgSrc: a.images?.[2]?.url || '',
+    playAction: `playContext('${a.uri}')`,
+    nameHtml: shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`),
+    nameTitle: escapeHtml(a.name),
+    subtitle: artistLinksHtml(a.artists),
+    subtitleTitle: escapeHtml(a.artists?.map(x => x.name).join(', ') || ''),
+    liOnclick: `loadAlbum('${a.id}')`,
+  };
+}
+
+function discographyAlbumMapper(a, i, num) {
+  return { ...albumMapper(a, i, num), subtitle: `${a.album_type} \u2022 ${a.release_date?.slice(0,4)}`, subtitleTitle: undefined };
+}
+
+function playlistMapper(p, i, num) {
+  return {
+    num,
+    queueBtn: queueAddBtn(`addPlaylistToQueue('${p.id}', event.shiftKey)`),
+    radioType: 'playlist', radioId: p.id,
+    imgSrc: p.images?.[0]?.url || '',
+    playAction: `playContext('spotify:playlist:${p.id}')`,
+    nameHtml: shareLink('playlist', p.id, escapeHtml(p.name), `event.stopPropagation(); ${playlistOnclick(p)}`),
+    nameTitle: escapeHtml(p.name),
+    subtitle: `${p.tracks.total} tracks`,
+    liOnclick: playlistOnclick(p),
+  };
+}
+
+function playlistSectionMapper(p, i, num) {
+  return { ...playlistMapper(p, i, num), subtitle: stripHtml(p.description || '') };
+}
+
+function artistMapper(a, i, num) {
+  return {
+    num,
+    radioType: 'artist', radioId: a.id,
+    imgSrc: a.images?.[2]?.url || a.images?.[0]?.url || '',
+    imgStyle: 'border-radius:50%',
+    nameHtml: shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`),
+    nameTitle: escapeHtml(a.name),
+    subtitle: a.genres?.slice(0, 2).join(', ') || '',
+    subtitleTitle: a.genres?.slice(0, 2).join(', ') || '',
+    liOnclick: `loadArtist('${a.id}')`,
+  };
+}
+
+function searchArtistMapper(a, i, num) {
+  return { ...artistMapper(a, i, num), subtitle: `${a.followers?.total?.toLocaleString() || 0} followers`, subtitleTitle: undefined };
+}
+
+function queueTrackMapper(t, i, num) {
+  if (!t) return { num, imgSrc: '', nameHtml: '', nameTitle: '' };
+  const trackId = t.uri?.split(':')[2] || t.id;
+  return {
+    num,
+    queueBtn: `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">\u2212</button>`,
+    radioType: 'track', radioId: trackId,
+    imgSrc: t.album?.images?.[2]?.url || '',
+    playAction: `playFromLocalQueue(${i})`,
+    nameHtml: escapeHtml(t.name),
+    nameTitle: escapeHtml(t.name),
+    subtitle: (t.artists || []).map(a =>
+      `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
+    ).join(', '),
+    subtitleTitle: escapeHtml(t.artists?.map(a => a.name).join(', ') || ''),
+    extraLines: t.album ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : '',
+    liClass: 'queue-item',
+    liAttr: ` draggable="true" data-index="${i}" ondragstart="onQueueDragStart(event)" ondragend="onQueueDragEnd(event)" ondragover="onQueueDragOver(event)" ondragleave="onQueueDragLeave(event)" ondrop="onQueueDrop(event)"`,
+    suffix: '<div class="drag-handle" title="Drag to reorder">\u2261</div>',
+  };
+}
+
+// --- Render functions (thin wrappers) ---
+
+function renderTrackItems(tracks, contextUri, startNum = 1, contextOffset = 0) {
+  return renderItems(tracks, trackMapper(contextUri, contextOffset), startNum);
+}
+
 function renderSearchResults(data) {
   const el = document.getElementById('tracks');
   paginationNextUrl = null;
   let html = '';
   if (data.artists?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Artists</h3>';
-    html += data.artists.items.map((a, i) => `
-      <li class="track" onclick="loadArtist('${a.id}')">
-        <div class="track-num-col">
-          <span class="track-num">${i + 1}</span>
-          ${radioBtn('artist', a.id)}
-        </div>
-        <div class="track-art">
-          <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
-        </div>
-        <div class="track-info">
-          <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`)}</div>
-          <div class="track-artist">${a.followers?.total?.toLocaleString() || 0} followers</div>
-        </div>
-      </li>
-    `).join('');
+    html += renderItems(data.artists.items, searchArtistMapper);
   }
   if (data.albums?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Albums</h3>';
-    html += data.albums.items.map((a, i) => `
-      <li class="track" onclick="loadAlbum('${a.id}')">
-        <div class="track-num-col">
-          <span class="track-num">${i + 1}</span>
-          <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-          ${radioBtn('album', a.id)}
-        </div>
-        <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
-          <img src="${a.images[2]?.url || ''}" />
-          <div class="play-overlay"></div>
-        </div>
-        <div class="track-info">
-          <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
-          <div class="track-artist" title="${a.artists.map(x => x.name).join(', ')}">${a.artists.map(x => shareLink('artist', x.id, escapeHtml(x.name), `event.stopPropagation(); loadArtist('${x.id}')`)).join(', ')}</div>
-        </div>
-      </li>
-    `).join('');
+    html += renderItems(data.albums.items, albumMapper);
   }
   if (data.tracks?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Tracks</h3>';
     html += renderTrackItems(data.tracks.items, null);
   }
   el.innerHTML = html;
-}
-
-function renderTrackItems(tracks, contextUri, isQueueRemove = false, startNum = 1, contextOffset = 0) {
-  return tracks.map((t, i) => {
-    const trackId = t.uri?.split(':')[2] || t.id;
-    const albumId = t.album?.id || t.album?.uri?.split(':')[2] || '';
-    const artistNames = t.artists?.map(a => a.name).join(', ') || '';
-    const artistLinks = t.artists?.map(a => {
-      const artistId = a.id || a.uri?.split(':')[2] || '';
-      return `<span class="artist-link">${shareLink('artist', artistId, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${artistId}')`)}</span>`;
-    }).join(', ') || '';
-    const playAction = contextUri
-      ? `playFromContext('${contextUri}', ${contextOffset + i})`
-      : `playTrack('${t.uri}')`;
-    return `
-    <li class="track">
-      <div class="track-num-col">
-        <span class="track-num">${startNum + i}</span>
-        ${isQueueRemove
-          ? `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>`
-          : `<button class="queue-btn" onclick="event.stopPropagation(); addToQueue([${t.uri}], event.shiftKey)" title="Add to queue (Shift: play next)">+</button>`
-        }
-        ${radioBtn('track', trackId)}
-      </div>
-      <div class="track-art" onclick="event.stopPropagation(); ${playAction}">
-        <img src="${t.album?.images?.[2]?.url || ''}" />
-        <div class="play-overlay"></div>
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(t.name)}">${shareLink('track', trackId, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`)}</div>
-        <div class="track-artist" title="${escapeHtml(artistNames)}">${artistLinks}</div>
-        ${t.album ? `<div class="track-album" title="${escapeHtml(t.album.name)}">${shareLink('album', albumId, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>` : ''}
-      </div>
-    </li>
-  `}).join('');
 }
 
 async function play(body) {
@@ -1277,29 +1368,13 @@ async function loadLikedSongs(fromHistory = false) {
     route: 'liked', breadcrumb: [{ name: 'Liked Songs' }],
     url: '/me/tracks?limit=50',
     extractItems: data => (data.items || []).map(i => i.track).filter(Boolean),
-    renderItems: (tracks, n) => renderTrackItems(tracks, null, false, n),
+    renderItems: (tracks, n) => renderTrackItems(tracks, null, n),
     fromHistory,
   });
 }
 
 function renderSavedAlbumItems(albums, startNum = 1) {
-  return albums.map((a, i) => `
-    <li class="track" onclick="loadAlbum('${a.id}')">
-      <div class="track-num-col">
-        <span class="track-num">${startNum + i}</span>
-        <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        ${radioBtn('album', a.id)}
-      </div>
-      <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
-        <img src="${a.images?.[2]?.url || ''}" />
-        <div class="play-overlay"></div>
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
-        <div class="track-artist" title="${a.artists.map(x => x.name).join(', ')}">${a.artists.map(x => shareLink('artist', x.id, escapeHtml(x.name), `event.stopPropagation(); loadArtist('${x.id}')`)).join(', ')}</div>
-      </div>
-    </li>
-  `).join('');
+  return renderItems(albums, albumMapper, startNum);
 }
 
 async function loadSavedAlbums(fromHistory = false) {
@@ -1313,23 +1388,7 @@ async function loadSavedAlbums(fromHistory = false) {
 }
 
 function renderMyPlaylistItems(playlists, startNum = 1) {
-  return playlists.map((p, i) => `
-    <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
-      <div class="track-num-col">
-        <span class="track-num">${startNum + i}</span>
-        <button class="queue-btn" onclick="event.stopPropagation(); addPlaylistToQueue('${p.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        ${radioBtn('playlist', p.id)}
-      </div>
-      <div class="track-art" onclick="event.stopPropagation(); playContext('spotify:playlist:${p.id}')">
-        <img src="${p.images?.[0]?.url || ''}" />
-        <div class="play-overlay"></div>
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(p.name)}">${shareLink('playlist', p.id, escapeHtml(p.name), `event.stopPropagation(); loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')`)}</div>
-        <div class="track-artist">${p.tracks.total} tracks</div>
-      </div>
-    </li>
-  `).join('');
+  return renderItems(playlists, playlistMapper, startNum);
 }
 
 async function loadPlaylists(fromHistory = false) {
@@ -1343,21 +1402,7 @@ async function loadPlaylists(fromHistory = false) {
 }
 
 function renderTopArtistItems(artists, startNum = 1) {
-  return artists.map((a, i) => `
-    <li class="track" onclick="loadArtist('${a.id}')">
-      <div class="track-num-col">
-        <span class="track-num">${startNum + i}</span>
-        ${radioBtn('artist', a.id)}
-      </div>
-      <div class="track-art">
-        <img src="${a.images?.[2]?.url || a.images?.[0]?.url || ''}" style="border-radius:50%" />
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('artist', a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`)}</div>
-        <div class="track-artist" title="${a.genres?.slice(0, 2).join(', ') || ''}">${a.genres?.slice(0, 2).join(', ') || ''}</div>
-      </div>
-    </li>
-  `).join('');
+  return renderItems(artists, artistMapper, startNum);
 }
 
 async function loadTopArtists(fromHistory = false) {
@@ -1375,29 +1420,13 @@ async function loadTopTracks(fromHistory = false) {
     route: 'topTracks', breadcrumb: [{ name: 'Top Tracks' }],
     url: '/me/top/tracks?limit=50&time_range=medium_term',
     extractItems: data => data.items || [],
-    renderItems: (tracks, n) => renderTrackItems(tracks, null, false, n),
+    renderItems: (tracks, n) => renderTrackItems(tracks, null, n),
     fromHistory,
   });
 }
 
 function renderPlaylistSection(playlists, startNum = 1) {
-  return playlists.map((p, i) => `
-    <li class="track" onclick="loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')">
-      <div class="track-num-col">
-        <span class="track-num">${startNum + i}</span>
-        <button class="queue-btn" onclick="event.stopPropagation(); addPlaylistToQueue('${p.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        ${radioBtn('playlist', p.id)}
-      </div>
-      <div class="track-art" onclick="event.stopPropagation(); playContext('spotify:playlist:${p.id}')">
-        <img src="${p.images?.[0]?.url || ''}" />
-        <div class="play-overlay"></div>
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(p.name)}">${shareLink('playlist', p.id, escapeHtml(p.name), `event.stopPropagation(); loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')`)}</div>
-        <div class="track-album" title="${stripHtml(p.description || '')}">${stripHtml(p.description || '')}</div>
-      </div>
-    </li>
-  `).join('');
+  return renderItems(playlists, playlistSectionMapper, startNum);
 }
 
 // Shared state for Explore pagination (needs seenIds across pages).
@@ -1571,23 +1600,7 @@ async function showCurrentAlbum() {
 }
 
 function renderAlbumItems(albums, startNum = 1) {
-  return albums.map((a, i) => `
-    <li class="track" onclick="loadAlbum('${a.id}')">
-      <div class="track-num-col">
-        <span class="track-num">${startNum + i}</span>
-        <button class="queue-btn" onclick="event.stopPropagation(); addAlbumToQueue('${a.id}', event.shiftKey)" title="Add to queue (Shift: play next)">+</button>
-        ${radioBtn('album', a.id)}
-      </div>
-      <div class="track-art" onclick="event.stopPropagation(); playContext('${a.uri}')">
-        <img src="${a.images?.[2]?.url || ''}" />
-        <div class="play-overlay"></div>
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(a.name)}">${shareLink('album', a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`)}</div>
-        <div class="track-artist">${a.album_type} • ${a.release_date?.slice(0,4)}</div>
-      </div>
-    </li>
-  `).join('');
+  return renderItems(albums, discographyAlbumMapper, startNum);
 }
 
 async function loadArtist(id, fromHistory = false) {
@@ -1663,34 +1676,7 @@ async function showQueue(fromHistory = false) {
 }
 
 function renderLocalQueueItems(tracks) {
-  return tracks.map((t, i) => {
-    if (!t) return '';
-    const trackId = t.uri?.split(':')[2] || t.id;
-    const artistNames = t.artists?.map(a => a.name).join(', ') || '';
-    const artistLinks = t.artists?.map(a =>
-      `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`
-    ).join(', ') || '';
-    return `
-    <li class="track queue-item" draggable="true" data-index="${i}"
-        ondragstart="onQueueDragStart(event)" ondragend="onQueueDragEnd(event)"
-        ondragover="onQueueDragOver(event)" ondragleave="onQueueDragLeave(event)" ondrop="onQueueDrop(event)">
-      <div class="track-num-col">
-        <span class="track-num">${i + 1}</span>
-        <button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">−</button>
-        ${radioBtn('track', trackId)}
-      </div>
-      <div class="track-art" onclick="event.stopPropagation(); playFromLocalQueue(${i})">
-        <img src="${t.album?.images?.[2]?.url || ''}" />
-        <div class="play-overlay"></div>
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</div>
-        <div class="track-artist" title="${escapeHtml(artistNames)}">${artistLinks}</div>
-        ${t.album ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>` : ''}
-      </div>
-      <div class="drag-handle" title="Drag to reorder">≡</div>
-    </li>
-  `}).join('');
+  return renderItems(tracks, queueTrackMapper);
 }
 
 async function playFromLocalQueue(index) {
