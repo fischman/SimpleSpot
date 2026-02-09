@@ -1429,6 +1429,7 @@ async function loadExplore(fromHistory = false) {
 
   // Render Your Mixes as soon as ready.
   const searchResults = await mixesPromise;
+  console.log("CC->AMI", JSON.stringify(searchResults.map((ps) => [ps.playlists.items[0].id, ps.playlists.items[0].name])));
   const personalizedPlaylists = [];
   personalizedSearches.forEach((searchName, idx) => {
     const results = searchResults[idx]?.playlists?.items || [];
