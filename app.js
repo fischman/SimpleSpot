@@ -90,8 +90,8 @@ let isNavigatingBack = false; // Flag to prevent pushing state during popstate.
 let loopEnabled = localStorage.getItem('loop_enabled') === 'true';
 
 // Infinite scroll state — single object replaced by each view that supports pagination.
-// loadMore is a closure that fetches the next page and appends it.
-let pagination = null; // { loadMore: async () => void }
+let pagination = null;
+let paginationGen = 0; // Incremented on each view load; stale fetchPage callbacks bail out.
 
 // Lyrics.
 let lyricsEnabled = false;
@@ -885,7 +885,7 @@ function renderTrackItems(tracks, contextUri, startNum = 1, contextOffset = 0) {
 
 function renderSearchResults(data) {
   const el = document.getElementById('tracks');
-  pagination = null;
+  pagination = null; paginationGen++;
   let html = '';
   if (data.artists?.items.length) {
     html += '<h3 style="padding:8px;color:#b3b3b3">Artists</h3>';
@@ -1322,15 +1322,17 @@ async function loadPaginatedView({ route, breadcrumb, url, extractItems, renderI
   el.scrollTop = 0;
 
   let count = 0;
-  pagination = makePagination(url, async (nextUrl) => {
+  const gen = ++paginationGen;
+  const p = makePagination(url, async (nextUrl) => {
     const data = await api(nextUrl);
+    if (gen !== paginationGen) return null; // View changed, stop.
     const items = extractItems(data);
     el.innerHTML += renderItems(items, count + 1);
     count += items.length;
     return data.next;
   });
-  // Eagerly load first 300 items.
-  while (pagination.active && count < 300) await pagination.loadMore();
+  pagination = p;
+  while (p.active && count < 300) await p.loadMore();
 }
 
 async function loadLikedSongs(fromHistory = false) {
@@ -1411,6 +1413,7 @@ async function loadExplore(fromHistory = false) {
   el.scrollTop = 0;
 
   pagination = null;
+  const gen = ++paginationGen;
   exploreSeenIds = new Set();
 
   // Search for personalized playlists
@@ -1472,8 +1475,9 @@ async function loadExplore(fromHistory = false) {
 
   // Paginate Featured playlists (eagerly up to 300, then infinite scroll).
   let featuredUrl = featuredData?.playlists?.next?.replace('https://api.spotify.com/v1', '');
-  pagination = !featuredUrl ? null : makePagination(featuredUrl, async (nextUrl) => {
+  const p = !featuredUrl ? null : makePagination(featuredUrl, async (nextUrl) => {
     const data = await api(nextUrl);
+    if (gen !== paginationGen) return null;
     const newItems = (data.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
     if (newItems.length > 0) {
       const section = document.getElementById('featured-section');
@@ -1486,7 +1490,8 @@ async function loadExplore(fromHistory = false) {
     }
     return data.playlists?.next;
   });
-  while (pagination?.active && featuredCount < 300) await pagination.loadMore();
+  pagination = p;
+  while (p?.active && featuredCount < 300) await p.loadMore();
 
 }
 
@@ -1499,7 +1504,7 @@ async function loadPlaylist(id, fromHistory = false) {
     { name: name || 'Playlist' }
   ]);
   showLoading();
-  pagination = null; // Clear pagination state
+  pagination = null; paginationGen++; // Clear pagination state
   const contextUri = 'spotify:playlist:' + id;
   const data = await api('/playlists/' + id + '/tracks?limit=100');
   const tracks = data.items.map(i => i.track).filter(t => t);
@@ -1509,7 +1514,7 @@ async function loadPlaylist(id, fromHistory = false) {
 async function loadAlbum(id, fromHistory = false) {
   if (!fromHistory) navigate('album', { id });
   localStorage.setItem('last_view', `album:${id}`);
-  pagination = null;
+  pagination = null; paginationGen++;
   const data = await api('/albums/' + id);
   setBreadcrumb([
     { name: 'Album: ' + data.name }
@@ -1548,7 +1553,7 @@ function renderAlbumItems(albums, startNum = 1) {
 async function loadArtist(id, fromHistory = false) {
   if (!fromHistory) navigate('artist', { id });
   localStorage.setItem('last_view', `artist:${id}`);
-  pagination = null; // Clear pagination state
+  pagination = null; paginationGen++; // Clear pagination state
   showLoading();
 
   const [artist, topTracks, albumsData] = await Promise.all([
@@ -1599,7 +1604,7 @@ async function showQueue(fromHistory = false) {
   setBreadcrumb([{ name: 'Queue', suffix: '<button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>' }]);
   showLoading();
   localStorage.setItem('last_view', 'queue');
-  pagination = null;
+  pagination = null; paginationGen++;
 
   const myVersion = ++queueRenderVersion;
 
