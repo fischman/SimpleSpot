@@ -1,5 +1,4 @@
 // TODO:
-// - (done) de-crazy loadMorePaginated impl of infinite scroll using global state.
 // - review each remaining piece of global state for sanity.
 
 const PLAYPAUSE_CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
@@ -965,7 +964,7 @@ async function playFromContext(uri, offset) {
     while (url) {
       const data = await api(url);
       trackUris = trackUris.concat((data?.items || []).map(i => i.track?.uri).filter(Boolean));
-      url = data?.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+      url = data?.next?.replace('https://api.spotify.com/v1', '');
     }
   }
 
@@ -1493,7 +1492,7 @@ async function loadExplore(fromHistory = false) {
   }
 
   // Paginate Featured playlists (eagerly up to 300, then infinite scroll).
-  let featuredUrl = featuredData?.playlists?.next ? featuredData.playlists.next.replace('https://api.spotify.com/v1', '') : null;
+  let featuredUrl = featuredData?.playlists?.next?.replace('https://api.spotify.com/v1', '');
   pagination = !featuredUrl ? null : makePagination(featuredUrl, async (nextUrl) => {
     const data = await api(nextUrl);
     const newItems = (data.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
@@ -1605,14 +1604,14 @@ async function loadArtist(id, fromHistory = false) {
   }
 
   el.innerHTML = html;
-  let nextUrl = albumsData.next ? albumsData.next.replace('https://api.spotify.com/v1', '') : null;
+  let nextUrl = albumsData.next?.replace('https://api.spotify.com/v1', '');
   while (nextUrl) {
     const data = await api(nextUrl);
     if (data.items?.length) {
       el.innerHTML += renderAlbumItems(data.items, allAlbums.length + 1);
       allAlbums = allAlbums.concat(data.items);
     }
-    nextUrl = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    nextUrl = data.next?.replace('https://api.spotify.com/v1', '');
   }
 }
 
@@ -2052,6 +2051,7 @@ function updateMediaSession(track, state) {
   navigator.mediaSession.playbackState = state.paused ? 'paused' : 'playing';
 
   if (state.duration) {
+    assert(state.position <= state.duration, `State position > duration: ${JSON.stringify(state)} for track: ${JSON.stringify(track)}`);
     navigator.mediaSession.setPositionState({
       duration: state.duration / 1000,
       position: state.position / 1000,
