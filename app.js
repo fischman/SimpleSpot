@@ -808,7 +808,7 @@ function trackMapper(contextUri, contextOffset = 0) {
       : `playTrack('${t.uri}')`;
     return {
       num,
-      queueBtn: queueAddBtn(`addToQueue([${t.uri}], event.shiftKey)`),
+      queueBtn: queueAddBtn(`addToQueue(['${t.uri}'], event.shiftKey)`),
       radioType: 'track', radioId: trackId,
       imgSrc: t.album?.images?.[2]?.url || '',
       playAction,
@@ -1546,9 +1546,10 @@ async function loadExplore(fromHistory = false) {
 
 }
 
-async function loadPlaylist(id, name, fromHistory = false) {
-  if (!fromHistory) navigate('playlist', { id, name });
-  localStorage.setItem('last_view', `playlist:${id}:${name}`);
+async function loadPlaylist(id, fromHistory = false) {
+  if (!fromHistory) navigate('playlist', { id });
+  localStorage.setItem('last_view', `playlist:${id}`);
+  const name = (await api('/playlists/' + id)).name;
   setBreadcrumb([
     { name: 'Playlists', action: 'loadPlaylists()' },
     { name: name || 'Playlist' }
@@ -1907,46 +1908,27 @@ function setBreadcrumb(items) {
 
 function restoreLastView() {
   const lastView = localStorage.getItem('last_view');
-
   if (!lastView) { return showQueue(); }
-
-  if (lastView.startsWith('playlist:')) {
-    const [, id, name] = lastView.split(':', 3);
-    return loadPlaylist(id, name);
-  }
-
-  if (lastView.startsWith('artist:')) {
-    const [, id] = lastView.split(':', 2);
-    return loadArtist(id);
-  }
-
-  if (lastView.startsWith('album:')) {
-    const [, id] = lastView.split(':', 2);
-    return loadAlbum(id);
-  }
-
-  switch (lastView) {
-  case 'queue': showQueue(); break;
-  case 'liked': loadLikedSongs(); break;
-  case 'albums': loadSavedAlbums(); break;
-  case 'playlists': loadPlaylists(); break;
-  case 'topArtists': loadTopArtists(); break;
-  case 'topTracks': loadTopTracks(); break;
-  case 'explore': loadExplore(); break;
+  const parts = lastView.split(':');
+  switch (parts[0]) {
+  case 'album': return loadAlbum(parts[1]);
+  case 'albums': return loadSavedAlbums();
+  case 'artist': return loadArtist(parts[1]);
+  case 'explore': return loadExplore();
+  case 'liked': return loadLikedSongs();
+  case 'playlist': return loadPlaylist(parts[1]);
+  case 'playlists': return loadPlaylists();
+  case 'queue': return showQueue();
+  case 'topArtists': return loadTopArtists();
+  case 'topTracks': return loadTopTracks();
   case 'search':
     const lastSearch = localStorage.getItem('last_search');
-    if (lastSearch) {
-      try {
-        const { query, data } = JSON.parse(lastSearch);
-        document.getElementById('search').value = query;
-        setBreadcrumb([{ name: 'Search: ' + query }]);
-        renderSearchResults(data);
-      } catch (e) {}
-    }
-    break;
-  default:
-    assert(false, `Unexpected last_view: [${lastView}]`);
+    const { query, data } = JSON.parse(lastSearch);
+    document.getElementById('search').value = query;
+    setBreadcrumb([{ name: 'Search: ' + query }]);
+    return renderSearchResults(data);
   }
+  assert(false, `Unexpected last_view: [${lastView}]`);
 }
 
 function clearSearch() {
