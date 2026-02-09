@@ -1,6 +1,5 @@
 // TODO:
 // - de-crazy loadMorePaginated impl of infinite scroll using global state.
-// - (done) de-duplicate the many load<View> funcs which are largely identical.
 // - review each remaining piece of global state for sanity.
 
 const PLAYPAUSE_CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
