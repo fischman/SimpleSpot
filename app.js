@@ -1412,7 +1412,6 @@ async function loadExplore(fromHistory = false) {
 
   pagination = null;
   exploreSeenIds = new Set();
-  exploreTotalCount = 0;
 
   // Search for personalized playlists
   const personalizedSearches = [
@@ -1423,7 +1422,7 @@ async function loadExplore(fromHistory = false) {
 
   // Start all fetches in parallel.
   const mixesPromise = Promise.all(
-    personalizedSearches.map(q => api('/search?type=playlist&limit=5&q=' + encodeURIComponent(q)))
+    personalizedSearches.map(q => api('/search?type=playlist&limit=1&q=' + encodeURIComponent(q)))
   );
   const madeForYouPromise = api('/browse/categories/0JQ5DAt0tbjZptfcdMSKl3/playlists?limit=50');
   const featuredPromise = api('/browse/featured-playlists?limit=50');
@@ -1446,7 +1445,6 @@ async function loadExplore(fromHistory = false) {
   if (personalizedPlaylists.length > 0) {
     el.innerHTML += `<div class="section-header">Your Mixes</div>`;
     el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`;
-    exploreTotalCount += personalizedPlaylists.length;
   }
 
   // Render Made For You as soon as ready.
@@ -1455,8 +1453,7 @@ async function loadExplore(fromHistory = false) {
   madeForYouPlaylists.forEach(p => exploreSeenIds.add(p.id));
   if (madeForYouPlaylists.length > 0) {
     el.innerHTML += `<div class="section-header">Made For You</div>`;
-    el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, exploreTotalCount + 1)}</ul>`;
-    exploreTotalCount += madeForYouPlaylists.length;
+    el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, 1)}</ul>`;
   }
 
   // Render Featured Playlists, paginating.
@@ -1469,8 +1466,7 @@ async function loadExplore(fromHistory = false) {
   // Render first batch immediately.
   if (items.length > 0) {
     el.innerHTML += `<div class="section-header">Featured Playlists</div>`;
-    el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, exploreTotalCount + 1)}</ul>`;
-    exploreTotalCount += items.length;
+    el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`;
   }
 
   // Paginate Featured playlists (eagerly up to 300, then infinite scroll).
@@ -1481,8 +1477,8 @@ async function loadExplore(fromHistory = false) {
     if (newItems.length > 0) {
       const section = document.getElementById('featured-section');
       if (section) {
-        section.innerHTML += renderPlaylistSection(newItems, exploreTotalCount + 1);
-        exploreTotalCount += newItems.length;
+        section.innerHTML += renderPlaylistSection(newItems, featuredCount + 1);
+        featuredCount += newItems.length;
       }
       newItems.forEach(p => exploreSeenIds.add(p.id));
       featuredCount += newItems.length;
