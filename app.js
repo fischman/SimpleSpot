@@ -1341,25 +1341,15 @@ async function loadPaginatedView({ route, breadcrumb, url, extractItems, renderI
   el.scrollTop = 0;
 
   let count = 0;
-  let currentUrl = url;
-  while (currentUrl && count < 300) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-    const data = await api(currentUrl);
-    el.querySelector('.loading-more')?.remove();
-    const items = extractItems(data);
-    el.innerHTML += renderItems(items, count + 1);
-    count += items.length;
-    currentUrl = (count < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
-  }
-
-  pagination = !currentUrl ? null : makePagination(currentUrl, async (nextUrl) => {
+  pagination = makePagination(url, async (nextUrl) => {
     const data = await api(nextUrl);
     const items = extractItems(data);
     el.innerHTML += renderItems(items, count + 1);
     count += items.length;
     return data.next;
   });
-  if (pagination) el.innerHTML += '<li class="loading-more">Loading...</li>';
+  // Eagerly load first 300 items.
+  while (pagination.active && count < 300) await pagination.loadMore();
 }
 
 async function loadLikedSongs(fromHistory = false) {
