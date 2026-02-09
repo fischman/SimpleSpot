@@ -1492,10 +1492,10 @@ async function loadExplore(fromHistory = false) {
     exploreTotalCount += items.length;
   }
 
-  // Continue paginating Featured up to 300.
-  let url = featuredData?.playlists?.next ? featuredData.playlists.next.replace('https://api.spotify.com/v1', '') : null;
-  while (url && featuredCount < 300) {
-    const data = await api(url);
+  // Paginate Featured playlists (eagerly up to 300, then infinite scroll).
+  let featuredUrl = featuredData?.playlists?.next ? featuredData.playlists.next.replace('https://api.spotify.com/v1', '') : null;
+  pagination = !featuredUrl ? null : makePagination(featuredUrl, async (nextUrl) => {
+    const data = await api(nextUrl);
     const newItems = (data.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
     if (newItems.length > 0) {
       const section = document.getElementById('featured-section');
@@ -1506,25 +1506,9 @@ async function loadExplore(fromHistory = false) {
       newItems.forEach(p => exploreSeenIds.add(p.id));
       featuredCount += newItems.length;
     }
-    url = data.playlists?.next ? data.playlists.next.replace('https://api.spotify.com/v1', '') : null;
-  }
-
-  // Set up infinite scroll for more Featured if available.
-  if (!url) return;
-  pagination = makePagination(url, async (nextUrl) => {
-    const data = await api(nextUrl);
-    const newItems = (data.playlists?.items || []).filter(p => p && !exploreSeenIds.has(p.id));
-    if (newItems.length > 0) {
-      const section = document.getElementById('featured-section');
-      if (section) {
-        section.innerHTML += renderPlaylistSection(newItems, exploreTotalCount + 1);
-        exploreTotalCount += newItems.length;
-      }
-      newItems.forEach(p => exploreSeenIds.add(p.id));
-    }
     return data.playlists?.next;
   });
-  el.innerHTML += '<li class="loading-more">Loading...</li>';
+  while (pagination?.active && featuredCount < 300) await pagination.loadMore();
 
 }
 
