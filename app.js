@@ -436,8 +436,7 @@ function initPlayer() {
         }
       }
       cb(getAuth('access_token'));
-    },
-    volume: (localStorage.getItem('volume') || 50) / 100
+    }
   });
 
   player.addListener('ready', ({ device_id }) => {
@@ -697,23 +696,6 @@ function updateProgress() {
     player.seek(pct * currentState.duration);
   });
 })();
-
-(function() {
-  const slider = document.getElementById('volume-slider');
-  const saved = localStorage.getItem('volume');
-  if (saved) {
-    slider.value = saved;
-    slider.title = 'Volume: ' + saved + '%';
-  }
-  slider.addEventListener('input', () => {
-    slider.title = 'Volume: ' + slider.value + '%';
-  });
-  slider.addEventListener('change', () => {
-    localStorage.setItem('volume', slider.value);
-    player?.setVolume(slider.value / 100);
-  });
-})();
-
 
 async function search(q, fromHistory = false) {
   if (!fromHistory) navigate('search', { q });
@@ -1709,7 +1691,6 @@ function clearPlayerUI() {
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('progress-current').textContent = '0:00';
   document.getElementById('progress-total').textContent = '0:00';
-  document.getElementById('volume-slider').value = 0;
 }
 
 async function clearQueue() {
