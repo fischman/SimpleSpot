@@ -1618,7 +1618,7 @@ async function loadExplore(fromHistory = false) {
 
 async function loadPlaylist(id, name, fromHistory = false) {
   if (!fromHistory) navigate('playlist', { id, name });
-  localStorage.setItem('last_view', 'playlist');
+  localStorage.setItem('last_view', `playlist:${id}:${name}`);
   setBreadcrumb([
     { name: 'Playlists', action: 'loadPlaylists()' },
     { name: name || 'Playlist' }
@@ -2020,6 +2020,11 @@ function setBreadcrumb(items) {
 
 function restoreLastView() {
   const lastView = localStorage.getItem('last_view');
+
+  if (lastView.startsWith("playlist:")) {
+    const [, id, name] = lastView.split(':', 3);
+    return loadPlaylist(id, name);
+  }
 
   switch (lastView) {
   case 'queue': showQueue(); break;
