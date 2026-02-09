@@ -1148,11 +1148,17 @@ async function togglePlay() {
   }
 
   const s = JSON.parse(saved);
-  assert(s.trackUri && s.trackUri.startsWith('spotify:track:'), `Malformed saved play_state: [${saved}]`);
-  const validContext = s.contextUri && /^spotify:(playlist|album|artist):/.test(s.contextUri);
-  await play(validContext
-             ? { context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position || 0 }
-             : { uris: [s.trackUri], position_ms: s.position || 0 });
+  if (!s.contextUri && !s.trackUri) {
+    console.log("Nothing to resume playing from localStorage.play_state:", s);
+    return;
+  }
+  if (!s.contextUri) {
+    return await play({ uris: [s.trackUri], position_ms: s.position || 0 });
+  }
+  if (!s.trackUri || !s.trackUri.startsWith('spotify:track:')) {
+    return await play({ context_uri: s.contextUri });
+  }
+  await play({ context_uri: s.contextUri, offset: { uri: s.trackUri }, position_ms: s.position || 0 });
 }
 
 async function next() {
