@@ -1,7 +1,7 @@
 // TODO:
 // - reconsider whether the player recreation in the visibilitychange handler is actually needed.
 // - de-crazy loadMorePaginated impl of infinite scroll using global state.
-// - de-duplicate the many load<View> funcs which are largely identical.
+// - (done) de-duplicate the many load<View> funcs which are largely identical.
 // - review each remaining piece of global state for sanity.
 
 const PLAYPAUSE_CLIENT_ID = '1366988155e64d34b759879f2a575cdd';
@@ -1242,10 +1242,10 @@ async function transferPlayback(id) {
   document.getElementById('device-menu').classList.remove('show');
 }
 
-async function loadLikedSongs(fromHistory = false) {
-  if (!fromHistory) navigate('liked');
-  setBreadcrumb([{ name: 'Liked Songs' }]);
-  localStorage.setItem('last_view', 'liked');
+async function loadPaginatedView({ route, breadcrumb, lastView, url, extractItems, renderItems, fromHistory }) {
+  if (!fromHistory) navigate(route);
+  setBreadcrumb(breadcrumb);
+  localStorage.setItem('last_view', lastView || route);
 
   const el = document.getElementById('tracks');
   el.classList.add('grid-view');
@@ -1254,28 +1254,34 @@ async function loadLikedSongs(fromHistory = false) {
 
   paginationNextUrl = null;
   paginationRenderFn = (data) => {
-    const tracks = (data.items || []).map(i => i.track).filter(t => t);
-    const html = renderTrackItems(tracks, null, false, paginationCount + 1);
-    return { html, count: tracks.length };
+    const items = extractItems(data);
+    return { html: renderItems(items, paginationCount + 1), count: items.length };
   };
   paginationCount = 0;
   paginationLoading = false;
 
-  let url = '/me/tracks?limit=50';
-  while (url && paginationCount < 300) {
+  let currentUrl = url;
+  while (currentUrl && paginationCount < 300) {
     el.innerHTML += '<li class="loading-more">Loading...</li>';
-    const data = await api(url);
+    const data = await api(currentUrl);
     el.querySelector('.loading-more')?.remove();
-    const tracks = (data.items || []).map(i => i.track).filter(t => t);
-    el.innerHTML += renderTrackItems(tracks, null, false, paginationCount + 1);
-    paginationCount += tracks.length;
-    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    const items = extractItems(data);
+    el.innerHTML += renderItems(items, paginationCount + 1);
+    paginationCount += items.length;
+    currentUrl = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
   }
-  // Set up infinite scroll if more data available
-  paginationNextUrl = url;
-  if (paginationNextUrl) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-  }
+  paginationNextUrl = currentUrl;
+  if (paginationNextUrl) el.innerHTML += '<li class="loading-more">Loading...</li>';
+}
+
+async function loadLikedSongs(fromHistory = false) {
+  return loadPaginatedView({
+    route: 'liked', breadcrumb: [{ name: 'Liked Songs' }],
+    url: '/me/tracks?limit=50',
+    extractItems: data => (data.items || []).map(i => i.track).filter(Boolean),
+    renderItems: (tracks, n) => renderTrackItems(tracks, null, false, n),
+    fromHistory,
+  });
 }
 
 function renderSavedAlbumItems(albums, startNum = 1) {
@@ -1299,38 +1305,13 @@ function renderSavedAlbumItems(albums, startNum = 1) {
 }
 
 async function loadSavedAlbums(fromHistory = false) {
-  if (!fromHistory) navigate('albums');
-  setBreadcrumb([{ name: 'Saved Albums' }]);
-  localStorage.setItem('last_view', 'albums');
-
-  const el = document.getElementById('tracks');
-  el.classList.add('grid-view');
-  el.innerHTML = '';
-  el.scrollTop = 0;
-
-  paginationNextUrl = null;
-  paginationRenderFn = (data) => {
-    const albums = (data.items || []).map(i => i.album).filter(a => a);
-    const html = renderSavedAlbumItems(albums, paginationCount + 1);
-    return { html, count: albums.length };
-  };
-  paginationCount = 0;
-  paginationLoading = false;
-
-  let url = '/me/albums?limit=50';
-  while (url && paginationCount < 300) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-    const data = await api(url);
-    el.querySelector('.loading-more')?.remove();
-    const albums = (data.items || []).map(i => i.album).filter(a => a);
-    el.innerHTML += renderSavedAlbumItems(albums, paginationCount + 1);
-    paginationCount += albums.length;
-    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
-  }
-  paginationNextUrl = url;
-  if (paginationNextUrl) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-  }
+  return loadPaginatedView({
+    route: 'albums', breadcrumb: [{ name: 'Saved Albums' }],
+    url: '/me/albums?limit=50',
+    extractItems: data => (data.items || []).map(i => i.album).filter(Boolean),
+    renderItems: (albums, n) => renderSavedAlbumItems(albums, n),
+    fromHistory,
+  });
 }
 
 function renderMyPlaylistItems(playlists, startNum = 1) {
@@ -1354,38 +1335,13 @@ function renderMyPlaylistItems(playlists, startNum = 1) {
 }
 
 async function loadPlaylists(fromHistory = false) {
-  if (!fromHistory) navigate('playlists');
-  setBreadcrumb([{ name: 'Playlists' }]);
-  localStorage.setItem('last_view', 'playlists');
-
-  const el = document.getElementById('tracks');
-  el.classList.add('grid-view');
-  el.innerHTML = '';
-  el.scrollTop = 0;
-
-  paginationNextUrl = null;
-  paginationRenderFn = (data) => {
-    const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
-    const html = renderMyPlaylistItems(playlists, paginationCount + 1);
-    return { html, count: playlists.length };
-  };
-  paginationCount = 0;
-  paginationLoading = false;
-
-  let url = '/me/playlists?limit=50';
-  while (url && paginationCount < 300) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-    const data = await api(url);
-    el.querySelector('.loading-more')?.remove();
-    const playlists = (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID);
-    el.innerHTML += renderMyPlaylistItems(playlists, paginationCount + 1);
-    paginationCount += playlists.length;
-    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
-  }
-  paginationNextUrl = url;
-  if (paginationNextUrl) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-  }
+  return loadPaginatedView({
+    route: 'playlists', breadcrumb: [{ name: 'Playlists' }],
+    url: '/me/playlists?limit=50',
+    extractItems: data => (data.items || []).filter(p => p && p.id !== DJ_PLAYLIST_ID),
+    renderItems: (playlists, n) => renderMyPlaylistItems(playlists, n),
+    fromHistory,
+  });
 }
 
 function renderTopArtistItems(artists, startNum = 1) {
@@ -1407,73 +1363,23 @@ function renderTopArtistItems(artists, startNum = 1) {
 }
 
 async function loadTopArtists(fromHistory = false) {
-  if (!fromHistory) navigate('topArtists');
-  setBreadcrumb([{ name: 'Top Artists' }]);
-  localStorage.setItem('last_view', 'topArtists');
-
-  const el = document.getElementById('tracks');
-  el.classList.add('grid-view');
-  el.innerHTML = '';
-  el.scrollTop = 0;
-
-  paginationNextUrl = null;
-  paginationRenderFn = (data) => {
-    const artists = data.items || [];
-    const html = renderTopArtistItems(artists, paginationCount + 1);
-    return { html, count: artists.length };
-  };
-  paginationCount = 0;
-  paginationLoading = false;
-
-  let url = '/me/top/artists?limit=50&time_range=medium_term';
-  while (url && paginationCount < 300) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-    const data = await api(url);
-    el.querySelector('.loading-more')?.remove();
-    const artists = data.items || [];
-    el.innerHTML += renderTopArtistItems(artists, paginationCount + 1);
-    paginationCount += artists.length;
-    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
-  }
-  paginationNextUrl = url;
-  if (paginationNextUrl) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-  }
+  return loadPaginatedView({
+    route: 'topArtists', breadcrumb: [{ name: 'Top Artists' }],
+    url: '/me/top/artists?limit=50&time_range=medium_term',
+    extractItems: data => data.items || [],
+    renderItems: (artists, n) => renderTopArtistItems(artists, n),
+    fromHistory,
+  });
 }
 
 async function loadTopTracks(fromHistory = false) {
-  if (!fromHistory) navigate('topTracks');
-  setBreadcrumb([{ name: 'Top Tracks' }]);
-  localStorage.setItem('last_view', 'topTracks');
-
-  const el = document.getElementById('tracks');
-  el.classList.add('grid-view');
-  el.innerHTML = '';
-  el.scrollTop = 0;
-
-  paginationNextUrl = null;
-  paginationRenderFn = (data) => {
-    const tracks = data.items || [];
-    const html = renderTrackItems(tracks, null, false, paginationCount + 1);
-    return { html, count: tracks.length };
-  };
-  paginationCount = 0;
-  paginationLoading = false;
-
-  let url = '/me/top/tracks?limit=50&time_range=medium_term';
-  while (url && paginationCount < 300) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-    const data = await api(url);
-    el.querySelector('.loading-more')?.remove();
-    const tracks = data.items || [];
-    el.innerHTML += renderTrackItems(tracks, null, false, paginationCount + 1);
-    paginationCount += tracks.length;
-    url = (paginationCount < 300 && data.next) ? data.next.replace('https://api.spotify.com/v1', '') : null;
-  }
-  paginationNextUrl = url;
-  if (paginationNextUrl) {
-    el.innerHTML += '<li class="loading-more">Loading...</li>';
-  }
+  return loadPaginatedView({
+    route: 'topTracks', breadcrumb: [{ name: 'Top Tracks' }],
+    url: '/me/top/tracks?limit=50&time_range=medium_term',
+    extractItems: data => data.items || [],
+    renderItems: (tracks, n) => renderTrackItems(tracks, null, false, n),
+    fromHistory,
+  });
 }
 
 function renderPlaylistSection(playlists, startNum = 1) {
