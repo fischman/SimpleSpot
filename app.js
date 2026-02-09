@@ -1992,12 +1992,11 @@ document.addEventListener('visibilitychange', async () => {
   if (!document.visibilityState === 'visible' || !getAuth('access_token')) {
     return;
   }
-
   if (Date.now() > getAuth('token_expiry')) {
     console.log('Tab became visible, token expired, attempting refresh first...');
     const refreshed = await refreshToken();
     if (refreshed) {
-      console.log('Token refreshed successfully. If existing player fails to get new access token and playback fails with 4xx consider recreating the player.');
+      console.log('Token refreshed successfully. If existing player fails to get new access token and playback fails with 4xx consider recreating the player as in the commented code deleted in 306777310f.');
     } else {
       console.error('Token refresh failed on visibility change, reloading page');
       location.reload();
