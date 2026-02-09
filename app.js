@@ -1968,7 +1968,7 @@ function makePagination(initialUrl, fetchPage) {
       try {
         const rawNext = await fetchPage(nextUrl);
         el.querySelector('.loading-more')?.remove();
-        nextUrl = rawNext ? rawNext.replace('https://api.spotify.com/v1', '') : null;
+        nextUrl = rawNext?.replace('https://api.spotify.com/v1', '');
         if (nextUrl) el.innerHTML += '<li class="loading-more">Loading...</li>';
       } finally {
         loading = false;
