@@ -54,7 +54,7 @@ function getRedirectUri() {
 	// Try to use our origin (including port!) if on 127.0.0.1, otherwise fall back to manual paste flow.
 	const host = window.location.hostname;
 	if (host === "127.0.0.1") {
-		return window.location.origin + "/login";
+		return `${window.location.origin}/login`;
 	}
 	return "http://127.0.0.1/login"; // Note excludes the port included in .origin above, will require manual paste.
 }
@@ -135,7 +135,7 @@ function setActiveNav(route) {
 		)
 		.forEach((b) => b.classList.remove("active"));
 	// Set active on matching nav button and focus it.
-	const btn = document.getElementById("nav-" + route);
+	const btn = document.getElementById(`nav-${route}`);
 	if (btn) {
 		btn.classList.add("active");
 		btn.focus();
@@ -223,7 +223,7 @@ async function loginWith(clientChoice) {
 		code_challenge_method: "S256",
 		code_challenge: challenge,
 	});
-	const authUrl = "https://accounts.spotify.com/authorize?" + params;
+	const authUrl = `https://accounts.spotify.com/authorize?${params}`;
 
 	if (clientChoice === "ncspot") {
 		const host = window.location.hostname;
@@ -314,10 +314,7 @@ async function processAuthCode(code, clearUrl = false, reload = false) {
 		}),
 	});
 	const data = await res.json();
-	assert(
-		data.access_token,
-		"Auth failed: " + (data.error || "no access_token"),
-	);
+	assert(data.access_token, `Auth failed: ${data.error || "no access_token"}`);
 	setAuth("access_token", data.access_token);
 	setAuth("refresh_token", data.refresh_token);
 	setAuth("token_expiry", Date.now() + data.expires_in * 1000);
@@ -423,10 +420,10 @@ async function api(endpoint, opts = {}, _retry = false) {
 		}
 	}
 
-	const res = await fetch("https://api.spotify.com/v1" + endpoint, {
+	const res = await fetch(`https://api.spotify.com/v1${endpoint}`, {
 		...opts,
 		headers: {
-			Authorization: "Bearer " + getAuth("access_token"),
+			Authorization: `Bearer ${getAuth("access_token")}`,
 			...opts.headers,
 		},
 	});
@@ -475,7 +472,7 @@ async function fetchTracksByIds(trackIds) {
 		chunks.push(trackIds.slice(i, i + 50));
 	}
 	const results = await Promise.all(
-		chunks.map((chunk) => api("/tracks?ids=" + chunk.join(","))),
+		chunks.map((chunk) => api(`/tracks?ids=${chunk.join(",")}`)),
 	);
 	return results.flatMap((r) => r?.tracks || []);
 }
@@ -678,7 +675,7 @@ function showLoading() {
 
 function formatTime(ms) {
 	const s = Math.floor(ms / 1000);
-	return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+	return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function escapeHtml(s) {
@@ -742,7 +739,7 @@ async function startRadio(type, id) {
 
 	await clearQueue();
 
-	if (type == "track") {
+	if (type === "track") {
 		localQueue.push(`spotify:track:${id}`);
 	}
 	recs.tracks
@@ -763,7 +760,7 @@ function updateProgress() {
 	player.getCurrentState().then((state) => {
 		if (!state) return;
 		const pct = (state.position / state.duration) * 100;
-		document.getElementById("progress-fill").style.width = pct + "%";
+		document.getElementById("progress-fill").style.width = `${pct}%`;
 		document.getElementById("progress-current").textContent = formatTime(
 			state.position,
 		);
@@ -786,7 +783,7 @@ function updateProgress() {
 		const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 		const time = pct * currentState.duration;
 		tooltip.textContent = formatTime(time);
-		tooltip.style.left = pct * 100 + "%";
+		tooltip.style.left = `${pct * 100}%`;
 		tooltip.style.display = "block";
 	}
 
@@ -802,7 +799,7 @@ function updateProgress() {
 
 async function search(q, fromHistory = false) {
 	if (!fromHistory) navigate("search", { q });
-	setBreadcrumb([{ name: "Search: " + q }]);
+	setBreadcrumb([{ name: `Search: ${q}` }]);
 	showLoading();
 
 	let allArtists = [];
@@ -810,7 +807,7 @@ async function search(q, fromHistory = false) {
 	let allTracks = [];
 
 	const data = await api(
-		"/search?type=artist,track,album&limit=50&q=" + encodeURIComponent(q),
+		`/search?type=artist,track,album&limit=50&q=${encodeURIComponent(q)}`,
 	);
 	allArtists = data.artists?.items || [];
 	allAlbums = data.albums?.items || [];
@@ -930,7 +927,7 @@ function trackMapper(contextUri, contextOffset = 0) {
 	};
 }
 
-function albumMapper(a, i, num) {
+function albumMapper(a, _i, num) {
 	return {
 		num,
 		queueBtn: queueAddBtn(`addAlbumToQueue('${a.id}', event.shiftKey)`),
@@ -959,7 +956,7 @@ function discographyAlbumMapper(a, i, num) {
 	};
 }
 
-function playlistMapper(p, i, num) {
+function playlistMapper(p, _i, num) {
 	return {
 		num,
 		queueBtn: queueAddBtn(`addPlaylistToQueue('${p.id}', event.shiftKey)`),
@@ -986,7 +983,7 @@ function playlistSectionMapper(p, i, num) {
 	};
 }
 
-function artistMapper(a, i, num) {
+function artistMapper(a, _i, num) {
 	return {
 		num,
 		radioType: "artist",
@@ -1075,11 +1072,11 @@ async function play(body) {
 	assert(deviceId, "No device ID - player not ready");
 
 	const res = await fetch(
-		"https://api.spotify.com/v1/me/player/play?device_id=" + deviceId,
+		`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
 		{
 			method: "PUT",
 			headers: {
-				Authorization: "Bearer " + getAuth("access_token"),
+				Authorization: `Bearer ${getAuth("access_token")}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify(body),
@@ -1134,7 +1131,7 @@ async function playFromContext(uri, offset) {
 async function isPlayingDJ() {
 	return (
 		player != null &&
-		(await player.getCurrentState())?.context.metadata.context_description ==
+		(await player.getCurrentState())?.context.metadata.context_description ===
 			"DJ"
 	);
 }
@@ -1288,7 +1285,8 @@ async function fetchAndShowLyrics() {
 				.map((line) => {
 					const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
 					assert(match, `Malformed lyrics line: [${line}]`);
-					const time = parseInt(match[1]) * 60000 + parseFloat(match[2]) * 1000;
+					const time =
+						parseInt(match[1], 10) * 60000 + parseFloat(match[2]) * 1000;
 					return { time, words: match[3] };
 				})
 				.filter((l) => l && (l.time > 0 || l.words.trim()));
@@ -1340,7 +1338,7 @@ function renderLyrics() {
 	lyricsView.innerHTML =
 		`<div class="lyrics-title-wrap"><div class="lyrics-title">${title}</div></div><div class="lyrics-lines">` +
 		currentLyrics
-			.map((line, i) =>
+			.map((line, _i) =>
 				lyricsSynced
 					? `<div class="${lineClass}" data-time="${line.time}" onclick="seekToLyric(${line.time})">${line.words || "♪"}</div>`
 					: `<div class="${lineClass}">${line.words || ""}</div>`,
@@ -1660,7 +1658,7 @@ async function loadExplore(fromHistory = false) {
 	// Start all fetches in parallel.
 	const mixesPromise = Promise.all(
 		personalizedSearches.map((q) =>
-			api("/search?type=playlist&limit=1&q=" + encodeURIComponent(q)),
+			api(`/search?type=playlist&limit=1&q=${encodeURIComponent(q)}`),
 		),
 	);
 	const madeForYouPromise = api(
@@ -1761,7 +1759,7 @@ async function loadExplore(fromHistory = false) {
 async function loadPlaylist(id, fromHistory = false) {
 	if (!fromHistory) navigate("playlist", { id });
 	localStorage.setItem("last_view", `playlist:${id}`);
-	const name = (await api("/playlists/" + id)).name;
+	const name = (await api(`/playlists/${id}`)).name;
 	setBreadcrumb([
 		{ name: "Playlists", action: "loadPlaylists()" },
 		{ name: name || "Playlist" },
@@ -1769,8 +1767,8 @@ async function loadPlaylist(id, fromHistory = false) {
 	showLoading();
 	pagination = null;
 	paginationGen++; // Clear pagination state
-	const contextUri = "spotify:playlist:" + id;
-	const data = await api("/playlists/" + id + "/tracks?limit=100");
+	const contextUri = `spotify:playlist:${id}`;
+	const data = await api(`/playlists/${id}/tracks?limit=100`);
 	const tracks = data.items.map((i) => i.track).filter((t) => t);
 	document.getElementById("tracks").innerHTML = renderTrackItems(
 		tracks,
@@ -1783,8 +1781,8 @@ async function loadAlbum(id, fromHistory = false) {
 	localStorage.setItem("last_view", `album:${id}`);
 	pagination = null;
 	paginationGen++;
-	const data = await api("/albums/" + id);
-	setBreadcrumb([{ name: "Album: " + data.name }]);
+	const data = await api(`/albums/${id}`);
+	setBreadcrumb([{ name: `Album: ${data.name}` }]);
 	const contextUri = data.uri;
 	const tracks = data.tracks.items.map((t) => ({
 		...t,
@@ -1833,9 +1831,9 @@ async function loadArtist(id, fromHistory = false) {
 	showLoading();
 
 	const [artist, topTracks, albumsData] = await Promise.all([
-		api("/artists/" + id),
-		api("/artists/" + id + "/top-tracks?market=US"),
-		api("/artists/" + id + "/albums?include_groups=album,single&limit=50"),
+		api(`/artists/${id}`),
+		api(`/artists/${id}/top-tracks?market=US`),
+		api(`/artists/${id}/albums?include_groups=album,single&limit=50`),
 	]);
 
 	setBreadcrumb([{ name: artist.name }]);
@@ -1922,7 +1920,7 @@ async function playFromLocalQueue(index) {
 let draggedQueueIndex = null;
 
 function onQueueDragStart(e) {
-	draggedQueueIndex = parseInt(e.target.dataset.index);
+	draggedQueueIndex = parseInt(e.target.dataset.index, 10);
 	e.target.classList.add("dragging");
 	e.dataTransfer.effectAllowed = "move";
 }
@@ -1938,7 +1936,7 @@ function onQueueDragEnd(e) {
 function onQueueDragOver(e) {
 	e.preventDefault();
 	const target = e.target.closest(".queue-item");
-	if (target && parseInt(target.dataset.index) !== draggedQueueIndex) {
+	if (target && parseInt(target.dataset.index, 10) !== draggedQueueIndex) {
 		target.classList.add("drag-over");
 	}
 }
@@ -1953,7 +1951,7 @@ function onQueueDrop(e) {
 	const target = e.target.closest(".queue-item");
 	if (!target) return;
 
-	const toIndex = parseInt(target.dataset.index);
+	const toIndex = parseInt(target.dataset.index, 10);
 	if (draggedQueueIndex === null || draggedQueueIndex === toIndex) return;
 
 	const [item] = localQueue.splice(draggedQueueIndex, 1);
@@ -2072,7 +2070,7 @@ function setBreadcrumb(items) {
 		)
 		.join("");
 	const lastItem = items[items.length - 1];
-	document.title = "SimpleSpot - " + lastItem.name;
+	document.title = `SimpleSpot - ${lastItem.name}`;
 }
 
 // Init.
@@ -2111,9 +2109,11 @@ function setBreadcrumb(items) {
 			hasAccessToken: !!getAuth("access_token"),
 			hasRefreshToken,
 			tokenExpiry: tokenExpiry
-				? new Date(parseInt(tokenExpiry)).toISOString()
+				? new Date(parseInt(tokenExpiry, 10)).toISOString()
 				: null,
-			isExpired: tokenExpiry ? Date.now() > parseInt(tokenExpiry) : "no expiry",
+			isExpired: tokenExpiry
+				? Date.now() > parseInt(tokenExpiry, 10)
+				: "no expiry",
 		});
 		if (Date.now() > getAuth("token_expiry")) {
 			console.log("Token expired at init, attempting refresh...");
@@ -2190,7 +2190,7 @@ function restoreLastView() {
 			const lastSearch = localStorage.getItem("last_search");
 			const { query, data } = JSON.parse(lastSearch);
 			document.getElementById("search").value = query;
-			setBreadcrumb([{ name: "Search: " + query }]);
+			setBreadcrumb([{ name: `Search: ${query}` }]);
 			return renderSearchResults(data);
 		}
 	}
@@ -2416,7 +2416,7 @@ async function resumePlaybackIfNeeded() {
 		document.getElementById("progress-fill").style.width = "0%";
 	} else {
 		// Fetch track info to update UI
-		const trackData = await api("/tracks/" + state.trackUri.split(":")[2]);
+		const trackData = await api(`/tracks/${state.trackUri.split(":")[2]}`);
 		if (trackData) {
 			document.getElementById("player-track").textContent = trackData.name;
 			document.getElementById("player-artist").innerHTML = trackData.artists
@@ -2435,7 +2435,7 @@ async function resumePlaybackIfNeeded() {
 				trackData.duration_ms,
 			);
 			document.getElementById("progress-fill").style.width =
-				(state.position / trackData.duration_ms) * 100 + "%";
+				`${(state.position / trackData.duration_ms) * 100}%`;
 			currentAlbumUri = trackData.album.uri;
 		}
 	}
