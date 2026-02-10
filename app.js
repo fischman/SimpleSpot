@@ -74,8 +74,8 @@ function setAuth(key, value) {
 	localStorage.setItem(getAuthPrefix() + key, value);
 }
 function clearAuth() {
-	["access_token", "refresh_token", "token_expiry", "code_verifier"].forEach(
-		(k) => localStorage.removeItem(getAuthPrefix() + k),
+	["access_token", "refresh_token", "token_expiry", "code_verifier"].map((k) =>
+		localStorage.removeItem(getAuthPrefix() + k),
 	);
 	localStorage.removeItem("chosen_client");
 }
@@ -129,11 +129,10 @@ function navigate(route, params = {}, replace = false) {
 
 function setActiveNav(route) {
 	// Clear all active states (except loop button which has its own state).
-	document
-		.querySelectorAll(
-			".header button.active, .player button.active:not(#loop-btn)",
-		)
-		.forEach((b) => b.classList.remove("active"));
+	for (const b of document.querySelectorAll(
+		".header button.active, .player button.active:not(#loop-btn)",
+	))
+		b.classList.remove("active");
 	// Set active on matching nav button and focus it.
 	const btn = document.getElementById(`nav-${route}`);
 	if (btn) {
@@ -628,7 +627,7 @@ function initPlayer() {
 		});
 	});
 
-	player.addListener("autoplay_failed", async ({ message }) => {
+	player.addListener("autoplay_failed", async ({ _message }) => {
 		const settingsUrl = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
 		const overlay = document.createElement("div");
 		overlay.className = "modal-overlay";
@@ -788,7 +787,9 @@ function updateProgress() {
 	}
 
 	bar.addEventListener("mousemove", showTooltip);
-	bar.addEventListener("mouseleave", () => (tooltip.style.display = "none"));
+	bar.addEventListener("mouseleave", () => {
+		tooltip.style.display = "none";
+	});
 	bar.addEventListener("click", (e) => {
 		if (!currentState) return;
 		const rect = bar.getBoundingClientRect();
@@ -1370,9 +1371,7 @@ function updateLyricsHighlight() {
 		}
 	}
 
-	lines.forEach((line, i) => {
-		line.classList.toggle("active", i === activeIndex);
-	});
+	lines.map((line, i) => line.classList.toggle("active", i === activeIndex));
 
 	// Scroll active line into view
 	const activeLine = lines[activeIndex];
@@ -1704,7 +1703,7 @@ async function loadExplore(fromHistory = false) {
 	const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter(
 		(p) => p && !exploreSeenIds.has(p.id),
 	);
-	madeForYouPlaylists.forEach((p) => exploreSeenIds.add(p.id));
+	for (const p of madeForYouPlaylists) exploreSeenIds.add(p.id);
 	if (madeForYouPlaylists.length > 0) {
 		el.innerHTML += `<div class="section-header">Made For You</div>`;
 		el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, 1)}</ul>`;
@@ -1716,7 +1715,7 @@ async function loadExplore(fromHistory = false) {
 	const items = (featuredData?.playlists?.items || []).filter(
 		(p) => p && !exploreSeenIds.has(p.id),
 	);
-	items.forEach((p) => exploreSeenIds.add(p.id));
+	for (const p of items) exploreSeenIds.add(p.id);
 	featuredCount += items.length;
 
 	// Render first batch immediately.
@@ -1747,7 +1746,7 @@ async function loadExplore(fromHistory = false) {
 						);
 						featuredCount += newItems.length;
 					}
-					newItems.forEach((p) => exploreSeenIds.add(p.id));
+					for (const p of newItems) exploreSeenIds.add(p.id);
 					featuredCount += newItems.length;
 				}
 				return data.playlists?.next;
@@ -1927,9 +1926,8 @@ function onQueueDragStart(e) {
 
 function onQueueDragEnd(e) {
 	e.target.classList.remove("dragging");
-	document
-		.querySelectorAll(".queue-item")
-		.forEach((el) => el.classList.remove("drag-over"));
+	for (const el of document.querySelectorAll(".queue-item"))
+		el.classList.remove("drag-over");
 	draggedQueueIndex = null;
 }
 
