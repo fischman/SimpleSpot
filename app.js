@@ -1340,7 +1340,8 @@ function updateLyricsHighlight() {
 		}
 	}
 
-	lines.map((line, i) => line.classList.toggle("active", i === activeIndex));
+
+	lines.forEach((line, i) => { line.classList.toggle("active", i === activeIndex); });
 
 	// Scroll active line into view
 	const activeLine = lines[activeIndex];
