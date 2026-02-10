@@ -142,17 +142,17 @@ function setActiveNav(route) {
 
 const handleNavigation = (() => {
 	const routes = {
-		album: (p) => loadAlbum(p.id, true),
-		albums: () => loadSavedAlbums(true),
-		artist: (p) => loadArtist(p.id, true),
-		explore: () => loadExplore(true),
-		liked: () => loadLikedSongs(true),
-		playlist: (p) => loadPlaylist(p.id, p.name, true),
-		playlists: () => loadPlaylists(true),
-		queue: () => showQueue(true),
-		search: (p) => search(p.q, true),
-		topArtists: () => loadTopArtists(true),
-		topTracks: () => loadTopTracks(true),
+		album: (p) => loadAlbum(p.id),
+		albums: () => loadSavedAlbums(),
+		artist: (p) => loadArtist(p.id),
+		explore: () => loadExplore(),
+		liked: () => loadLikedSongs(),
+		playlist: (p) => loadPlaylist(p.id),
+		playlists: () => loadPlaylists(),
+		queue: () => showQueue(),
+		search: (p) => search(p.q),
+		topArtists: () => loadTopArtists(),
+		topTracks: () => loadTopTracks(),
 	};
 	return (state) => {
 		if (!state?.route) return;
@@ -747,8 +747,8 @@ function updateProgress() {
 	});
 })();
 
-async function search(q, fromHistory = false) {
-	if (!fromHistory) navigate("search", { q });
+async function search(q) {
+	navigate("search", { q });
 	setBreadcrumb([{ name: `Search: ${q}` }]);
 	showLoading();
 
@@ -1479,9 +1479,8 @@ async function loadPaginatedView({
 	url,
 	extractItems,
 	renderItems,
-	fromHistory,
 }) {
-	if (!fromHistory) navigate(route);
+	navigate(route);
 	setBreadcrumb(breadcrumb);
 	localStorage.setItem("last_view", route);
 
@@ -1504,7 +1503,7 @@ async function loadPaginatedView({
 	while (p.active && count < 300) await p.loadMore();
 }
 
-async function loadLikedSongs(fromHistory = false) {
+async function loadLikedSongs() {
 	return loadPaginatedView({
 		route: "liked",
 		breadcrumb: [{ name: "Liked Songs" }],
@@ -1512,7 +1511,6 @@ async function loadLikedSongs(fromHistory = false) {
 		extractItems: (data) =>
 			(data.items || []).map((i) => i.track).filter(Boolean),
 		renderItems: (tracks, n) => renderTrackItems(tracks, null, n),
-		fromHistory,
 	});
 }
 
@@ -1520,7 +1518,7 @@ function renderSavedAlbumItems(albums, startNum = 1) {
 	return renderItems(albums, albumMapper, startNum);
 }
 
-async function loadSavedAlbums(fromHistory = false) {
+async function loadSavedAlbums() {
 	return loadPaginatedView({
 		route: "albums",
 		breadcrumb: [{ name: "Saved Albums" }],
@@ -1528,7 +1526,6 @@ async function loadSavedAlbums(fromHistory = false) {
 		extractItems: (data) =>
 			(data.items || []).map((i) => i.album).filter(Boolean),
 		renderItems: (albums, n) => renderSavedAlbumItems(albums, n),
-		fromHistory,
 	});
 }
 
@@ -1536,7 +1533,7 @@ function renderMyPlaylistItems(playlists, startNum = 1) {
 	return renderItems(playlists, playlistMapper, startNum);
 }
 
-async function loadPlaylists(fromHistory = false) {
+async function loadPlaylists() {
 	return loadPaginatedView({
 		route: "playlists",
 		breadcrumb: [{ name: "Playlists" }],
@@ -1544,29 +1541,26 @@ async function loadPlaylists(fromHistory = false) {
 		extractItems: (data) =>
 			(data.items || []).filter((p) => p && p.id !== DJ_PLAYLIST_ID),
 		renderItems: (playlists, n) => renderMyPlaylistItems(playlists, n),
-		fromHistory,
 	});
 }
 
-async function loadTopArtists(fromHistory = false) {
+async function loadTopArtists() {
 	return loadPaginatedView({
 		route: "topArtists",
 		breadcrumb: [{ name: "Top Artists" }],
 		url: "/me/top/artists?limit=50&time_range=medium_term",
 		extractItems: (data) => data.items || [],
 		renderItems: (artists, n) => renderItems(artists, artistMapper, n),
-		fromHistory,
 	});
 }
 
-async function loadTopTracks(fromHistory = false) {
+async function loadTopTracks() {
 	return loadPaginatedView({
 		route: "topTracks",
 		breadcrumb: [{ name: "Top Tracks" }],
 		url: "/me/top/tracks?limit=50&time_range=medium_term",
 		extractItems: (data) => data.items || [],
 		renderItems: (tracks, n) => renderTrackItems(tracks, null, n),
-		fromHistory,
 	});
 }
 
@@ -1578,8 +1572,8 @@ function renderPlaylistSection(playlists, startNum = 1) {
 let exploreSeenIds = new Set();
 const exploreTotalCount = 0;
 
-async function loadExplore(fromHistory = false) {
-	if (!fromHistory) navigate("explore");
+async function loadExplore() {
+	navigate("explore");
 	setBreadcrumb([{ name: "Explore" }]);
 	localStorage.setItem("last_view", "explore");
 
@@ -1706,8 +1700,8 @@ async function loadExplore(fromHistory = false) {
 	while (p?.active && featuredCount < 300) await p.loadMore();
 }
 
-async function loadPlaylist(id, fromHistory = false) {
-	if (!fromHistory) navigate("playlist", { id });
+async function loadPlaylist(id) {
+	navigate("playlist", { id });
 	localStorage.setItem("last_view", `playlist:${id}`);
 	const name = (await api(`/playlists/${id}`)).name;
 	setBreadcrumb([
@@ -1726,8 +1720,8 @@ async function loadPlaylist(id, fromHistory = false) {
 	);
 }
 
-async function loadAlbum(id, fromHistory = false) {
-	if (!fromHistory) navigate("album", { id });
+async function loadAlbum(id) {
+	navigate("album", { id });
 	localStorage.setItem("last_view", `album:${id}`);
 	pagination = null;
 	paginationGen++;
@@ -1773,8 +1767,8 @@ function renderAlbumItems(albums, startNum = 1) {
 	return renderItems(albums, discographyAlbumMapper, startNum);
 }
 
-async function loadArtist(id, fromHistory = false) {
-	if (!fromHistory) navigate("artist", { id });
+async function loadArtist(id) {
+	navigate("artist", { id });
 	localStorage.setItem("last_view", `artist:${id}`);
 	pagination = null;
 	paginationGen++; // Clear pagination state
@@ -1823,8 +1817,8 @@ async function loadArtist(id, fromHistory = false) {
 	}
 }
 
-async function showQueue(fromHistory = false) {
-	if (!fromHistory) navigate("queue");
+async function showQueue() {
+	navigate("queue");
 	setBreadcrumb([
 		{
 			name: "Queue",
