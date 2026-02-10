@@ -1,0 +1,14 @@
+#!/nix/store/j8645yndikbrvn292zgvyv64xrrmwdcb-bash-5.3p3/bin/bash
+#
+# Install with: ln -s ../../.hook_pre-commit .git/hooks/pre-commit
+#
+# Called by "git commit" with no arguments.  The hook should
+# exit with non-zero status after issuing an appropriate message if
+# it wants to stop the commit.
+
+set -eu -o pipefail
+
+exec 1>&2 # Redirect output to stderr.
+
+cd "$(dirname "$0")"
+../../biome/check || { echo "biome exited non-zero; run fix before commit!"; exit 1; }
