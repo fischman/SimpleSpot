@@ -2332,11 +2332,11 @@ function updateMediaSession(track, state) {
 
 	navigator.mediaSession.playbackState = state.paused ? "paused" : "playing";
 
-  // During track loading we get multiple player_state_changed events,
-  // some of which carry a "state" object that is not self-consistent
-  // (e.g. position>duration). Docs are silent on the subject, but the
-  // internet implies that the loading field is a useful signal here
-  // (e.g. https://kaltura.github.io/kaltura-player-js/docs/player-states.html#transitions-between-states).
+	// During track loading we get multiple player_state_changed events,
+	// some of which carry a "state" object that is not self-consistent
+	// (e.g. position>duration). Docs are silent on the subject, but the
+	// internet implies that the loading field is a useful signal here
+	// (e.g. https://kaltura.github.io/kaltura-player-js/docs/player-states.html#transitions-between-states).
 	if (state.duration && state.position <= state.duration && !state.loading) {
 		navigator.mediaSession.setPositionState({
 			duration: state.duration / 1000,
