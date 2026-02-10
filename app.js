@@ -140,45 +140,25 @@ function setActiveNav(route) {
 	}
 }
 
-function handleNavigation(state) {
-	if (!state?.route) return;
-	const { route, params } = state;
-	switch (route) {
-		case "liked":
-			loadLikedSongs(true);
-			break;
-		case "albums":
-			loadSavedAlbums(true);
-			break;
-		case "playlists":
-			loadPlaylists(true);
-			break;
-		case "topArtists":
-			loadTopArtists(true);
-			break;
-		case "topTracks":
-			loadTopTracks(true);
-			break;
-		case "explore":
-			loadExplore(true);
-			break;
-		case "playlist":
-			loadPlaylist(params.id, params.name, true);
-			break;
-		case "album":
-			loadAlbum(params.id, true);
-			break;
-		case "artist":
-			loadArtist(params.id, true);
-			break;
-		case "queue":
-			showQueue(true);
-			break;
-		case "search":
-			search(params.q, true);
-			break;
-	}
-}
+const handleNavigation = (() => {
+	const routes = {
+		album: (p) => loadAlbum(p.id, true),
+		albums: () => loadSavedAlbums(true),
+		artist: (p) => loadArtist(p.id, true),
+		explore: () => loadExplore(true),
+		liked: () => loadLikedSongs(true),
+		playlist: (p) => loadPlaylist(p.id, p.name, true),
+		playlists: () => loadPlaylists(true),
+		queue: () => showQueue(true),
+		search: (p) => search(p.q, true),
+		topArtists: () => loadTopArtists(true),
+		topTracks: () => loadTopTracks(true),
+	};
+	return (state) => {
+		if (!state?.route) return;
+		return routes[state.route]?.(state.params);
+	};
+})();
 
 window.addEventListener("popstate", (e) => {
 	isNavigatingBack = true;
