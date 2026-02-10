@@ -55,8 +55,8 @@ localStorage.setItem('auth_d420a117a32841c2b3474932e49fb54b_token_expiry', Date.
 ## Common Patterns
 
 ### Adding a New View
-1. Create `async function loadXxx(fromHistory = false)`
-2. Add `if (!fromHistory) navigate('xxx', { params });` at start
+1. Create `async function loadXxx()`
+2. Add `navigate('xxx', { params });` at start (the `isNavigatingBack` flag suppresses pushState during popstate)
 3. Call `setBreadcrumb([...])` 
 4. Fetch data with `await api(...)`
 5. Render to `document.getElementById('tracks')`
