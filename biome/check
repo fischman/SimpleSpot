@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cd "$(dirname "$0")/.."
+
+exec docker run --rm -v $PWD:/work -w /work biome check --config-path=/work/biome/biome.json --unsafe "$@" app.js index.html
