@@ -2,8 +2,9 @@
   "linter": {
     "rules": {
       "style": {
+        "noDescendingSpecificity": "off",
         "useTemplate": "warn"
-      },
+       },
       "correctness": {
         "noUnusedVariables": "off"
       }
