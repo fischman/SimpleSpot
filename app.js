@@ -82,7 +82,6 @@ function clearAuth() {
 
 let player = null;
 let deviceId = null;
-let wakeLock = null;
 let playerReadyPromise = null;
 let playerReadyResolve = null;
 let currentState = null;
@@ -385,30 +384,6 @@ async function refreshToken() {
 	return refreshPromise;
 }
 
-// Wake Lock - keeps screen on during playback
-async function acquireWakeLock() {
-	if (!("wakeLock" in navigator)) return;
-	if (wakeLock) return; // Already held
-	try {
-		wakeLock = await navigator.wakeLock.request("screen");
-		console.log("Wake lock acquired");
-		wakeLock.addEventListener("release", () => {
-			console.log("Wake lock released (by system)");
-			wakeLock = null;
-		});
-	} catch (e) {
-		console.log("Wake lock request failed:", e.message);
-	}
-}
-
-function releaseWakeLock() {
-	if (wakeLock) {
-		console.log("Wake lock releasing...");
-		wakeLock.release();
-		wakeLock = null;
-	}
-}
-
 async function api(endpoint, opts = {}, _retry = false) {
 	// Check if token needs refresh before API call (with 60s buffer)
 	if (Date.now() > getAuth("token_expiry") - 60000) {
@@ -548,13 +523,7 @@ function initPlayer() {
 		updateProgress();
 
 		clearInterval(progressInterval);
-		if (!state.paused) {
-			progressInterval = setInterval(updateProgress, 1000);
-			acquireWakeLock();
-		} else {
-			releaseWakeLock();
-		}
-
+		if (!state.paused) progressInterval = setInterval(updateProgress, 1000);
 		updateMediaSession(track, state);
 
 		// Store play state in memory (saved to localStorage on beforeunload).
@@ -2216,15 +2185,13 @@ document.getElementById("search").addEventListener("keyup", (e) => {
 
 // Save play state before page unload (before player disconnects and sets paused=true).
 window.addEventListener("beforeunload", () => {
-	releaseWakeLock();
-	if (lastPlayState) {
-		// Estimate current position based on elapsed time since last state update
-		if (!lastPlayState.paused) {
-			lastPlayState.position += Date.now() - lastPlayState.timestamp;
-		}
-		lastPlayState.timestamp = Date.now();
-		localStorage.setItem("play_state", JSON.stringify(lastPlayState));
-	}
+	if (!lastPlayState) return;
+
+	// Estimate current position based on elapsed time since last state update
+	if (!lastPlayState.paused)
+		lastPlayState.position += Date.now() - lastPlayState.timestamp;
+	lastPlayState.timestamp = Date.now();
+	localStorage.setItem("play_state", JSON.stringify(lastPlayState));
 });
 
 // Refresh token when tab becomes visible.
@@ -2247,9 +2214,6 @@ document.addEventListener("visibilitychange", async () => {
 			);
 			location.reload();
 		}
-	}
-	if (currentState && !currentState.paused) {
-		acquireWakeLock();
 	}
 });
 
