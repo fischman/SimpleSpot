@@ -2015,6 +2015,8 @@ function setBreadcrumb(items) {
 (async () => {
 	assert("mediaSession" in navigator, "navigator.mediaSession missing!");
 
+	document.getElementById("ncspot-note").textContent = location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
+
 	const hasCodeInUrl = new URLSearchParams(window.location.search).has("code");
 
 	// Only process callback if we have a chosen client (i.e., user initiated login)
