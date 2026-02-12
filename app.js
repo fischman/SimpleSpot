@@ -429,6 +429,10 @@ async function api(endpoint, opts = {}, _retries = 0) {
 	}
 }
 
+function stripApiBase(url) {
+	return url?.replace("https://api.spotify.com/v1", "") ?? null;
+}
+
 // Fetch tracks by IDs, chunking to respect API limit of 50.
 async function fetchTracksByIds(trackIds) {
 	if (!trackIds || trackIds.length === 0) return [];
@@ -772,13 +776,13 @@ async function search(q) {
 	// Fetch more albums & tracks if available (up to 100 total).
 	if (data.albums?.next) {
 		const more = await api(
-			data.albums.next.replace("https://api.spotify.com/v1", ""),
+			stripApiBase(data.albums.next),
 		);
 		allAlbums = allAlbums.concat(more?.items || []);
 	}
 	if (data.tracks?.next) {
 		const more = await api(
-			data.tracks.next.replace("https://api.spotify.com/v1", ""),
+			stripApiBase(data.tracks.next),
 		);
 		allTracks = allTracks.concat(more?.items || []);
 	}
@@ -1054,7 +1058,7 @@ async function playFromContext(uri, offset) {
 			trackUris = trackUris.concat(
 				(data?.items || []).map((i) => i.track?.uri).filter(Boolean),
 			);
-			url = data?.next?.replace("https://api.spotify.com/v1", "");
+			url = stripApiBase(data?.next);
 		}
 	}
 
@@ -1655,10 +1659,7 @@ async function loadExplore() {
 	el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`;
 
 	// Paginate Featured playlists (eagerly up to 300, then infinite scroll).
-	const featuredUrl = featuredData?.playlists?.next?.replace(
-		"https://api.spotify.com/v1",
-		"",
-	);
+	const featuredUrl = stripApiBase(featuredData?.playlists?.next);
 	const p = !featuredUrl
 		? null
 		: makePagination(featuredUrl, async (nextUrl) => {
@@ -1792,14 +1793,14 @@ async function loadArtist(id) {
 	}
 
 	el.innerHTML = html;
-	let nextUrl = albumsData.next?.replace("https://api.spotify.com/v1", "");
+	let nextUrl = stripApiBase(albumsData.next);
 	while (nextUrl) {
 		const data = await api(nextUrl);
 		if (data.items?.length) {
 			el.innerHTML += renderAlbumItems(data.items, allAlbums.length + 1);
 			allAlbums = allAlbums.concat(data.items);
 		}
-		nextUrl = data.next?.replace("https://api.spotify.com/v1", "");
+		nextUrl = stripApiBase(data.next);
 	}
 }
 
@@ -2185,7 +2186,7 @@ function makePagination(initialUrl, fetchPage) {
 			try {
 				const rawNext = await fetchPage(nextUrl);
 				el.querySelector(".loading-more")?.remove();
-				nextUrl = rawNext?.replace("https://api.spotify.com/v1", "");
+				nextUrl = stripApiBase(rawNext);
 				if (nextUrl) el.innerHTML += '<li class="loading-more">Loading...</li>';
 			} finally {
 				loading = false;
