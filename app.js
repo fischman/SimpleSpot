@@ -2089,37 +2089,20 @@ function restoreLastView() {
 	if (!lastView) {
 		return showQueue();
 	}
-	const parts = lastView.split(":");
-	switch (parts[0]) {
-		case "album":
-			return loadAlbum(parts[1]);
-		case "albums":
-			return loadSavedAlbums();
-		case "artist":
-			return loadArtist(parts[1]);
-		case "explore":
-			return loadExplore();
-		case "liked":
-			return loadLikedSongs();
-		case "playlist":
-			return loadPlaylist(parts[1]);
-		case "playlists":
-			return loadPlaylists();
-		case "queue":
-			return showQueue();
-		case "topArtists":
-			return loadTopArtists();
-		case "topTracks":
-			return loadTopTracks();
-		case "search": {
-			const lastSearch = localStorage.getItem("last_search");
-			const { query, data } = JSON.parse(lastSearch);
-			document.getElementById("search").value = query;
-			setBreadcrumb([{ name: `Search: ${query}` }]);
-			return renderSearchResults(data);
-		}
+
+	// Search is special: restore from cached results without re-fetching.
+	if (lastView === "search") {
+		const lastSearch = localStorage.getItem("last_search");
+		if (!lastSearch) return showQueue();
+		const { query, data } = JSON.parse(lastSearch);
+		document.getElementById("search").value = query;
+		setBreadcrumb([{ name: `Search: ${query}` }]);
+		return renderSearchResults(data);
 	}
-	assert(false, `Unexpected last_view: [${lastView}]`);
+
+	// Convert "route:id" format to a navigation state object.
+	const [route, id] = lastView.split(":");
+	return handleNavigation({ route, params: { id } });
 }
 
 function clearSearch() {
