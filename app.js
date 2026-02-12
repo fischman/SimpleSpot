@@ -231,10 +231,10 @@ function showNcspotLoginModal(authUrl) {
       </button>
       <input type="text" id="ncspot-url" placeholder="Paste the redirect URL here (http://127.0.0.1/login?code=...)"
         style="width:100%;padding:10px;border-radius:4px;border:1px solid #444;background:#181818;color:#fff;margin-bottom:16px"
-        oninput="document.getElementById('ncspot-continue').disabled = !this.value.trim(); document.getElementById('ncspot-continue').style.opacity = this.value.trim() ? 1 : 0.5" />
+        oninput="const b=document.getElementById('ncspot-continue'),v=!!this.value.trim();b.disabled=!v;b.style.opacity=v?1:0.5;b.style.background=v?'#1db954':'#333'" />
       <div style="display:flex;gap:8px">
         <button onclick="this.closest('.modal-overlay').remove()" style="flex:1;background:#333">Cancel</button>
-        <button id="ncspot-continue" onclick="handleNcspotUrl()" style="flex:1;opacity:0.5" disabled>Continue</button>
+        <button id="ncspot-continue" onclick="handleNcspotUrl()" style="flex:1;opacity:0.5;background:#333" disabled>Continue</button>
       </div>
     </div>
   `;
