@@ -1222,7 +1222,7 @@ async function fetchAndShowLyrics() {
 				.split("\n")
 				.map((line) => {
 					const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
-					assert(match, `Malformed lyrics line: [${line}]`);
+					if (!match) return null;
 					const time =
 						parseInt(match[1], 10) * 60000 + parseFloat(match[2]) * 1000;
 					return { time, words: match[3] };
