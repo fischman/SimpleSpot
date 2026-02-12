@@ -246,7 +246,7 @@ async function handleNcspotUrl() {
 
 	var parsedUrl;
 	try {
-		parsedUrl = await new URL(url);
+		parsedUrl = new URL(url);
 	} catch (e) {
 		assert(false, `${e.message}: ${url}`);
 	}
