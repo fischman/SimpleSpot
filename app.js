@@ -1018,26 +1018,12 @@ function renderSearchResults(data) {
 async function play(body) {
 	// Wait for player to be ready if it's initializing
 	if (playerReadyPromise) await playerReadyPromise;
-
 	assert(deviceId, "No device ID - player not ready");
-
-	const res = await fetch(
-		`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-		{
-			method: "PUT",
-			headers: {
-				Authorization: `Bearer ${getAuth("access_token")}`,
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify(body),
-		},
-	);
-
-	// On 404 (stale device), reload page to get fresh player
-	if (res.status === 404) {
-		console.log("Device not found (404), reloading page...");
-		location.reload();
-	}
+	await api(`/me/player/play?device_id=${deviceId}`, {
+		method: "PUT",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
 }
 
 function playTrack(uri) {
