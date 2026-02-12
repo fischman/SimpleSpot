@@ -1689,12 +1689,19 @@ async function loadPlaylist(id) {
 	]);
 	showLoading();
 	pagination = null;
-	paginationGen++; // Clear pagination state
+	paginationGen++;
 	const contextUri = `spotify:playlist:${id}`;
-	const data = await api(`/playlists/${id}/tracks?limit=100`);
-	const tracks = data.items.map((i) => i.track).filter((t) => t);
+
+	let allTracks = [];
+	let url = `/playlists/${id}/tracks?limit=100`;
+	while (url) {
+		const data = await api(url);
+		const tracks = (data?.items || []).map((i) => i.track).filter(Boolean);
+		allTracks = allTracks.concat(tracks);
+		url = data?.next?.replace("https://api.spotify.com/v1", "") || null;
+	}
 	document.getElementById("tracks").innerHTML = renderTrackItems(
-		tracks,
+		allTracks,
 		contextUri,
 	);
 }
