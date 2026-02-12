@@ -15,7 +15,7 @@
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         canvas.getContext('2d').drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
-        const png = canvas.toDataURL(`image/image/png`, 1.0)
+        const png = canvas.toDataURL('image/png', 1.0)
         const manifest = {
             name: 'SimpleSpot',
             short_name: 'SimpleSpot',
