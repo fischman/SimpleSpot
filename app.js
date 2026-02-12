@@ -399,7 +399,9 @@ async function api(endpoint, opts = {}, _retries = 0) {
 	// Retry on 5xx with exponential backoff
 	if (res.status >= 500 && _retries < 3) {
 		const delay = 500 * 2 ** _retries;
-		console.warn(`Got ${res.status}, retrying ${endpoint} in ${delay}ms (attempt ${_retries + 1}/3)`);
+		console.warn(
+			`Got ${res.status}, retrying ${endpoint} in ${delay}ms (attempt ${_retries + 1}/3)`,
+		);
 		await new Promise((r) => setTimeout(r, delay));
 		return api(endpoint, opts, _retries + 1);
 	}
@@ -2016,7 +2018,8 @@ function setBreadcrumb(items) {
 (async () => {
 	assert("mediaSession" in navigator, "navigator.mediaSession missing!");
 
-	document.getElementById("ncspot-note").textContent = location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
+	document.getElementById("ncspot-note").textContent =
+		location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
 
 	const hasCodeInUrl = new URLSearchParams(window.location.search).has("code");
 
