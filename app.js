@@ -1139,7 +1139,8 @@ async function addPlaylistToQueue(playlistId, toFront = false) {
 }
 
 async function autoPlayIfIdle() {
-	if (await player.getCurrentState()?.paused) return playNextFromLocalQueue();
+	const state = await player.getCurrentState();
+	if (!state || state.paused) return playNextFromLocalQueue();
 }
 
 function removeFromQueue(index) {
