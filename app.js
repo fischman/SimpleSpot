@@ -82,8 +82,6 @@ function clearAuth() {
 
 let player = null;
 let deviceId = null;
-let playerReadyPromise = null;
-let playerReadyResolve = null;
 let currentState = null;
 let currentAlbumUri = null;
 
@@ -456,10 +454,6 @@ function getDeviceName() {
 }
 
 function initPlayer() {
-	playerReadyPromise = new Promise((resolve) => {
-		playerReadyResolve = resolve;
-	});
-
 	player = new Spotify.Player({
 		name: getDeviceName(),
 		getOAuthToken: async (cb) => {
@@ -477,7 +471,6 @@ function initPlayer() {
 
 	player.addListener("ready", ({ device_id }) => {
 		deviceId = device_id;
-		if (playerReadyResolve) playerReadyResolve();
 		setupMediaSessionHandlers();
 		resumePlaybackIfNeeded();
 	});
@@ -1029,8 +1022,6 @@ function renderSearchResults(data) {
 }
 
 async function play(body) {
-	// Wait for player to be ready if it's initializing
-	if (playerReadyPromise) await playerReadyPromise;
 	assert(deviceId, "No device ID - player not ready");
 	await api(`/me/player/play?device_id=${deviceId}`, {
 		method: "PUT",
