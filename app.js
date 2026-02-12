@@ -364,7 +364,8 @@ async function refreshToken() {
 	return refreshPromise;
 }
 
-async function api(endpoint, opts = {}, _retry = false) {
+// _retries: number of previous attempts (used internally for 401/403 refresh and 5xx backoff).
+async function api(endpoint, opts = {}, _retries = 0) {
 	// Check if token needs refresh before API call (with 60s buffer)
 	if (Date.now() > getAuth("token_expiry") - 60000) {
 		console.log("Token expiring soon, refreshing before API call");
@@ -383,15 +384,23 @@ async function api(endpoint, opts = {}, _retry = false) {
 	});
 	if (res.status === 204 || res.status === 202) return null;
 
-	// On 401, try refreshing token and retry once
-	if (res.status === 401 && !_retry) {
-		console.log("Got 401, attempting token refresh and retry");
+	// On 401/403, try refreshing token and retry once
+	if ((res.status === 401 || res.status === 403) && _retries === 0) {
+		console.log(`Got ${res.status}, attempting token refresh and retry`);
 		if (await refreshToken()) {
-			return api(endpoint, opts, true);
+			return api(endpoint, opts, 1);
 		} else {
-			forceRelogin("api: token refresh failed after 401");
+			forceRelogin(`api: token refresh failed after ${res.status}`);
 			return null;
 		}
+	}
+
+	// Retry on 5xx with exponential backoff
+	if (res.status >= 500 && _retries < 3) {
+		const delay = 500 * 2 ** _retries;
+		console.warn(`Got ${res.status}, retrying ${endpoint} in ${delay}ms (attempt ${_retries + 1}/3)`);
+		await new Promise((r) => setTimeout(r, delay));
+		return api(endpoint, opts, _retries + 1);
 	}
 
 	if (!res.ok) {
