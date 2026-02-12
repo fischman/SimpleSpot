@@ -115,6 +115,7 @@ let lyricsSynced = false;
 
 // Navigation - integrates with browser history.
 function navigate(route, params = {}, replace = false) {
+	hideLyrics();
 	const state = { route, params };
 	if (!isNavigatingBack) {
 		if (replace) {
@@ -2150,7 +2151,6 @@ document.getElementById("search").addEventListener("keyup", (e) => {
 		localStorage.removeItem("last_search");
 		e.target.blur();
 	} else if (e.key === "Enter" && e.target.value) {
-		hideLyrics();
 		search(e.target.value);
 		e.target.blur();
 	}
@@ -2259,28 +2259,20 @@ document.addEventListener("keydown", (e) => {
 	} else if (e.key === "?") {
 		showHelp();
 	} else if (e.key === "q") {
-		hideLyrics();
 		showQueue();
 	} else if (e.key === "p") {
-		hideLyrics();
 		loadPlaylists();
 	} else if (e.key === "l") {
-		hideLyrics();
 		loadLikedSongs();
 	} else if (e.key === "a") {
-		hideLyrics();
 		loadTopArtists();
 	} else if (e.key === "t") {
-		hideLyrics();
 		loadTopTracks();
 	} else if (e.key === "e") {
-		hideLyrics();
 		loadExplore();
 	} else if (e.key === "s") {
-		hideLyrics();
 		loadSavedAlbums();
 	} else if (e.key === "d") {
-		hideLyrics();
 		playDJ();
 	} else if (e.key === "/") {
 		e.preventDefault();
