@@ -1506,10 +1506,6 @@ async function loadLikedSongs() {
 	});
 }
 
-function renderSavedAlbumItems(albums, startNum = 1) {
-	return renderItems(albums, albumMapper, startNum);
-}
-
 async function loadSavedAlbums() {
 	return loadPaginatedView({
 		route: "albums",
@@ -1517,12 +1513,8 @@ async function loadSavedAlbums() {
 		url: "/me/albums?limit=50",
 		extractItems: (data) =>
 			(data.items || []).map((i) => i.album).filter(Boolean),
-		renderItems: (albums, n) => renderSavedAlbumItems(albums, n),
+		renderItems: (albums, n) => renderItems(albums, albumMapper, n),
 	});
-}
-
-function renderMyPlaylistItems(playlists, startNum = 1) {
-	return renderItems(playlists, playlistMapper, startNum);
 }
 
 async function loadPlaylists() {
@@ -1532,7 +1524,7 @@ async function loadPlaylists() {
 		url: "/me/playlists?limit=50",
 		extractItems: (data) =>
 			(data.items || []).filter((p) => p && p.id !== DJ_PLAYLIST_ID),
-		renderItems: (playlists, n) => renderMyPlaylistItems(playlists, n),
+		renderItems: (playlists, n) => renderItems(playlists, playlistMapper, n),
 	});
 }
 
