@@ -433,6 +433,19 @@ function stripApiBase(url) {
   return url?.replace("https://api.spotify.com/v1", "") ?? null;
 }
 
+// Fetch all pages from a paginated Spotify API endpoint.
+async function fetchAllPages(initialUrl, extractItems) {
+  const allItems = [];
+  let url = initialUrl;
+  while (url) {
+    const data = await api(url);
+    const items = extractItems(data);
+    allItems.push(...items);
+    url = stripApiBase(data?.next);
+  }
+  return allItems;
+}
+
 // Fetch tracks by IDs, chunking to respect API limit of 50.
 async function fetchTracksByIds(trackIds) {
   if (!trackIds || trackIds.length === 0) return [];
@@ -1061,14 +1074,10 @@ async function playFromContext(uri, offset) {
     const album = await api(`/albums/${id}`);
     trackUris = album?.tracks?.items?.map((t) => t.uri).filter(Boolean) || [];
   } else if (type === "playlist") {
-    let url = `/playlists/${id}/tracks?limit=100`;
-    while (url) {
-      const data = await api(url);
-      trackUris = trackUris.concat(
-        (data?.items || []).map((i) => i.track?.uri).filter(Boolean),
-      );
-      url = stripApiBase(data?.next);
-    }
+    trackUris = await fetchAllPages(
+      `/playlists/${id}/tracks?limit=100`,
+      (data) => (data?.items || []).map((i) => i.track?.uri).filter(Boolean),
+    );
   }
 
   if (trackUris.length === 0) return;
@@ -1675,14 +1684,10 @@ async function loadPlaylist(id) {
   paginationGen++;
   const contextUri = `spotify:playlist:${id}`;
 
-  let allTracks = [];
-  let url = `/playlists/${id}/tracks?limit=100`;
-  while (url) {
-    const data = await api(url);
-    const tracks = (data?.items || []).map((i) => i.track).filter(Boolean);
-    allTracks = allTracks.concat(tracks);
-    url = data?.next?.replace("https://api.spotify.com/v1", "") || null;
-  }
+  const allTracks = await fetchAllPages(
+    `/playlists/${id}/tracks?limit=100`,
+    (data) => (data?.items || []).map((i) => i.track).filter(Boolean),
+  );
   document.getElementById("tracks").innerHTML = renderTrackItems(
     allTracks,
     contextUri,
@@ -1768,22 +1773,18 @@ async function loadArtist(id) {
     html += renderTrackItems(topTracks.tracks.slice(0, 5), null);
   }
 
-  let allAlbums = albumsData.items || [];
+  const firstAlbums = albumsData.items || [];
+  const nextAlbumsUrl = stripApiBase(albumsData.next);
+  const remainingAlbums = nextAlbumsUrl
+    ? await fetchAllPages(nextAlbumsUrl, (data) => data.items || [])
+    : [];
+  const allAlbums = firstAlbums.concat(remainingAlbums);
   if (allAlbums.length) {
     html += '<h3 style="padding:8px 16px;color:#b3b3b3">Discography</h3>';
     html += renderAlbumItems(allAlbums, 1);
   }
 
   el.innerHTML = html;
-  let nextUrl = stripApiBase(albumsData.next);
-  while (nextUrl) {
-    const data = await api(nextUrl);
-    if (data.items?.length) {
-      el.innerHTML += renderAlbumItems(data.items, allAlbums.length + 1);
-      allAlbums = allAlbums.concat(data.items);
-    }
-    nextUrl = stripApiBase(data.next);
-  }
 }
 
 async function showQueue() {
