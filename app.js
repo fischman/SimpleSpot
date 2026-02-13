@@ -1123,7 +1123,9 @@ async function addToQueue(uris, toFront = false) {
 	saveLocalQueue();
 	updateQueueButtons();
 	await showQueue();
-	return autoPlayIfIdle();
+	// Automatically start playing if idle.
+	const state = await player.getCurrentState();
+	if (!state || state.paused) return playNextFromLocalQueue();
 }
 
 async function addAlbumToQueue(albumId, toFront = false) {
@@ -1136,11 +1138,6 @@ async function addPlaylistToQueue(playlistId, toFront = false) {
 	const data = await api(`/playlists/${playlistId}/tracks?limit=100`);
 	const trackUris = data.items?.map((i) => i.track?.uri).filter(Boolean) || [];
 	return addToQueue(trackUris, toFront);
-}
-
-async function autoPlayIfIdle() {
-	const state = await player.getCurrentState();
-	if (!state || state.paused) return playNextFromLocalQueue();
 }
 
 function removeFromQueue(index) {
