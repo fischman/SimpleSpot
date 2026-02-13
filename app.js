@@ -90,7 +90,7 @@ let lastPlayState = null;
 let queueRefreshPending = false;
 let queueRenderVersion = 0; // Incremented each render to detect stale renders.
 
-// Local queue management
+// Local queue management.
 let localQueue = []; // Array of track URIs.
 const playHistory = []; // Track URIs we've played (for previous).
 let currentTrackUri = null;
@@ -111,7 +111,7 @@ let currentLyrics = null;
 let lyricsTrackKey = null;
 let lyricsSynced = false;
 
-// Navigation - integrates with browser history.
+// Navigation. Integrates with browser history.
 function navigate(route, params = {}, replace = false) {
   hideLyrics();
   const state = { route, params };
@@ -205,10 +205,10 @@ async function loginWith(clientChoice) {
   if (clientChoice === "ncspot") {
     const host = window.location.hostname;
     if (host === "127.0.0.1") {
-      // On 127.0.0.1, redirect directly - we can handle the callback
+      // On 127.0.0.1, redirect directly - we can handle the callback.
       window.location = authUrl;
     } else {
-      // On hosted version, show manual paste modal
+      // On hosted version, show manual paste modal.
       showNcspotLoginModal(authUrl);
     }
   } else {
@@ -307,7 +307,7 @@ async function processAuthCode(code, clearUrl = false, reload = false) {
 
 let refreshPromise = null;
 async function refreshToken() {
-  // Prevent concurrent refresh attempts
+  // Prevent concurrent refresh attempts.
   if (refreshPromise) {
     console.log(
       "Token refresh already in progress, reusing previous promise...",
@@ -366,7 +366,7 @@ async function refreshToken() {
 
 // _retries: number of previous attempts (used internally for 401/403 refresh and 5xx backoff).
 async function api(endpoint, opts = {}, _retries = 0) {
-  // Check if token needs refresh before API call (with 60s buffer)
+  // Check if token needs refresh before API call (with 60s buffer).
   if (Date.now() > getAuth("token_expiry") - 60000) {
     console.log("Token expiring soon, refreshing before API call");
     if (!(await refreshToken())) {
@@ -384,7 +384,7 @@ async function api(endpoint, opts = {}, _retries = 0) {
   });
   if (res.status === 204 || res.status === 202) return null;
 
-  // On 401/403, try refreshing token and retry once
+  // On 401/403, try refreshing token and retry once.
   if ((res.status === 401 || res.status === 403) && _retries === 0) {
     console.log(`Got ${res.status}, attempting token refresh and retry`);
     if (await refreshToken()) {
@@ -395,7 +395,7 @@ async function api(endpoint, opts = {}, _retries = 0) {
     }
   }
 
-  // Retry on 5xx with exponential backoff
+  // Retry on 5xx with exponential backoff.
   if (res.status >= 500 && _retries < 3) {
     const delay = 500 * 2 ** _retries;
     console.warn(
@@ -535,18 +535,18 @@ function initPlayer() {
         showQueue();
       }
 
-      // Fetch new lyrics if lyrics view is active
+      // Fetch new lyrics if lyrics view is active.
       if (lyricsEnabled) {
         fetchAndShowLyrics();
       }
     }
 
-    // Detect track ending - paused at position 0
+    // Detect track ending - paused at position 0.
     if (state.paused && state.position === 0 && track.uri === currentTrackUri) {
-      // Guard against multiple rapid calls
+      // Guard against multiple rapid calls.
       if (playingFromQueueInProgress) return;
 
-      // If loop enabled, re-add the finished track to end of queue (unless already there)
+      // If loop enabled, re-add the finished track to end of queue (unless already there).
       if (
         loopEnabled &&
         track.uri &&
@@ -556,7 +556,7 @@ function initPlayer() {
         saveLocalQueue();
       }
 
-      // Play next from queue if available
+      // Play next from queue if available.
       if (localQueue.length > 0) {
         playingFromQueueInProgress = true;
         playNextFromLocalQueue().finally(() => {
@@ -723,7 +723,7 @@ function updateProgress() {
       state.position,
     );
 
-    // Update lyrics highlight
+    // Update lyrics highlight.
     if (lyricsEnabled && lastPlayState) {
       lastPlayState.position = state.position;
       updateLyricsHighlight();
@@ -1060,7 +1060,7 @@ async function playFromContext(uri, offset) {
 
   if (trackUris.length === 0) return;
 
-  // Start from offset position
+  // Start from offset position.
   const tracksFromOffset = trackUris.slice(offset);
   localQueue = tracksFromOffset.concat(localQueue);
   saveLocalQueue();
@@ -1299,7 +1299,7 @@ function updateLyricsHighlight() {
   const lines = document.querySelectorAll("#lyrics-view .lyric-line");
   let activeIndex = 0;
 
-  // Find the current line based on position
+  // Find the current line based on position.
   for (let i = 0; i < currentLyrics.length; i++) {
     if (currentLyrics[i].time <= position) {
       activeIndex = i;
@@ -1312,7 +1312,7 @@ function updateLyricsHighlight() {
     line.classList.toggle("active", i === activeIndex);
   });
 
-  // Scroll active line into view
+  // Scroll active line into view.
   const activeLine = lines[activeIndex];
   if (activeLine) {
     activeLine.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1322,10 +1322,10 @@ function updateLyricsHighlight() {
 async function playNextFromLocalQueue() {
   if (localQueue.length === 0) return;
 
-  // Add current track to history before moving to next
+  // Add current track to history before moving to next.
   if (currentTrackUri) {
     playHistory.push(currentTrackUri);
-    // Limit history size
+    // Limit history size.
     if (playHistory.length > 100) playHistory.shift();
   }
 
@@ -1387,11 +1387,11 @@ async function next() {
   }
 
   if (localQueue.length > 0) {
-    // Skip first item (current/next) and play second if nothing playing, else play first (next)
+    // Skip first item (current/next) and play second if nothing playing, else play first (next).
     const state = await player?.getCurrentState();
     if (!state && localQueue.length > 1) {
-      // Nothing playing - "next" means skip to second item in queue
-      localQueue.shift(); // discard first
+      // Nothing playing - "next" means skip to second item in queue.
+      localQueue.shift(); // Discard first.
       saveLocalQueue();
     }
     await playNextFromLocalQueue();
@@ -1411,7 +1411,7 @@ async function previous() {
     saveLocalQueue();
   }
 
-  // Play previous track from history
+  // Play previous track from history.
   const prevUri = playHistory.pop();
   await playTrack(prevUri);
   updateQueueButtons();
@@ -1419,7 +1419,7 @@ async function previous() {
 }
 
 function refreshQueueIfViewing() {
-  // Just mark that we want a refresh - the player_state_changed handler will do the actual refresh
+  // Just mark that we want a refresh - the player_state_changed handler will do the actual refresh.
   if (localStorage.getItem("last_view") === "queue") {
     queueRefreshPending = true;
   }
@@ -1566,7 +1566,7 @@ async function loadExplore() {
   const gen = ++paginationGen;
   exploreSeenIds = new Set();
 
-  // Search for personalized playlists
+  // Search for personalized playlists.
   const personalizedSearches = [
     "Release Radar",
     "Discover Weekly",
@@ -1746,7 +1746,7 @@ async function loadArtist(id) {
   navigate("artist", { id });
   localStorage.setItem("last_view", `artist:${id}`);
   pagination = null;
-  paginationGen++; // Clear pagination state
+  paginationGen++; // Clear pagination state.
   showLoading();
 
   const [artist, topTracks, albumsData] = await Promise.all([
@@ -2000,19 +2000,19 @@ function setBreadcrumb(items) {
 
   const hasCodeInUrl = new URLSearchParams(window.location.search).has("code");
 
-  // Only process callback if we have a chosen client (i.e., user initiated login)
+  // Only process callback if we have a chosen client (i.e., user initiated login).
   const callbackOk =
     hasCodeInUrl && getClientId() ? await handleCallback() : false;
 
-  // If we have ?code= but callback failed, auth flow is broken - start fresh
+  // If we have ?code= but callback failed, auth flow is broken - start fresh.
   if (hasCodeInUrl && getClientId() && !callbackOk) {
     console.warn("OAuth callback failed, clearing state");
     clearAuth();
     window.history.replaceState({}, "", window.location.href.split("?")[0]);
-    return; // Will show login screen
+    return; // Will show login screen.
   }
 
-  // Clear URL params after successful callback
+  // Clear URL params after successful callback.
   if (hasCodeInUrl && callbackOk) {
     window.history.replaceState(
       {},
@@ -2021,7 +2021,7 @@ function setBreadcrumb(items) {
     );
   }
 
-  // Check if we have a valid session
+  // Check if we have a valid session.
   if (getClientId() && (callbackOk || getAuth("access_token"))) {
     const tokenExpiry = getAuth("token_expiry");
     const hasRefreshToken = !!getAuth("refresh_token");
@@ -2123,7 +2123,7 @@ document.getElementById("search").addEventListener("keyup", (e) => {
 window.addEventListener("beforeunload", () => {
   if (!lastPlayState) return;
 
-  // Estimate current position based on elapsed time since last state update
+  // Estimate current position based on elapsed time since last state update.
   if (!lastPlayState.paused)
     lastPlayState.position += Date.now() - lastPlayState.timestamp;
   lastPlayState.timestamp = Date.now();
@@ -2192,7 +2192,7 @@ document.getElementById("tracks").addEventListener("scroll", function () {
 
 // Keyboard shortcuts (when not in input).
 document.addEventListener("keydown", (e) => {
-  // Escape works even in input fields
+  // Escape works even in input fields.
   if (e.key === "Escape") {
     if (e.target.tagName === "INPUT") {
       e.target.blur();
@@ -2292,11 +2292,11 @@ async function resumePlaybackIfNeeded() {
 
   const state = JSON.parse(saved);
 
-  // Check if last context was DJ playlist
+  // Check if last context was DJ playlist.
   const isDJ = state.contextUri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
 
   if (isDJ) {
-    // Show DJ info instead of actual track
+    // Show DJ info instead of actual track.
     document.getElementById("player-track").textContent = "DJ";
     document.getElementById("player-artist").textContent = "Spotify";
     const art = document.getElementById("player-art");
@@ -2306,7 +2306,7 @@ async function resumePlaybackIfNeeded() {
     document.getElementById("progress-total").textContent = "0:00";
     document.getElementById("progress-fill").style.width = "0%";
   } else {
-    // Fetch track info to update UI
+    // Fetch track info to update UI.
     const trackData = await api(`/tracks/${state.trackUri.split(":")[2]}`);
     if (trackData) {
       document.getElementById("player-track").textContent = trackData.name;
@@ -2331,7 +2331,7 @@ async function resumePlaybackIfNeeded() {
     }
   }
 
-  // Enable play button (don't auto-play due to browser autoplay policies)
+  // Enable play button (don't auto-play due to browser autoplay policies).
   const playBtn = document.getElementById("play-btn");
   playBtn.disabled = false;
   playBtn.style.opacity = "1";
