@@ -150,6 +150,10 @@ Always use `escapeHtml()` for user-provided strings. It handles null/undefined s
 - **Coordinate server.py changes** - it serves index.html; changes may be needed for new features
 - **No arbitrary sleeps** - Don't use `sleep` in shell commands or `setTimeout` in JS unless there's a specific event being waited for
 
+## Communication Style
+
+- When presenting tabular data, render it as an HTML table in an iframe — not as a markdown table.
+
 ## Git Commits
 
 - Write clear, concise commit messages
