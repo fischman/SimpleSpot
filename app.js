@@ -502,7 +502,9 @@ function initPlayer() {
     const track = state.track_window.current_track;
     currentAlbumUri = track.album.uri;
     document.getElementById("player-track").textContent = track.name;
-    document.getElementById("player-artist").innerHTML = artistLinksHtml(track.artists);
+    document.getElementById("player-artist").innerHTML = artistLinksHtml(
+      track.artists,
+    );
     const art = document.getElementById("player-art");
     art.src = track.album.images[0]?.url || "";
     art.style.display = track.album.images[0]?.url ? "block" : "none";
@@ -2285,7 +2287,9 @@ async function resumePlaybackIfNeeded() {
     const trackData = await api(`/tracks/${state.trackUri.split(":")[2]}`);
     if (trackData) {
       document.getElementById("player-track").textContent = trackData.name;
-      document.getElementById("player-artist").innerHTML = artistLinksHtml(trackData.artists);
+      document.getElementById("player-artist").innerHTML = artistLinksHtml(
+        trackData.artists,
+      );
       const art = document.getElementById("player-art");
       art.src = trackData.album.images[0]?.url || "";
       art.style.display = trackData.album.images[0]?.url ? "block" : "none";
