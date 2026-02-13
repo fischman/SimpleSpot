@@ -1,4 +1,7 @@
 {
+  "formatter": {
+    "indentStyle": "space"
+  },
   "linter": {
     "rules": {
       "style": {
