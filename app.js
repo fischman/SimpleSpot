@@ -401,7 +401,7 @@ async function api(endpoint, opts = {}, _retries = 0) {
     console.warn(
       `Got ${res.status}, retrying ${endpoint} in ${delay}ms (attempt ${_retries + 1}/3)`,
     );
-    await new Promise((r) => setTimeout(r, delay));
+    await new Promise((r) => setTimeout(r, delay)); // a.k.a. "async sleep".
     return api(endpoint, opts, _retries + 1);
   }
 
