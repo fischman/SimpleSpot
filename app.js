@@ -5,7 +5,7 @@ const PLAYPAUSE_CLIENT_ID = "1366988155e64d34b759879f2a575cdd";
 const NCSPOT_CLIENT_ID = "d420a117a32841c2b3474932e49fb54b";
 const DJ_PLAYLIST_ID = "37i9dQZF1EYkqdzj48dyYq";
 const SCOPES =
-	"streaming user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read"; // https://developer.spotify.com/documentation/web-api/concepts/scopes
+	"streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read"; // https://developer.spotify.com/documentation/web-api/concepts/scopes
 
 function assert(condition, message) {
 	if (condition) {
