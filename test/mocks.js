@@ -6,15 +6,27 @@ const _realLocalStorage = window.localStorage;
 let _mockStore = {};
 
 const mockLocalStorage = {
-  getItem(key) { return _mockStore[key] ?? null; },
-  setItem(key, value) { _mockStore[key] = String(value); },
-  removeItem(key) { delete _mockStore[key]; },
-  clear() { _mockStore = {}; },
-  get length() { return Object.keys(_mockStore).length; },
-  key(i) { return Object.keys(_mockStore)[i] ?? null; },
+  getItem(key) {
+    return _mockStore[key] ?? null;
+  },
+  setItem(key, value) {
+    _mockStore[key] = String(value);
+  },
+  removeItem(key) {
+    delete _mockStore[key];
+  },
+  clear() {
+    _mockStore = {};
+  },
+  get length() {
+    return Object.keys(_mockStore).length;
+  },
+  key(i) {
+    return Object.keys(_mockStore)[i] ?? null;
+  },
 };
 
-Object.defineProperty(window, 'localStorage', {
+Object.defineProperty(window, "localStorage", {
   value: mockLocalStorage,
   writable: true,
   configurable: true,
@@ -25,7 +37,7 @@ if (!navigator.mediaSession) {
   navigator.mediaSession = {};
 }
 navigator.mediaSession.metadata = null;
-navigator.mediaSession.playbackState = 'none';
+navigator.mediaSession.playbackState = "none";
 navigator.mediaSession.setPositionState = () => {};
 navigator.mediaSession.setActionHandler = () => {};
 
@@ -39,24 +51,29 @@ window.Spotify = {
       this._connected = false;
     }
     addListener(event, cb) {
-      (this._listeners[event] = this._listeners[event] || []).push(cb);
+      if (!this._listeners[event]) this._listeners[event] = [];
+      this._listeners[event].push(cb);
     }
     removeListener(event) {
       delete this._listeners[event];
     }
     _emit(event, data) {
-      (this._listeners[event] || []).forEach(cb => cb(data));
+      for (const cb of this._listeners[event] || []) cb(data);
     }
     connect() {
       this._connected = true;
       // Emit ready after microtask so init code can finish.
       Promise.resolve().then(() => {
-        this._emit('ready', { device_id: 'mock-device-id-123' });
+        this._emit("ready", { device_id: "mock-device-id-123" });
       });
       return Promise.resolve(true);
     }
-    disconnect() { this._connected = false; }
-    async getCurrentState() { return this._state; }
+    disconnect() {
+      this._connected = false;
+    }
+    async getCurrentState() {
+      return this._state;
+    }
     async togglePlay() {
       if (this._state) this._state.paused = !this._state.paused;
     }
@@ -74,7 +91,7 @@ window.Spotify = {
     // Test helper: simulate a player state change.
     _setState(state) {
       this._state = state;
-      this._emit('player_state_changed', state);
+      this._emit("player_state_changed", state);
     }
   },
 };
@@ -101,11 +118,11 @@ function getApiCalls() {
 // Pre-seed auth so the app thinks we're logged in.
 function seedAuth() {
   _mockStore = {};
-  _mockStore['chosen_client'] = 'ncspot';
-  const prefix = 'auth_d420a117a32841c2b3474932e49fb54b_';
-  _mockStore[prefix + 'access_token'] = 'mock-access-token';
-  _mockStore[prefix + 'refresh_token'] = 'mock-refresh-token';
-  _mockStore[prefix + 'token_expiry'] = String(Date.now() + 3600000);
+  _mockStore.chosen_client = "ncspot";
+  const prefix = "auth_d420a117a32841c2b3474932e49fb54b_";
+  _mockStore[`${prefix}access_token`] = "mock-access-token";
+  _mockStore[`${prefix}refresh_token`] = "mock-refresh-token";
+  _mockStore[`${prefix}token_expiry`] = String(Date.now() + 3600000);
 }
 
 // Reset all state for a fresh test.
@@ -133,70 +150,83 @@ function resetTestState() {
   playingFromQueueInProgress = false;
 
   // Reset DOM.
-  document.getElementById('tracks').innerHTML = '';
-  document.getElementById('breadcrumb').innerHTML = '';
-  document.getElementById('breadcrumb').style.display = 'none';
-  document.getElementById('player-track').textContent = 'Not playing';
-  document.getElementById('player-artist').innerHTML = '';
-  document.getElementById('lyrics-view').innerHTML = '';
-  document.getElementById('lyrics-view').classList.remove('active');
-  document.getElementById('tracks').style.display = '';
-  const playBtn = document.getElementById('play-btn');
+  document.getElementById("tracks").innerHTML = "";
+  document.getElementById("breadcrumb").innerHTML = "";
+  document.getElementById("breadcrumb").style.display = "none";
+  document.getElementById("player-track").textContent = "Not playing";
+  document.getElementById("player-artist").innerHTML = "";
+  document.getElementById("lyrics-view").innerHTML = "";
+  document.getElementById("lyrics-view").classList.remove("active");
+  document.getElementById("tracks").style.display = "";
+  const playBtn = document.getElementById("play-btn");
   playBtn.disabled = true;
-  playBtn.style.opacity = '0.5';
-  playBtn.textContent = '\u25b6';
+  playBtn.style.opacity = "0.5";
+  playBtn.textContent = "\u25b6";
 }
 
 // --- Override fetch to intercept Spotify API calls ---
 const _realFetch = window.fetch;
-window.fetch = async function(url, opts) {
-  const urlStr = typeof url === 'string' ? url : url.toString();
+window.fetch = async (url, opts) => {
+  const urlStr = typeof url === "string" ? url : url.toString();
 
   // Intercept Spotify API calls.
-  if (urlStr.startsWith('https://api.spotify.com/v1')) {
-    const endpoint = urlStr.replace('https://api.spotify.com/v1', '');
+  if (urlStr.startsWith("https://api.spotify.com/v1")) {
+    const endpoint = urlStr.replace("https://api.spotify.com/v1", "");
     _apiCalls.push({ endpoint, opts });
 
     for (const route of _apiRoutes) {
-      const matches = typeof route.pattern === 'string'
-        ? endpoint === route.pattern || endpoint.startsWith(route.pattern + '?')
-        : route.pattern.test(endpoint);
+      const matches =
+        typeof route.pattern === "string"
+          ? endpoint === route.pattern ||
+            endpoint.startsWith(`${route.pattern}?`)
+          : route.pattern.test(endpoint);
       if (matches) {
-        const body = typeof route.response === 'function'
-          ? route.response(endpoint, opts)
-          : route.response;
+        const body =
+          typeof route.response === "function"
+            ? route.response(endpoint, opts)
+            : route.response;
         return new Response(JSON.stringify(body), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { "Content-Type": "application/json" },
         });
       }
     }
 
     // Unmatched API call — return 200 with null to avoid crashes.
     console.warn(`[mock] Unmatched API call: ${endpoint}`);
-    return new Response('null', { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response("null", {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // Intercept Spotify token endpoint.
-  if (urlStr.includes('accounts.spotify.com/api/token')) {
-    return new Response(JSON.stringify({
-      access_token: 'mock-refreshed-token',
-      token_type: 'Bearer',
-      expires_in: 3600,
-      refresh_token: 'mock-new-refresh-token',
-      scope: 'streaming user-read-email',
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  if (urlStr.includes("accounts.spotify.com/api/token")) {
+    return new Response(
+      JSON.stringify({
+        access_token: "mock-refreshed-token",
+        token_type: "Bearer",
+        expires_in: 3600,
+        refresh_token: "mock-new-refresh-token",
+        scope: "streaming user-read-email",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   // Let other requests (e.g., lrclib) go through or mock them too.
-  if (urlStr.includes('lrclib.net')) {
-    return new Response(JSON.stringify({
-      syncedLyrics: '[00:10.00]Test lyric line 1\n[00:15.00]Test lyric line 2\n[00:20.00]Test lyric line 3',
-      plainLyrics: 'Test lyric line 1\nTest lyric line 2\nTest lyric line 3',
-    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  if (urlStr.includes("lrclib.net")) {
+    return new Response(
+      JSON.stringify({
+        syncedLyrics:
+          "[00:10.00]Test lyric line 1\n[00:15.00]Test lyric line 2\n[00:20.00]Test lyric line 3",
+        plainLyrics: "Test lyric line 1\nTest lyric line 2\nTest lyric line 3",
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
   }
 
-  return _realFetch.apply(this, arguments);
+  return _realFetch(url, opts);
 };
 
 // --- Pre-seed auth so init IIFE doesn't show login screen ---
@@ -205,4 +235,4 @@ seedAuth();
 // Prevent the SDK callback from double-initing player.
 window.onSpotifyWebPlaybackSDKReady = () => {};
 
-console.log('[mocks] Mock infrastructure loaded.');
+console.log("[mocks] Mock infrastructure loaded.");

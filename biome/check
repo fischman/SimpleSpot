@@ -2,4 +2,4 @@
 
 cd "$(dirname "$0")/.."
 
-exec docker run --rm -v $PWD:/work -w /work biome check --config-path=/work/biome/biome.json --unsafe "$@" app.js index.html
+exec docker run --rm -v $PWD:/work -w /work biome check --config-path=/work/biome/biome.json --unsafe "$@" app.js index.html test/*.html test/*.js
