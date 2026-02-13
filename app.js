@@ -2160,9 +2160,9 @@ window.addEventListener("beforeunload", () => {
 	localStorage.setItem("play_state", JSON.stringify(lastPlayState));
 });
 
-// Refresh token when tab becomes visible.
+// Refresh token if needed, when tab becomes visible.
 document.addEventListener("visibilitychange", async () => {
-	if (!document.visibilityState === "visible" || !getAuth("access_token")) {
+	if (document.visibilityState !== "visible" || !getAuth("access_token")) {
 		return;
 	}
 	if (Date.now() > getAuth("token_expiry")) {
