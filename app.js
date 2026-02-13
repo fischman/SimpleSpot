@@ -2196,15 +2196,15 @@ document.querySelector(".content").addEventListener("scroll", function () {
 // Simple key-to-action shortcuts.
 const keyboardShortcuts = {
   "?": showHelp,
-  "q": showQueue,
-  "p": loadPlaylists,
-  "l": loadLikedSongs,
-  "a": loadTopArtists,
-  "t": loadTopTracks,
-  "e": loadExplore,
-  "s": loadSavedAlbums,
-  "d": playDJ,
-  "c": toggleLyrics,
+  q: showQueue,
+  p: loadPlaylists,
+  l: loadLikedSongs,
+  a: loadTopArtists,
+  t: loadTopTracks,
+  e: loadExplore,
+  s: loadSavedAlbums,
+  d: playDJ,
+  c: toggleLyrics,
 };
 
 // Keyboard shortcuts (when not in input).
@@ -2230,7 +2230,10 @@ document.addEventListener("keydown", async (e) => {
     const state = await player?.getCurrentState();
     if (!state) return;
     const delta = e.code === "ArrowLeft" ? -10000 : 10000;
-    const newPos = Math.max(0, Math.min(state.duration, state.position + delta));
+    const newPos = Math.max(
+      0,
+      Math.min(state.duration, state.position + delta),
+    );
     player.seek(newPos);
   } else if (e.key === "/") {
     e.preventDefault();
