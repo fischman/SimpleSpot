@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SimpleSpot Tests</title>
+  <style>
+    body { font-family: monospace; background: #1a1a1a; color: #ccc; padding: 16px; margin: 0; }
+    h1 { color: #1db954; margin-bottom: 16px; }
+    .summary { font-size: 18px; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+    .summary.pass { background: #1db95430; color: #1db954; }
+    .summary.fail { background: #e9113530; color: #e91135; }
+    .group { margin: 8px 0; }
+    .group-name { font-size: 14px; font-weight: bold; color: #fff; padding: 4px 0; cursor: pointer; }
+    .group-name:hover { text-decoration: underline; }
+    .test { padding: 2px 16px; font-size: 13px; }
+    .test.pass { color: #1db954; }
+    .test.pass::before { content: '✓ '; }
+    .test.fail { color: #e91135; }
+    .test.fail::before { content: '✗ '; }
+    .error-detail { color: #ff6b6b; padding: 2px 32px; font-size: 12px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>SimpleSpot Tests</h1>
+  <div id="results">Running...</div>
+
+  <!-- Hidden app DOM (replicates index.html structure) -->
+  <div id="test-dom" style="display:none">
+    <div id="login" style="display:flex">
+      <button onclick="loginWith('ncspot')">Login ncspot</button>
+      <button onclick="loginWith('playpause')">Login playpause</button>
+    </div>
+    <div id="app">
+      <div class="header">
+        <div class="search-container">
+          <input type="text" id="search" placeholder="Search tracks..." />
+          <span id="search-clear">⊗</span>
+        </div>
+        <button id="nav-dj">DJ</button>
+        <button id="nav-playlists">📜</button>
+        <button id="nav-albums">💿</button>
+        <button id="nav-liked">❤️</button>
+        <button id="nav-topArtists">⬆️A</button>
+        <button id="nav-topTracks">⬆️T</button>
+        <button id="nav-explore">✨</button>
+        <input type="range" id="column-count" min="1" max="10" value="3" />
+        <span id="ncspot-note"></span>
+      </div>
+      <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
+      <div class="content">
+        <ul class="tracks" id="tracks"></ul>
+        <div id="lyrics-view"></div>
+      </div>
+      <div class="player">
+        <img id="player-art" src="" alt="" style="display:none" />
+        <div class="player-info">
+          <div id="player-track">Not playing</div>
+          <div id="player-artist"></div>
+        </div>
+        <div class="player-controls">
+          <button id="prev-btn">⏮</button>
+          <button id="play-btn" disabled style="opacity:0.5">▶</button>
+          <button id="next-btn">⏭</button>
+        </div>
+        <div class="progress-container">
+          <span class="progress-time" id="progress-current">0:00</span>
+          <div class="progress-bar" id="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+            <span id="seek-tooltip" style="display:none"></span>
+          </div>
+          <span class="progress-time" id="progress-total">0:00</span>
+        </div>
+        <button id="loop-btn">↻</button>
+        <button id="cc-btn"><span class="cc-icon">CC</span></button>
+        <button id="nav-queue" class="queue-btn">☰</button>
+        <div class="device-picker">
+          <button>📱</button>
+          <div class="device-menu" id="device-menu"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="fixtures.js"></script>
+  <script src="mocks.js"></script>
+  <script src="../app.js"></script>
+  <script src="tests.js"></script>
+</body>
+</html>

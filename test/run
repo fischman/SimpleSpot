@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+"""Run SimpleSpot tests in headless Chrome.
+
+Builds a single self-contained HTML file by inlining all scripts,
+opens it in headless Chrome via file://, parses results from the
+dumped DOM. No server, no ports.
+"""
+
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def find_chrome():
+    for name in ["google-chrome", "chromium-browser", "chromium", "chrome"]:
+        result = subprocess.run(["which", name], capture_output=True, text=True)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    return None
+
+
+def build_test_html():
+    """Read test.html and inline all <script src="..."> tags."""
+    html = (ROOT / "test" / "test.html").read_text()
+
+    def inline_script(m):
+        src = m.group(1)
+        # Resolve relative to test/.
+        path = (ROOT / "test" / src).resolve()
+        if not path.is_file():
+            print(f"ERROR: Script not found: {path}", file=sys.stderr)
+            sys.exit(1)
+        js = path.read_text()
+        # Escape </script> literals in JS so they don't close the inline tag.
+        js = js.replace("</script>", "<\\/script>")
+        return f"<script>\n{js}\n</script>"
+
+    return re.sub(r'<script src="([^"]+)"></script>', inline_script, html)
+
+
+def parse_results_from_dom(dom):
+    """Parse test results from the dumped DOM HTML."""
+    passed = failed = 0
+    failures = []
+
+    # Narrow to #results div to avoid matching source code in inline scripts.
+    results_match = re.search(r'id="results">(.*?)(?=<div id="test-dom")', dom, re.DOTALL)
+    results_html = results_match.group(1) if results_match else dom
+
+    # Extract summary: '60/60 passed' or '59/60 passed, 1 failed'.
+    m = re.search(r'class="summary[^"]*"[^>]*>([^<]+)', results_html)
+    if m:
+        sm = re.match(r'(\d+)/(\d+) passed', m.group(1).strip())
+        if sm:
+            passed = int(sm.group(1))
+            total = int(sm.group(2))
+            failed = total - passed
+
+    # Extract individual failure names and error details.
+    for m in re.finditer(r'class="test fail"[^>]*>([^<]+)', results_html):
+        failures.append(m.group(1).strip())
+    for m in re.finditer(r'class="error-detail"[^>]*>([^<]+)', results_html):
+        detail = m.group(1).strip()
+        if failures:
+            failures[-1] += "\n    " + detail
+
+    return passed, failed, failures
+
+
+def main():
+    chrome = find_chrome()
+    if not chrome:
+        print("ERROR: No Chrome/Chromium found on PATH.", file=sys.stderr)
+        sys.exit(1)
+
+    html = build_test_html()
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        html_path = Path(tmpdir) / "test.html"
+        html_path.write_text(html)
+
+        cmd = [
+            chrome,
+            "--headless=new",
+            "--no-sandbox",
+            "--disable-gpu",
+            "--disable-software-rasterizer",
+            "--disable-dev-shm-usage",
+            f"--user-data-dir={tmpdir}/profile",
+            "--virtual-time-budget=5000",
+            "--dump-dom",
+            f"file://{html_path}",
+        ]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        except subprocess.TimeoutExpired:
+            print("ERROR: Chrome timed out after 30s.", file=sys.stderr)
+            sys.exit(1)
+
+    dom = result.stdout
+    if not dom.strip():
+        print("ERROR: Chrome produced no output.", file=sys.stderr)
+        print(result.stderr[-500:] if result.stderr else "(no stderr)", file=sys.stderr)
+        sys.exit(1)
+
+    passed, failed, failures = parse_results_from_dom(dom)
+
+    if passed == 0 and failed == 0:
+        print("ERROR: Could not parse test results from DOM.", file=sys.stderr)
+        m = re.search(r'id="results">(.*)', dom, re.DOTALL)
+        if m:
+            text = re.sub(r'<[^>]+>', ' ', m.group(1))[:500]
+            print(text, file=sys.stderr)
+        sys.exit(1)
+
+    total = passed + failed
+    if failed == 0:
+        print(f"\033[32mPASS\033[0m {passed}/{total} tests passed")
+    else:
+        print(f"\033[31mFAIL\033[0m {passed}/{total} passed, {failed} failed")
+        for f in failures:
+            print(f"  \033[31m{f}\033[0m")
+
+    sys.exit(0 if failed == 0 else 1)
+
+
+if __name__ == "__main__":
+    main()
