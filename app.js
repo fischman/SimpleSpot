@@ -796,6 +796,14 @@ async function search(q) {
   };
   localStorage.setItem(
     "last_search",
+    // Local storage has a 5MB per-origin limit, so it might seem
+    // worrisome to store hundreds of search results
+    // here. Experimenting shows that this is not in fact an
+    // issue. E.g. searching [queen] results in 50
+    // Artists/Albums/Tracks for a total of 150 records, but
+    // localStorage.last_search.length is just 256588. Slimming the
+    // results to just the fields used in rendering only reduces this
+    // to 51566. Not worth doing.
     JSON.stringify({ query: q, data: results }),
   );
   localStorage.setItem("last_view", "search");
