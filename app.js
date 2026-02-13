@@ -1885,15 +1885,15 @@ function clearPlayerUI() {
   clearInterval(progressInterval);
   document.getElementById("player-track").textContent = "Not playing";
   document.getElementById("player-artist").textContent = "";
-  document.getElementById("player-art").src = "";
-  document.getElementById("player-art").style.display = "none";
-  document.getElementById("play-btn").disabled = true;
-  document.getElementById("play-btn").style.opacity = "0.5";
-  document.getElementById("play-btn").textContent = "▶";
+  const art = document.getElementById("player-art");
+  art.src = "";
+  art.style.display = "none";
+  // Disable all player-control buttons (includes play-btn).
   document.querySelectorAll(".player-controls button").forEach((btn) => {
     btn.disabled = true;
     btn.style.opacity = "0.5";
   });
+  document.getElementById("play-btn").textContent = "▶";
   document.getElementById("progress-fill").style.width = "0%";
   document.getElementById("progress-current").textContent = "0:00";
   document.getElementById("progress-total").textContent = "0:00";
