@@ -719,22 +719,21 @@ async function startRadio(type, id) {
   await next();
 }
 
-function updateProgress() {
+async function updateProgress() {
   if (!currentState) return;
-  player.getCurrentState().then((state) => {
-    if (!state) return;
-    const pct = (state.position / state.duration) * 100;
-    document.getElementById("progress-fill").style.width = `${pct}%`;
-    document.getElementById("progress-current").textContent = formatTime(
-      state.position,
-    );
+  const state = await player.getCurrentState();
+  if (!state) return;
+  const pct = (state.position / state.duration) * 100;
+  document.getElementById("progress-fill").style.width = `${pct}%`;
+  document.getElementById("progress-current").textContent = formatTime(
+    state.position,
+  );
 
-    // Update lyrics highlight.
-    if (lyricsEnabled && lastPlayState) {
-      lastPlayState.position = state.position;
-      updateLyricsHighlight();
-    }
-  });
+  // Update lyrics highlight.
+  if (lyricsEnabled && lastPlayState) {
+    lastPlayState.position = state.position;
+    updateLyricsHighlight();
+  }
 }
 
 (() => {
