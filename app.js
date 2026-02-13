@@ -637,6 +637,12 @@ function formatTime(ms) {
 }
 
 function escapeHtml(s) {
+  // Note that a more sophisticated approach would create a DOM
+  // element and extract its innerHtml, but that seems like a much
+  // more complex thing than needed. Our inputs are always short
+  // strings and the DOM approach is only a performance win when the
+  // inputs are large (>1KB, definitely, maybe a lot larger than
+  // that).
   if (!s) return "";
   return s
     .replace(/&/g, "&amp;")
