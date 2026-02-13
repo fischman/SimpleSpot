@@ -2201,8 +2201,22 @@ document.querySelector(".content").addEventListener("scroll", function () {
   }
 });
 
+// Simple key-to-action shortcuts.
+const keyboardShortcuts = {
+  "?": showHelp,
+  "q": showQueue,
+  "p": loadPlaylists,
+  "l": loadLikedSongs,
+  "a": loadTopArtists,
+  "t": loadTopTracks,
+  "e": loadExplore,
+  "s": loadSavedAlbums,
+  "d": playDJ,
+  "c": toggleLyrics,
+};
+
 // Keyboard shortcuts (when not in input).
-document.addEventListener("keydown", (e) => {
+document.addEventListener("keydown", async (e) => {
   // Escape works even in input fields.
   if (e.key === "Escape") {
     if (e.target.tagName === "INPUT") {
@@ -2219,40 +2233,18 @@ document.addEventListener("keydown", (e) => {
   if (e.code === "Space") {
     e.preventDefault();
     togglePlay();
-  } else if ((e.code === "ArrowLeft" || e.code === "ArrowRight") && !e.altKey) {
+  } else if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
     e.preventDefault();
-    player?.getCurrentState().then((state) => {
-      if (!state) return;
-      const delta = e.code === "ArrowLeft" ? -10000 : 10000;
-      const newPos = Math.max(
-        0,
-        Math.min(state.duration, state.position + delta),
-      );
-      player.seek(newPos);
-    });
-  } else if (e.key === "?") {
-    showHelp();
-  } else if (e.key === "q") {
-    showQueue();
-  } else if (e.key === "p") {
-    loadPlaylists();
-  } else if (e.key === "l") {
-    loadLikedSongs();
-  } else if (e.key === "a") {
-    loadTopArtists();
-  } else if (e.key === "t") {
-    loadTopTracks();
-  } else if (e.key === "e") {
-    loadExplore();
-  } else if (e.key === "s") {
-    loadSavedAlbums();
-  } else if (e.key === "d") {
-    playDJ();
+    const state = await player?.getCurrentState();
+    if (!state) return;
+    const delta = e.code === "ArrowLeft" ? -10000 : 10000;
+    const newPos = Math.max(0, Math.min(state.duration, state.position + delta));
+    player.seek(newPos);
   } else if (e.key === "/") {
     e.preventDefault();
     document.getElementById("search").focus();
-  } else if (e.key === "c") {
-    toggleLyrics();
+  } else {
+    keyboardShortcuts[e.key]?.();
   }
 });
 
