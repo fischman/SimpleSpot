@@ -1581,6 +1581,7 @@ async function loadExplore() {
   ];
 
   // Start all fetches in parallel.
+  // (Note that unlike e.g. DJ, these playlists have per-user IDs, so must fetch and can't hardcode).
   const mixesPromise = Promise.all(
     personalizedSearches.map((q) =>
       api(`/search?type=playlist&limit=1&q=${encodeURIComponent(q)}`),
@@ -1593,15 +1594,6 @@ async function loadExplore() {
 
   // Render Your Mixes as soon as ready.
   const searchResults = await mixesPromise;
-  console.log(
-    "CC->AMI", // Awaiting user feedback before dropping this log. (might be able to hard-code mixes IDs).
-    JSON.stringify(
-      searchResults.map((ps) => [
-        ps.playlists.items[0].id,
-        ps.playlists.items[0].name,
-      ]),
-    ),
-  );
   const personalizedPlaylists = [];
   personalizedSearches.forEach((searchName, idx) => {
     const results = searchResults[idx]?.playlists?.items || [];
