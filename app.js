@@ -1081,14 +1081,6 @@ async function playFromContext(uri, offset) {
   await playNextFromLocalQueue();
 }
 
-async function isPlayingDJ() {
-  return (
-    player != null &&
-    (await player.getCurrentState())?.context.metadata.context_description ===
-      "DJ"
-  );
-}
-
 async function playDJ() {
   await play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
   showQueue();
@@ -1381,7 +1373,8 @@ async function togglePlay() {
 }
 
 async function next() {
-  if (await isPlayingDJ()) {
+  const state = await player?.getCurrentState();
+  if (state?.context.metadata.context_description === "DJ") {
     return player.nextTrack();
   }
 
@@ -1397,7 +1390,6 @@ async function next() {
 
   if (localQueue.length > 0) {
     // Skip first item (current/next) and play second if nothing playing, else play first (next).
-    const state = await player?.getCurrentState();
     if (!state && localQueue.length > 1) {
       // Nothing playing - "next" means skip to second item in queue.
       localQueue.shift(); // Discard first.
@@ -1409,7 +1401,8 @@ async function next() {
 }
 
 async function previous() {
-  if (await isPlayingDJ()) {
+  const state = await player?.getCurrentState();
+  if (state?.context.metadata.context_description === "DJ") {
     return player.previousTrack();
   }
 
