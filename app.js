@@ -1136,8 +1136,10 @@ async function addAlbumToQueue(albumId, toFront = false) {
 }
 
 async function addPlaylistToQueue(playlistId, toFront = false) {
-  const data = await api(`/playlists/${playlistId}/tracks?limit=100`);
-  const trackUris = data.items?.map((i) => i.track?.uri).filter(Boolean) || [];
+  const trackUris = await fetchAllPages(
+    `/playlists/${playlistId}/tracks?limit=100`,
+    (data) => (data?.items || []).map((i) => i.track?.uri).filter(Boolean),
+  );
   return addToQueue(trackUris, toFront);
 }
 
