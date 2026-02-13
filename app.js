@@ -1475,7 +1475,7 @@ async function loadPaginatedView({
   const el = document.getElementById("tracks");
   el.classList.add("grid-view");
   el.innerHTML = "";
-  el.scrollTop = 0;
+  document.querySelector(".content").scrollTop = 0;
 
   let count = 0;
   const gen = ++paginationGen;
@@ -1560,7 +1560,7 @@ async function loadExplore() {
   el.classList.remove("grid-view");
   el.classList.add("sectioned");
   el.innerHTML = "";
-  el.scrollTop = 0;
+  document.querySelector(".content").scrollTop = 0;
 
   pagination = null;
   const gen = ++paginationGen;
@@ -2183,7 +2183,8 @@ function makePagination(initialUrl, fetchPage) {
   };
 }
 
-document.getElementById("tracks").addEventListener("scroll", function () {
+// The scrollable container is .content, not #tracks.
+document.querySelector(".content").addEventListener("scroll", function () {
   if (!pagination?.active) return;
   if (this.scrollTop + this.clientHeight >= this.scrollHeight - 200) {
     pagination.loadMore();
