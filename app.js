@@ -244,7 +244,7 @@ async function handleNcspotUrl() {
   const url = input.value.trim();
   if (!url) return;
 
-  var parsedUrl;
+  let parsedUrl;
   try {
     parsedUrl = new URL(url);
   } catch (e) {
