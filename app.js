@@ -1558,7 +1558,6 @@ function renderPlaylistSection(playlists, startNum = 1) {
 
 // Shared state for Explore pagination (needs seenIds across pages).
 let exploreSeenIds = new Set();
-const exploreTotalCount = 0;
 
 async function loadExplore() {
 	navigate("explore");
@@ -1652,10 +1651,8 @@ async function loadExplore() {
 	featuredCount += items.length;
 
 	// Render first batch immediately.
-	if (items.length > 0) {
-		el.innerHTML += `<div class="section-header">Featured Playlists</div>`;
-		el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`;
-	}
+	el.innerHTML += `<div class="section-header">Featured Playlists</div>`;
+	el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`;
 
 	// Paginate Featured playlists (eagerly up to 300, then infinite scroll).
 	const featuredUrl = featuredData?.playlists?.next?.replace(
@@ -1671,14 +1668,8 @@ async function loadExplore() {
 					(p) => p && !exploreSeenIds.has(p.id),
 				);
 				if (newItems.length > 0) {
-					const section = document.getElementById("featured-section");
-					if (section) {
-						section.innerHTML += renderPlaylistSection(
-							newItems,
-							featuredCount + 1,
-						);
-						featuredCount += newItems.length;
-					}
+					document.getElementById("featured-section").innerHTML +=
+						renderPlaylistSection(newItems, featuredCount + 1);
 					for (const p of newItems) exploreSeenIds.add(p.id);
 					featuredCount += newItems.length;
 				}
