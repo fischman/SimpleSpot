@@ -1095,12 +1095,8 @@ function updateQueueButtons() {
   const hasQueue = localQueue.length > 0;
   const hasHistory = playHistory.length > 0;
   const playBtn = document.getElementById("play-btn");
-  const nextBtn = document.querySelector(
-    '.player-controls button[onclick="next()"]',
-  );
-  const prevBtn = document.querySelector(
-    '.player-controls button[onclick="previous()"]',
-  );
+  const nextBtn = document.getElementById("next-btn");
+  const prevBtn = document.getElementById("prev-btn");
   assert(playBtn && nextBtn && prevBtn, "Missing button!");
   if (hasQueue) {
     playBtn.disabled = false;
