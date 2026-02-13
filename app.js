@@ -687,22 +687,20 @@ async function startRadio(type, id) {
   } else if (type === "artist") {
     seedParam = `seed_artists=${id}`;
   } else if (type === "album") {
-    // 5 seed item limit enforced by the API.
     const trackIds = (await api(`/albums/${id}`)).tracks?.items
       ?.map((t) => t.id)
-      .slice(0, 5)
+      .slice(0, 5) // 5 seed item limit enforced by the API.
       .join(",");
     assert(trackIds, `Failed to fetch tracks for /albums/${id}`);
     seedParam = `seed_tracks=${trackIds}`;
   } else if (type === "playlist") {
-    // 5 seed item limit enforced by the API.
-    const trackIds = (await api(`/playlists/${id}/tracks`)).items
-      ?.map((i) => i.track)
+    const trackIds = (await api(`/playlists/${id}/items`)).items
+      ?.map((i) => i.item)
       .filter(Boolean)
       ?.map((t) => t.id)
-      .slice(0, 5)
+      .slice(0, 5) // 5 seed item limit enforced by the API.
       .join(",");
-    assert(trackIds, `Failed to fetch /playlists/${id}/tracks`);
+    assert(trackIds, `Failed to fetch /playlists/${id}/items`);
     seedParam = `seed_tracks=${trackIds}`;
   }
 
@@ -1066,8 +1064,8 @@ async function playFromContext(uri, offset) {
     trackUris = album?.tracks?.items?.map((t) => t.uri).filter(Boolean) || [];
   } else if (type === "playlist") {
     trackUris = await fetchAllPages(
-      `/playlists/${id}/tracks?limit=100`,
-      (data) => (data?.items || []).map((i) => i.track?.uri).filter(Boolean),
+      `/playlists/${id}/items?limit=100`,
+      (data) => (data?.items || []).map((i) => i.item?.uri).filter(Boolean),
     );
   }
 
@@ -1137,8 +1135,8 @@ async function addAlbumToQueue(albumId, toFront = false) {
 
 async function addPlaylistToQueue(playlistId, toFront = false) {
   const trackUris = await fetchAllPages(
-    `/playlists/${playlistId}/tracks?limit=100`,
-    (data) => (data?.items || []).map((i) => i.track?.uri).filter(Boolean),
+    `/playlists/${playlistId}/items?limit=100`,
+    (data) => (data?.items || []).map((i) => i.item?.uri).filter(Boolean),
   );
   return addToQueue(trackUris, toFront);
 }
@@ -1667,6 +1665,7 @@ async function loadExplore() {
 async function loadPlaylist(id) {
   navigate("playlist", { id });
   localStorage.setItem("last_view", `playlist:${id}`);
+  // AMI: parallelize name fetch w/ initial items fetch below.
   const name = (await api(`/playlists/${id}`)).name;
   setBreadcrumb([
     { name: "Playlists", action: "loadPlaylists()" },
@@ -1678,8 +1677,8 @@ async function loadPlaylist(id) {
   const contextUri = `spotify:playlist:${id}`;
 
   const allTracks = await fetchAllPages(
-    `/playlists/${id}/tracks?limit=100`,
-    (data) => (data?.items || []).map((i) => i.track).filter(Boolean),
+    `/playlists/${id}/items?limit=50`,
+    (data) => (data?.items || []).map((i) => i.item).filter(Boolean),
   );
   document.getElementById("tracks").innerHTML = renderTrackItems(
     allTracks,
