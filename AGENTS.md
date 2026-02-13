@@ -15,6 +15,7 @@ SimpleSpot is a simple web-based Spotify client. The application consists of two
 - **Minimal files** - Keep everything in index.html + app.js
 
 ### JavaScript
+- Comments that are English sentences must end with a period
 - Use `async/await` over `.then()` chains
 - Use template literals for HTML generation
 - Use `const`/`let`, never `var`
