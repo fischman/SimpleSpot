@@ -1665,21 +1665,21 @@ async function loadExplore() {
 async function loadPlaylist(id) {
   navigate("playlist", { id });
   localStorage.setItem("last_view", `playlist:${id}`);
-  // AMI: parallelize name fetch w/ initial items fetch below.
-  const name = (await api(`/playlists/${id}`)).name;
-  setBreadcrumb([
-    { name: "Playlists", action: "loadPlaylists()" },
-    { name: name || "Playlist" },
-  ]);
   showLoading();
   pagination = null;
   paginationGen++;
   const contextUri = `spotify:playlist:${id}`;
 
-  const allTracks = await fetchAllPages(
-    `/playlists/${id}/items?limit=50`,
-    (data) => (data?.items || []).map((i) => i.item).filter(Boolean),
-  );
+  const [nameResult, allTracks] = await Promise.all([
+    api(`/playlists/${id}`).then((d) => d.name),
+    fetchAllPages(`/playlists/${id}/items?limit=50`, (data) =>
+      (data?.items || []).map((i) => i.item).filter(Boolean),
+    ),
+  ]);
+  setBreadcrumb([
+    { name: "Playlists", action: "loadPlaylists()" },
+    { name: nameResult || "Playlist" },
+  ]);
   document.getElementById("tracks").innerHTML = renderTrackItems(
     allTracks,
     contextUri,
