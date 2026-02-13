@@ -502,14 +502,7 @@ function initPlayer() {
     const track = state.track_window.current_track;
     currentAlbumUri = track.album.uri;
     document.getElementById("player-track").textContent = track.name;
-    document.getElementById("player-artist").innerHTML = track.artists
-      .map((a) => {
-        const artistId = a.uri?.split(":")[2] || "";
-        return artistId
-          ? `<a href="#" onclick="event.preventDefault(); loadArtist('${artistId}')" style="color:inherit;text-decoration:none">${escapeHtml(a.name)}</a>`
-          : escapeHtml(a.name);
-      })
-      .join(", ");
+    document.getElementById("player-artist").innerHTML = artistLinksHtml(track.artists);
     const art = document.getElementById("player-art");
     art.src = track.album.images[0]?.url || "";
     art.style.display = track.album.images[0]?.url ? "block" : "none";
@@ -864,6 +857,7 @@ function artistLinksHtml(artists) {
   return (artists || [])
     .map((a) => {
       const id = a.id || a.uri?.split(":")[2] || "";
+      if (!id) return escapeHtml(a.name);
       return `<span class="artist-link">${shareLink("artist", id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${id}')`)}</span>`;
     })
     .join(", ");
@@ -1005,12 +999,7 @@ function queueTrackMapper(t, i, num) {
     playAction: `playFromLocalQueue(${i})`,
     nameHtml: escapeHtml(t.name),
     nameTitle: escapeHtml(t.name),
-    subtitle: (t.artists || [])
-      .map(
-        (a) =>
-          `<span class="artist-link" onclick="event.stopPropagation(); loadArtist('${a.id}')">${escapeHtml(a.name)}</span>`,
-      )
-      .join(", "),
+    subtitle: artistLinksHtml(t.artists),
     subtitleTitle: escapeHtml(t.artists?.map((a) => a.name).join(", ") || ""),
     extraLines: t.album
       ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>`
@@ -1706,12 +1695,7 @@ async function loadAlbum(id) {
     ...t,
     album: { id: data.id, name: data.name, images: data.images },
   }));
-  const artistLinks = data.artists
-    .map(
-      (a) =>
-        `<span class="artist-link">${shareLink("artist", a.id, escapeHtml(a.name), `loadArtist('${a.id}')`)}</span>`,
-    )
-    .join(", ");
+  const artistLinks = artistLinksHtml(data.artists);
   document.getElementById("tracks").innerHTML =
     `
     <div style="float:left;margin:16px 16px 16px 0">
@@ -2301,12 +2285,7 @@ async function resumePlaybackIfNeeded() {
     const trackData = await api(`/tracks/${state.trackUri.split(":")[2]}`);
     if (trackData) {
       document.getElementById("player-track").textContent = trackData.name;
-      document.getElementById("player-artist").innerHTML = trackData.artists
-        .map(
-          (a) =>
-            `<a href="#" onclick="event.preventDefault(); loadArtist('${a.id}')" style="color:inherit;text-decoration:none">${escapeHtml(a.name)}</a>`,
-        )
-        .join(", ");
+      document.getElementById("player-artist").innerHTML = artistLinksHtml(trackData.artists);
       const art = document.getElementById("player-art");
       art.src = trackData.album.images[0]?.url || "";
       art.style.display = trackData.album.images[0]?.url ? "block" : "none";
