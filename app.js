@@ -2137,13 +2137,7 @@ window.addEventListener("beforeunload", () => {
 
 // Refresh token if needed, when tab becomes visible.
 document.addEventListener("visibilitychange", async () => {
-  if (
-    document.visibilityState !== "visible" ||
-    !getAuth("access_token") ||
-    !navigator.onLine
-  ) {
-    return;
-  }
+  if (!navigator.onLine || document.hidden || !getAuth("access_token")) return;
   if (Date.now() > getAuth("token_expiry")) {
     console.log(
       "Tab became visible, token expired, attempting refresh first...",
