@@ -511,23 +511,14 @@ function initPlayer() {
     currentState = state;
     const track = state.track_window.current_track;
     currentAlbumUri = track.album.uri;
-    document.getElementById("player-track").textContent = track.name;
-    document.getElementById("player-artist").innerHTML = artistLinksHtml(
-      track.artists,
-    );
-    const art = document.getElementById("player-art");
-    art.src = track.album.images[0]?.url || "";
-    art.style.display = track.album.images[0]?.url ? "block" : "none";
-    // Re-enable all player controls.
-    document.querySelectorAll(".player-controls button").forEach((btn) => {
-      btn.disabled = false;
-      btn.style.opacity = "1";
+    updatePlayerUI({
+      trackName: track.name,
+      artistHtml: artistLinksHtml(track.artists),
+      artUrl: track.album.images[0]?.url,
+      position: state.position,
+      duration: state.duration,
+      paused: state.paused,
     });
-    const playBtn = document.getElementById("play-btn");
-    playBtn.textContent = state.paused ? "▶" : "⏸";
-    document.getElementById("progress-total").textContent = formatTime(
-      state.duration,
-    );
     updateProgress();
 
     clearInterval(progressInterval);
@@ -653,6 +644,45 @@ function showLoading() {
   const el = document.getElementById("tracks");
   el.classList.remove("sectioned", "grid-view");
   el.innerHTML = '<li style="padding:16px;color:#b3b3b3">Loading...</li>';
+}
+
+// Centralised player-UI updater. Pass an info object to show track details,
+// or null to clear the player to its empty state.
+function updatePlayerUI(info) {
+  const buttons = document.querySelectorAll(".player-controls button");
+  if (info) {
+    // TODO: linkify player-track with shareLink.
+    document.getElementById("player-track").textContent = info.trackName;
+    document.getElementById("player-artist").innerHTML = info.artistHtml;
+    const art = document.getElementById("player-art");
+    art.src = info.artUrl;
+    art.style.display = info.artUrl ? "block" : "none";
+    document.getElementById("play-btn").textContent = info.paused ? "▶" : "⏸";
+    document.getElementById("progress-fill").style.width =
+      info.duration ? `${(info.position / info.duration) * 100}%` : "0%";
+    document.getElementById("progress-current").textContent =
+      formatTime(info.position);
+    document.getElementById("progress-total").textContent =
+      formatTime(info.duration);
+    buttons.forEach((btn) => {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+    });
+  } else {
+    document.getElementById("player-track").textContent = "Not playing";
+    document.getElementById("player-artist").innerHTML = "";
+    const art = document.getElementById("player-art");
+    art.src = "";
+    art.style.display = "none";
+    document.getElementById("play-btn").textContent = "▶";
+    document.getElementById("progress-fill").style.width = "0%";
+    document.getElementById("progress-current").textContent = "0:00";
+    document.getElementById("progress-total").textContent = "0:00";
+    buttons.forEach((btn) => {
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+    });
+  }
 }
 
 function formatTime(ms) {
@@ -1886,20 +1916,7 @@ function onQueueDrop(e) {
 function clearPlayerUI() {
   currentState = null;
   clearInterval(progressInterval);
-  document.getElementById("player-track").textContent = "Not playing";
-  document.getElementById("player-artist").textContent = "";
-  const art = document.getElementById("player-art");
-  art.src = "";
-  art.style.display = "none";
-  // Disable all player-control buttons (includes play-btn).
-  document.querySelectorAll(".player-controls button").forEach((btn) => {
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-  });
-  document.getElementById("play-btn").textContent = "▶";
-  document.getElementById("progress-fill").style.width = "0%";
-  document.getElementById("progress-current").textContent = "0:00";
-  document.getElementById("progress-total").textContent = "0:00";
+  updatePlayerUI(null);
 }
 
 async function clearQueue() {
@@ -2296,42 +2313,30 @@ async function resumePlaybackIfNeeded() {
 
   if (isDJ) {
     // Show DJ info instead of actual track.
-    document.getElementById("player-track").textContent = "DJ";
-    document.getElementById("player-artist").textContent = "Spotify";
-    const art = document.getElementById("player-art");
-    art.src = "https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg";
-    art.style.display = "block";
-    document.getElementById("progress-current").textContent = "0:00";
-    document.getElementById("progress-total").textContent = "0:00";
-    document.getElementById("progress-fill").style.width = "0%";
+    updatePlayerUI({
+      trackName: "DJ",
+      artistHtml: "Spotify",
+      artUrl: "https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg",
+      position: 0,
+      duration: 0,
+      paused: true,
+    });
   } else {
     // Fetch track info to update UI.
     const trackData = await api(`/tracks/${state.trackUri.split(":")[2]}`);
     if (trackData) {
-      document.getElementById("player-track").textContent = trackData.name;
-      document.getElementById("player-artist").innerHTML = artistLinksHtml(
-        trackData.artists,
-      );
-      const art = document.getElementById("player-art");
-      art.src = trackData.album.images[0]?.url || "";
-      art.style.display = trackData.album.images[0]?.url ? "block" : "none";
-      document.getElementById("progress-current").textContent = formatTime(
-        state.position,
-      );
-      document.getElementById("progress-total").textContent = formatTime(
-        trackData.duration_ms,
-      );
-      document.getElementById("progress-fill").style.width =
-        `${(state.position / trackData.duration_ms) * 100}%`;
+      updatePlayerUI({
+        trackName: trackData.name,
+        artistHtml: artistLinksHtml(trackData.artists),
+        artUrl: trackData.album.images[0]?.url,
+        position: state.position,
+        duration: trackData.duration_ms,
+        paused: true,
+      });
       currentAlbumUri = trackData.album.uri;
     }
   }
 
-  // Enable play button (don't auto-play due to browser autoplay policies).
-  const playBtn = document.getElementById("play-btn");
-  playBtn.disabled = false;
-  playBtn.style.opacity = "1";
-  playBtn.textContent = "▶";
   try {
     togglePlay();
   } catch (e) {
