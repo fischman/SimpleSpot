@@ -658,12 +658,15 @@ function updatePlayerUI(info) {
     art.src = info.artUrl;
     art.style.display = info.artUrl ? "block" : "none";
     document.getElementById("play-btn").textContent = info.paused ? "▶" : "⏸";
-    document.getElementById("progress-fill").style.width =
-      info.duration ? `${(info.position / info.duration) * 100}%` : "0%";
-    document.getElementById("progress-current").textContent =
-      formatTime(info.position);
-    document.getElementById("progress-total").textContent =
-      formatTime(info.duration);
+    document.getElementById("progress-fill").style.width = info.duration
+      ? `${(info.position / info.duration) * 100}%`
+      : "0%";
+    document.getElementById("progress-current").textContent = formatTime(
+      info.position,
+    );
+    document.getElementById("progress-total").textContent = formatTime(
+      info.duration,
+    );
     buttons.forEach((btn) => {
       btn.disabled = false;
       btn.style.opacity = "1";

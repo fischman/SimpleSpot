@@ -161,6 +161,14 @@ Always use `escapeHtml()` for user-provided strings. It handles null/undefined s
 - Include context for non-obvious changes
 - Always `git push` immediately after every `git commit`
 
+## Subagents
+
+When launching subagents for parallel work:
+- Each subagent must work in its **own worktree and branch** — never on main.
+- Subagents must **not edit files in ~/SimpleSpot** (the main worktree).
+- Subagents must **not push** — only the orchestrating agent pushes after review.
+- The pre-commit hook (biome + tests) is shared across all worktrees automatically via `.git/hooks/`, so subagents don't need to set it up — but they should expect it to run on commit.
+
 ## Development Server
 
 The server is managed externally - do not attempt to start/stop it or check logs.
