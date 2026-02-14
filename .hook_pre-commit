@@ -10,6 +10,6 @@ set -eu -o pipefail
 
 exec 1>&2 # Redirect output to stderr.
 
-cd "$(dirname "$0")"
-../../biome/check || { echo "biome exited non-zero; run fix before commit!"; exit 1; }
-../../test/run || { echo "tests failed"; exit 1; }
+cd "$(git rev-parse --show-toplevel)"
+./biome/check || { echo "biome exited non-zero; run fix before commit!"; exit 1; }
+./test/run || { echo "tests failed"; exit 1; }
