@@ -924,7 +924,7 @@ function queueAddBtn(onclick) {
 }
 
 function playlistOnclick(p) {
-  return `loadPlaylist('${p.id}', '${escapeHtml(p.name).replace(/'/g, "\\'")}')`;
+  return `loadPlaylist('${p.id}')`;
 }
 
 // --- Item mappers ---
