@@ -522,6 +522,7 @@ function initPlayer() {
     currentAlbumUri = track.album.uri;
     updatePlayerUI({
       trackName: track.name,
+      trackUri: track.uri,
       artistHtml: artistLinksHtml(track.artists),
       artUrl: track.album.images[0]?.url,
       position: state.position,
@@ -659,8 +660,15 @@ function showLoading() {
 function updatePlayerUI(info) {
   const buttons = document.querySelectorAll(".player-controls button");
   if (info) {
-    // TODO: linkify player-track with shareLink.
-    document.getElementById("player-track").textContent = info.trackName;
+    const trackId = info.trackUri?.split(":")[2];
+    document.getElementById("player-track").innerHTML = trackId
+      ? shareLink(
+          "track",
+          trackId,
+          escapeHtml(info.trackName),
+          "player.seek(0)",
+        )
+      : escapeHtml(info.trackName);
     document.getElementById("player-artist").innerHTML = info.artistHtml;
     const art = document.getElementById("player-art");
     art.src = info.artUrl;
@@ -1059,7 +1067,12 @@ function queueTrackMapper(t, i, num) {
     num,
     queueBtn: `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">\u2212</button>`,
     playAction: `playFromLocalQueue(${i})`,
-    nameHtml: escapeHtml(t.name),
+    nameHtml: shareLink(
+      "track",
+      t.id,
+      escapeHtml(t.name),
+      `event.stopPropagation(); playFromLocalQueue(${i})`,
+    ),
     extraLines: t.album
       ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>`
       : "",
@@ -2349,6 +2362,7 @@ async function resumePlaybackIfNeeded() {
     if (trackData) {
       updatePlayerUI({
         trackName: trackData.name,
+        trackUri: state.trackUri,
         artistHtml: artistLinksHtml(trackData.artists),
         artUrl: trackData.album.images[0]?.url,
         position: state.position,
