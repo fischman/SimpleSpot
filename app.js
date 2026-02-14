@@ -117,6 +117,10 @@ function navigate(route, params = {}, replace = false) {
   // Reset pagination state on every view change.
   pagination = null;
   paginationGen++;
+  localStorage.setItem(
+    "last_view",
+    params.id ? `${route}:${params.id}` : route,
+  );
   const state = { route, params };
   if (!isNavigatingBack) {
     if (replace) {
@@ -863,7 +867,6 @@ async function search(q) {
     // to 51566. Not worth doing.
     JSON.stringify({ query: q, data: results }),
   );
-  localStorage.setItem("last_view", "search");
   renderSearchResults(results);
 }
 
@@ -1527,8 +1530,6 @@ async function loadPaginatedView({
 }) {
   navigate(route);
   setBreadcrumb(breadcrumb);
-  localStorage.setItem("last_view", route);
-
   const el = document.getElementById("tracks");
   el.classList.add("grid-view");
   el.innerHTML = "";
@@ -1611,8 +1612,6 @@ let exploreSeenIds = new Set();
 async function loadExplore() {
   navigate("explore");
   setBreadcrumb([{ name: "Explore" }]);
-  localStorage.setItem("last_view", "explore");
-
   const el = document.getElementById("tracks");
   el.classList.remove("grid-view");
   el.classList.add("sectioned");
@@ -1740,7 +1739,6 @@ async function loadExplore() {
 
 async function loadPlaylist(id) {
   navigate("playlist", { id });
-  localStorage.setItem("last_view", `playlist:${id}`);
 
   setBreadcrumb([
     { name: "Playlists", action: "loadPlaylists()" },
@@ -1769,7 +1767,6 @@ async function loadPlaylist(id) {
 
 async function loadAlbum(id) {
   navigate("album", { id });
-  localStorage.setItem("last_view", `album:${id}`);
   const data = await api(`/albums/${id}`);
   setBreadcrumb([{ name: `Album: ${data.name}` }]);
   const contextUri = data.uri;
@@ -1809,7 +1806,6 @@ function renderAlbumItems(albums, startNum = 1) {
 
 async function loadArtist(id) {
   navigate("artist", { id });
-  localStorage.setItem("last_view", `artist:${id}`);
   showLoading();
 
   const [artist, topTracks, albumsData] = await Promise.all([
@@ -1861,7 +1857,6 @@ async function showQueue() {
     },
   ]);
   showLoading();
-  localStorage.setItem("last_view", "queue");
 
   const myVersion = ++queueRenderVersion;
 
