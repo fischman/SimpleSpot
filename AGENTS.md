@@ -167,7 +167,7 @@ When launching subagents for parallel work:
 - Each subagent must work in its **own worktree and branch** — never on main.
 - Subagents must **not edit files in ~/SimpleSpot** (the main worktree).
 - Subagents must **not push** — only the orchestrating agent pushes after review.
-- The pre-commit hook (biome + tests) is shared across all worktrees automatically via `.git/hooks/`, so subagents don't need to set it up — but they should expect it to run on commit.
+- The pre-commit hook does **not** work correctly in worktrees (it checks the main repo's files, not the worktree's). Subagents must run `./biome/fix` and `./test/run` manually before committing, using `git commit --no-verify` to skip the broken hook.
 
 ## Development Server
 
