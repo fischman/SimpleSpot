@@ -114,6 +114,9 @@ let lyricsSynced = false;
 // Navigation. Integrates with browser history.
 function navigate(route, params = {}, replace = false) {
   hideLyrics();
+  // Reset pagination state on every view change.
+  pagination = null;
+  paginationGen++;
   const state = { route, params };
   if (!isNavigatingBack) {
     if (replace) {
@@ -1532,7 +1535,7 @@ async function loadPaginatedView({
   document.querySelector(".content").scrollTop = 0;
 
   let count = 0;
-  const gen = ++paginationGen;
+  const gen = paginationGen;
   const p = makePagination(url, async (nextUrl) => {
     const data = await api(nextUrl);
     if (gen !== paginationGen) return null; // View changed, stop.
@@ -1616,8 +1619,7 @@ async function loadExplore() {
   el.innerHTML = "";
   document.querySelector(".content").scrollTop = 0;
 
-  pagination = null;
-  const gen = ++paginationGen;
+  const gen = paginationGen;
   exploreSeenIds = new Set();
 
   // Search for personalized playlists.
@@ -1724,8 +1726,6 @@ async function loadPlaylist(id) {
   ]);
 
   showLoading();
-  pagination = null;
-  paginationGen++;
   const contextUri = `spotify:playlist:${id}`;
 
   const [_, allTracks] = await Promise.all([
@@ -1748,8 +1748,6 @@ async function loadPlaylist(id) {
 async function loadAlbum(id) {
   navigate("album", { id });
   localStorage.setItem("last_view", `album:${id}`);
-  pagination = null;
-  paginationGen++;
   const data = await api(`/albums/${id}`);
   setBreadcrumb([{ name: `Album: ${data.name}` }]);
   const contextUri = data.uri;
@@ -1790,8 +1788,6 @@ function renderAlbumItems(albums, startNum = 1) {
 async function loadArtist(id) {
   navigate("artist", { id });
   localStorage.setItem("last_view", `artist:${id}`);
-  pagination = null;
-  paginationGen++; // Clear pagination state.
   showLoading();
 
   const [artist, topTracks, albumsData] = await Promise.all([
@@ -1844,8 +1840,6 @@ async function showQueue() {
   ]);
   showLoading();
   localStorage.setItem("last_view", "queue");
-  pagination = null;
-  paginationGen++;
 
   const myVersion = ++queueRenderVersion;
 
