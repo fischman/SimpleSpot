@@ -651,7 +651,7 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 
 function showLoading() {
   const el = document.getElementById("tracks");
-  el.innerHTML = '<li style="padding:16px;color:#b3b3b3">Loading...</li>';
+  el.innerHTML = '<li class="empty-state">Loading...</li>';
 }
 
 // Centralised player-UI updater. Pass an info object to show track details,
@@ -1081,15 +1081,15 @@ function renderSearchResults(data) {
   paginationGen++;
   let html = "";
   if (data.artists?.items.length) {
-    html += '<h3 style="padding:8px;color:#b3b3b3">Artists</h3>';
+    html += '<h3 class="results-heading">Artists</h3>';
     html += renderItems(data.artists.items, searchArtistMapper);
   }
   if (data.albums?.items.length) {
-    html += '<h3 style="padding:8px;color:#b3b3b3">Albums</h3>';
+    html += '<h3 class="results-heading">Albums</h3>';
     html += renderItems(data.albums.items, albumMapper);
   }
   if (data.tracks?.items.length) {
-    html += '<h3 style="padding:8px;color:#b3b3b3">Tracks</h3>';
+    html += '<h3 class="results-heading">Tracks</h3>';
     html += renderTrackItems(data.tracks.items, null);
   }
   el.innerHTML = html;
@@ -1778,16 +1778,16 @@ async function loadAlbum(id) {
   const artistLinks = artistLinksHtml(data.artists);
   document.getElementById("tracks").innerHTML =
     `
-    <div style="float:left;margin:16px 16px 16px 0">
+    <div class="detail-float">
       <div class="track-art" style="width:150px;height:150px" onclick="playContext('${contextUri}')">
-        <img src="${data.images?.[1]?.url || ""}" style="width:150px;height:150px;border-radius:4px" />
+        <img src="${data.images?.[1]?.url || ""}" class="detail-art" />
         <div class="play-overlay" style="font-size:48px"></div>
       </div>
       <div style="width:150px;margin-top:8px">
-        <div style="font-size:12px;color:#b3b3b3">ALBUM</div>
-        <div style="font-size:18px;font-weight:bold;margin:4px 0;word-wrap:break-word">${shareLink("album", data.id, escapeHtml(data.name), `playContext('${contextUri}')`)}</div>
-        <div style="font-size:12px;color:#b3b3b3">${artistLinks}</div>
-        <div style="font-size:12px;color:#b3b3b3">${data.release_date?.slice(0, 4)} • ${data.total_tracks} tracks</div>
+        <div class="detail-type">ALBUM</div>
+        <div class="detail-title">${shareLink("album", data.id, escapeHtml(data.name), `playContext('${contextUri}')`)}</div>
+        <div class="detail-meta">${artistLinks}</div>
+        <div class="detail-meta">${data.release_date?.slice(0, 4)} • ${data.total_tracks} tracks</div>
       </div>
     </div>
   ` +
@@ -1819,18 +1819,18 @@ async function loadArtist(id) {
 
   const el = document.getElementById("tracks");
   let html = `
-    <div style="display:flex;gap:16px;padding:16px;align-items:flex-end">
-      <img src="${artist.images?.[1]?.url || ""}" style="width:150px;height:150px;border-radius:50%" />
+    <div class="artist-hero">
+      <img src="${artist.images?.[1]?.url || ""}" class="artist-avatar" />
       <div>
-        <div style="font-size:12px;color:#b3b3b3">ARTIST</div>
-        <h1 style="font-size:32px;margin:8px 0">${shareLink("artist", artist.id, escapeHtml(artist.name), "")}</h1>
+        <div class="detail-type">ARTIST</div>
+        <h1 class="artist-name">${shareLink("artist", artist.id, escapeHtml(artist.name), "")}</h1>
         <div style="color:#b3b3b3">${artist.followers?.total?.toLocaleString() || 0} followers</div>
       </div>
     </div>
   `;
 
   if (topTracks.tracks?.length) {
-    html += '<h3 style="padding:8px 16px;color:#b3b3b3">Top Tracks</h3>';
+    html += '<h3 class="results-heading">Top Tracks</h3>';
     html += renderTrackItems(topTracks.tracks.slice(0, 5), null);
   }
 
@@ -1841,7 +1841,7 @@ async function loadArtist(id) {
     : [];
   const allAlbums = firstAlbums.concat(remainingAlbums);
   if (allAlbums.length) {
-    html += '<h3 style="padding:8px 16px;color:#b3b3b3">Discography</h3>';
+    html += '<h3 class="results-heading">Discography</h3>';
     html += renderAlbumItems(allAlbums, 1);
   }
 
@@ -1866,14 +1866,14 @@ async function showQueue() {
     const trackIds = localQueue.map((uri) => uri.split(":")[2]);
     const tracks = await fetchTracksByIds(trackIds);
     if (tracks.length > 0) {
-      html = `<h3 style="padding:8px;color:#b3b3b3">Queue (${tracks.length})</h3>`;
+      html = `<h3 class="results-heading">Queue (${tracks.length})</h3>`;
       html += renderLocalQueueItems(tracks);
     }
   }
 
   if (myVersion !== queueRenderVersion) return;
   document.getElementById("tracks").innerHTML =
-    html || '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+    html || '<p class="empty-state">Queue is empty</p>';
 }
 
 function renderLocalQueueItems(tracks) {
@@ -1944,7 +1944,7 @@ async function clearQueue() {
   localStorage.removeItem("play_state");
   clearPlayerUI();
   document.getElementById("tracks").innerHTML =
-    '<p style="padding:16px;color:#b3b3b3">Queue is empty</p>';
+    '<p class="empty-state">Queue is empty</p>';
 }
 
 // Help modal (About + Keyboard Shortcuts).
