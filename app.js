@@ -307,6 +307,11 @@ async function processAuthCode(code, clearUrl = false, reload = false) {
 
 let refreshPromise = null;
 async function refreshToken() {
+  assert(
+    navigator.onLine,
+    "Caller must check navigator.onLine before calling refreshToken.",
+  );
+
   // Prevent concurrent refresh attempts.
   if (refreshPromise) {
     console.log(
@@ -366,6 +371,11 @@ async function refreshToken() {
 
 // _retries: number of previous attempts (used internally for 401/403 refresh and 5xx backoff).
 async function api(endpoint, opts = {}, _retries = 0) {
+  if (!navigator.onLine) {
+    console.warn("Offline: skipping API call.");
+    return null;
+  }
+
   // Check if token needs refresh before API call (with 60s buffer).
   if (Date.now() > getAuth("token_expiry") - 60000) {
     console.log("Token expiring soon, refreshing before API call");
@@ -614,6 +624,12 @@ function initPlayer() {
 
   player.addListener("authentication_error", async ({ message }) => {
     console.log(`authentication_error: ${message}; attempting refresh...`);
+    if (!navigator.onLine) {
+      console.warn(
+        "Offline: ignoring authentication_error, will retry when back online.",
+      );
+      return;
+    }
     if (await refreshToken()) {
       console.log(
         `Refresh succeeded; now disconnecting, dropping, and re-initPlayer()'ing.`,
@@ -2121,7 +2137,11 @@ window.addEventListener("beforeunload", () => {
 
 // Refresh token if needed, when tab becomes visible.
 document.addEventListener("visibilitychange", async () => {
-  if (document.visibilityState !== "visible" || !getAuth("access_token")) {
+  if (
+    document.visibilityState !== "visible" ||
+    !getAuth("access_token") ||
+    !navigator.onLine
+  ) {
     return;
   }
   if (Date.now() > getAuth("token_expiry")) {
