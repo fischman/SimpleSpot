@@ -1540,7 +1540,7 @@ async function loadPaginatedView({
     const data = await api(nextUrl);
     if (gen !== paginationGen) return null; // View changed, stop.
     const items = extractItems(data);
-    el.innerHTML += renderItems(items, count + 1);
+    el.insertAdjacentHTML("beforeend", renderItems(items, count + 1));
     count += items.length;
     return data.next;
   });
@@ -1666,8 +1666,14 @@ async function loadExplore() {
     }
   });
   if (personalizedPlaylists.length > 0) {
-    el.innerHTML += `<div class="section-header">Your Mixes</div>`;
-    el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`;
+    el.insertAdjacentHTML(
+      "beforeend",
+      `<div class="section-header">Your Mixes</div>`,
+    );
+    el.insertAdjacentHTML(
+      "beforeend",
+      `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`,
+    );
   }
 
   // Render Made For You as soon as ready.
@@ -1677,8 +1683,14 @@ async function loadExplore() {
   );
   for (const p of madeForYouPlaylists) exploreSeenIds.add(p.id);
   if (madeForYouPlaylists.length > 0) {
-    el.innerHTML += `<div class="section-header">Made For You</div>`;
-    el.innerHTML += `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, 1)}</ul>`;
+    el.insertAdjacentHTML(
+      "beforeend",
+      `<div class="section-header">Made For You</div>`,
+    );
+    el.insertAdjacentHTML(
+      "beforeend",
+      `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, 1)}</ul>`,
+    );
   }
 
   // Render Featured Playlists, paginating.
@@ -1691,8 +1703,14 @@ async function loadExplore() {
   featuredCount += items.length;
 
   // Render first batch immediately.
-  el.innerHTML += `<div class="section-header">Featured Playlists</div>`;
-  el.innerHTML += `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`;
+  el.insertAdjacentHTML(
+    "beforeend",
+    `<div class="section-header">Featured Playlists</div>`,
+  );
+  el.insertAdjacentHTML(
+    "beforeend",
+    `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`,
+  );
 
   // Paginate Featured playlists (eagerly up to 300, then infinite scroll).
   const featuredUrl = stripApiBase(featuredData?.playlists?.next);
@@ -1705,8 +1723,12 @@ async function loadExplore() {
           (p) => p && !exploreSeenIds.has(p.id),
         );
         if (newItems.length > 0) {
-          document.getElementById("featured-section").innerHTML +=
-            renderPlaylistSection(newItems, featuredCount + 1);
+          document
+            .getElementById("featured-section")
+            .insertAdjacentHTML(
+              "beforeend",
+              renderPlaylistSection(newItems, featuredCount + 1),
+            );
           for (const p of newItems) exploreSeenIds.add(p.id);
           featuredCount += newItems.length;
         }
@@ -2195,7 +2217,11 @@ function makePagination(initialUrl, fetchPage) {
         const rawNext = await fetchPage(nextUrl);
         el.querySelector(".loading-more")?.remove();
         nextUrl = stripApiBase(rawNext);
-        if (nextUrl) el.innerHTML += '<li class="loading-more">Loading...</li>';
+        if (nextUrl)
+          el.insertAdjacentHTML(
+            "beforeend",
+            '<li class="loading-more">Loading...</li>',
+          );
       } finally {
         loading = false;
       }
