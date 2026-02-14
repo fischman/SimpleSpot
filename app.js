@@ -922,29 +922,38 @@ function playlistOnclick(p) {
 
 // --- Item mappers ---
 
+// Shared fields for track and queue-track mappers.
+function baseTrackFields(t) {
+  const trackId = t.uri?.split(":")[2] || t.id;
+  return {
+    trackId,
+    radioType: "track",
+    radioId: trackId,
+    imgSrc: t.album?.images?.[2]?.url || "",
+    nameTitle: escapeHtml(t.name),
+    subtitle: artistLinksHtml(t.artists),
+    subtitleTitle: escapeHtml(t.artists?.map((a) => a.name).join(", ") || ""),
+  };
+}
+
 function trackMapper(contextUri, contextOffset = 0) {
   return (t, i, num) => {
-    const trackId = t.uri?.split(":")[2] || t.id;
+    const base = baseTrackFields(t);
     const albumId = t.album?.id || t.album?.uri?.split(":")[2] || "";
     const playAction = contextUri
       ? `playFromContext('${contextUri}', ${contextOffset + i})`
       : `playTrack('${t.uri}')`;
     return {
+      ...base,
       num,
       queueBtn: queueAddBtn(`addToQueue(['${t.uri}'], event.shiftKey)`),
-      radioType: "track",
-      radioId: trackId,
-      imgSrc: t.album?.images?.[2]?.url || "",
       playAction,
       nameHtml: shareLink(
         "track",
-        trackId,
+        base.trackId,
         escapeHtml(t.name),
         `event.stopPropagation(); ${playAction}`,
       ),
-      nameTitle: escapeHtml(t.name),
-      subtitle: artistLinksHtml(t.artists),
-      subtitleTitle: escapeHtml(t.artists?.map((a) => a.name).join(", ") || ""),
       extraLines: t.album
         ? `<div class="track-album" title="${escapeHtml(t.album.name)}">${shareLink("album", albumId, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>`
         : "",
@@ -1038,18 +1047,12 @@ function searchArtistMapper(a, i, num) {
 
 function queueTrackMapper(t, i, num) {
   if (!t) return { num, imgSrc: "", nameHtml: "", nameTitle: "" };
-  const trackId = t.uri?.split(":")[2] || t.id;
   return {
+    ...baseTrackFields(t),
     num,
     queueBtn: `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">\u2212</button>`,
-    radioType: "track",
-    radioId: trackId,
-    imgSrc: t.album?.images?.[2]?.url || "",
     playAction: `playFromLocalQueue(${i})`,
     nameHtml: escapeHtml(t.name),
-    nameTitle: escapeHtml(t.name),
-    subtitle: artistLinksHtml(t.artists),
-    subtitleTitle: escapeHtml(t.artists?.map((a) => a.name).join(", ") || ""),
     extraLines: t.album
       ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>`
       : "",
