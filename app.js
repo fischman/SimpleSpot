@@ -114,9 +114,11 @@ let lyricsSynced = false;
 // Navigation. Integrates with browser history.
 function navigate(route, params = {}, replace = false) {
   hideLyrics();
-  // Reset pagination state on every view change.
+  // Reset pagination and tracks element class state on every view change.
   pagination = null;
   paginationGen++;
+  const tracksEl = document.getElementById("tracks");
+  tracksEl.classList.remove("sectioned", "grid-view");
   localStorage.setItem(
     "last_view",
     params.id ? `${route}:${params.id}` : route,
@@ -649,7 +651,6 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 
 function showLoading() {
   const el = document.getElementById("tracks");
-  el.classList.remove("sectioned", "grid-view");
   el.innerHTML = '<li style="padding:16px;color:#b3b3b3">Loading...</li>';
 }
 
