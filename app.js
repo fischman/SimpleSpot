@@ -378,8 +378,38 @@ async function refreshToken() {
   return refreshPromise;
 }
 
+const CACHEABLE_PATHS = new Set([
+  "albums",
+  "playlists",
+  "artists",
+  "tracks",
+  "search",
+  "browse",
+  "/recommendations",
+]);
+const API_CACHE = {};
+async function api(endpoint, opts = {}) {
+  const isCacheable = (endpoint) => {
+    endpoint = endpoint.split("?")[0];
+    if (endpoint.startsWith("/me/top/")) return true;
+    const p = endpoint.split("/");
+    if ((p[1] === "users" || p[1] === "/me") && CACHEABLE_PATHS.has(p[3]))
+      return true;
+    return CACHEABLE_PATHS.has(p[1]) || CACHEABLE_PATHS.has(p[2]);
+  };
+  var key;
+  if (isCacheable(endpoint)) {
+    key = JSON.stringify({ endpoint, opts });
+    const prev = API_CACHE[key];
+    if (prev) return prev;
+  }
+  const val = _api(endpoint, opts, 0);
+  if (key) API_CACHE[key] = val;
+  return val;
+}
+
 // _retries: number of previous attempts (used internally for 401/403 refresh and 5xx backoff).
-async function api(endpoint, opts = {}, _retries = 0) {
+async function _api(endpoint, opts, _retries) {
   if (!navigator.onLine) {
     console.warn("Offline: skipping API call.");
     return null;
