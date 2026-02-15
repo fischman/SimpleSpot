@@ -546,13 +546,13 @@ function initPlayer() {
 
     // Track changed - refresh queue view and lyrics.
     if (track.uri !== lastTrackUri || queueRefreshPending) {
+      if (lastTrackUri && localStorage.getItem("last_view") === "queue") {
+        showQueue();
+      }
+
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
       queueRefreshPending = false;
-
-      if (localStorage.getItem("last_view") === "queue") {
-        showQueue();
-      }
 
       // Fetch new lyrics if lyrics view is active.
       if (lyricsEnabled) {
@@ -1404,9 +1404,6 @@ async function playNextFromLocalQueue() {
 
   const nextUri = localQueue.shift();
   saveLocalQueue();
-  if (localStorage.getItem("last_view") === "queue") {
-    await showQueue();
-  }
   await playTrack(nextUri);
 }
 
@@ -1469,7 +1466,6 @@ async function next() {
     }
     await playNextFromLocalQueue();
   }
-  refreshQueueIfViewing();
 }
 
 async function previous() {
