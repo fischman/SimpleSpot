@@ -688,7 +688,6 @@ function showLoading() {
 // Centralised player-UI updater. Pass an info object to show track details,
 // or null to clear the player to its empty state.
 function updatePlayerUI(info) {
-  const buttons = document.querySelectorAll(".player-controls button");
   if (info) {
     const trackId = info.trackUri?.split(":")[2];
     document.getElementById("player-track").innerHTML = trackId
@@ -713,10 +712,6 @@ function updatePlayerUI(info) {
     document.getElementById("progress-total").textContent = formatTime(
       info.duration,
     );
-    buttons.forEach((btn) => {
-      btn.disabled = false;
-      btn.style.opacity = "1";
-    });
   } else {
     document.getElementById("player-track").textContent = "Not playing";
     document.getElementById("player-artist").innerHTML = "";
@@ -727,11 +722,8 @@ function updatePlayerUI(info) {
     document.getElementById("progress-fill").style.width = "0%";
     document.getElementById("progress-current").textContent = "0:00";
     document.getElementById("progress-total").textContent = "0:00";
-    buttons.forEach((btn) => {
-      btn.disabled = true;
-      btn.style.opacity = "0.5";
-    });
   }
+  updateQueueButtons();
 }
 
 function formatTime(ms) {
@@ -1204,24 +1196,24 @@ function loadLocalQueue() {
   updateQueueButtons();
 }
 
-// Enable/disable play/next/prev buttons based on queue and history state.
+// Single owner of play/next/prev button enabled state.
 function updateQueueButtons() {
+  const isPlaying = !!currentState;
   const hasQueue = localQueue.length > 0;
   const hasHistory = playHistory.length > 0;
   const playBtn = document.getElementById("play-btn");
   const nextBtn = document.getElementById("next-btn");
   const prevBtn = document.getElementById("prev-btn");
   assert(playBtn && nextBtn && prevBtn, "Missing button!");
-  if (hasQueue) {
-    playBtn.disabled = false;
-    playBtn.style.opacity = "1";
-    if (localQueue.length > 1) {
-      nextBtn.disabled = false;
-      nextBtn.style.opacity = "1";
-    }
-  }
-  prevBtn.disabled = !hasHistory;
-  prevBtn.style.opacity = hasHistory ? "1" : "0.5";
+  const canPlay = isPlaying || hasQueue;
+  const canNext = hasQueue;
+  const canPrev = hasHistory;
+  playBtn.disabled = !canPlay;
+  playBtn.style.opacity = canPlay ? "1" : "0.5";
+  nextBtn.disabled = !canNext;
+  nextBtn.style.opacity = canNext ? "1" : "0.5";
+  prevBtn.disabled = !canPrev;
+  prevBtn.style.opacity = canPrev ? "1" : "0.5";
 }
 
 async function addToQueue(uris, toFront = false) {
