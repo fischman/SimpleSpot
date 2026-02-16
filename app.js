@@ -1090,24 +1090,33 @@ function searchArtistMapper(a, i, num) {
   };
 }
 
-function queueTrackMapper(t, i, num) {
-  if (!t) return { num, imgSrc: "", nameHtml: "", nameTitle: "" };
+// Get the queue index of an element by its position among .queue-item siblings.
+function queueIndexOf(el) {
+  const li = el.closest(".queue-item");
+  if (!li) return -1;
+  return [...li.parentElement.querySelectorAll(".queue-item")].indexOf(li);
+}
+
+function queueTrackMapper(t) {
+  const playAction = "playFromLocalQueue(queueIndexOf(this))";
   return {
     ...baseTrackFields(t),
-    num,
-    queueBtn: `<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(${i})" title="Remove from queue">\u2212</button>`,
-    playAction: `playFromLocalQueue(${i})`,
+    num: "",
+    queueBtn:
+      '<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(queueIndexOf(this))" title="Remove from queue">\u2212</button>',
+    playAction,
     nameHtml: shareLink(
       "track",
       t.id,
       escapeHtml(t.name),
-      `event.stopPropagation(); playFromLocalQueue(${i})`,
+      `event.stopPropagation(); ${playAction}`,
     ),
     extraLines: t.album
       ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>`
       : "",
     liClass: "queue-item",
-    liAttr: ` draggable="true" data-index="${i}" ondragstart="onQueueDragStart(event)" ondragend="onQueueDragEnd(event)" ondragover="onQueueDragOver(event)" ondragleave="onQueueDragLeave(event)" ondrop="onQueueDrop(event)"`,
+    liAttr:
+      ' draggable="true" ondragstart="onQueueDragStart(event)" ondragend="onQueueDragEnd(event)" ondragover="onQueueDragOver(event)" ondragleave="onQueueDragLeave(event)" ondrop="onQueueDrop(event)"',
     suffix: '<div class="drag-handle" title="Drag to reorder">\u2261</div>',
   };
 }
@@ -1903,7 +1912,13 @@ async function showQueue() {
   let html = "";
   if (localQueue.length > 0) {
     const trackIds = localQueue.map((uri) => uri.split(":")[2]);
-    const tracks = await fetchTracksByIds(trackIds);
+    let tracks = await fetchTracksByIds(trackIds);
+    // Remove unavailable tracks (Spotify returns null for deleted tracks).
+    if (tracks.some((t) => !t)) {
+      localQueue = localQueue.filter((_, i) => tracks[i]);
+      tracks = tracks.filter(Boolean);
+      saveLocalQueue();
+    }
     if (tracks.length > 0) {
       html = `<h3 class="results-heading">Queue (${tracks.length})</h3>`;
       html += renderLocalQueueItems(tracks);
@@ -1931,7 +1946,7 @@ async function playFromLocalQueue(index) {
 let draggedQueueIndex = null;
 
 function onQueueDragStart(e) {
-  draggedQueueIndex = parseInt(e.target.dataset.index, 10);
+  draggedQueueIndex = queueIndexOf(e.target);
   e.target.classList.add("dragging");
   e.dataTransfer.effectAllowed = "move";
 }
@@ -1946,7 +1961,7 @@ function onQueueDragEnd(e) {
 function onQueueDragOver(e) {
   e.preventDefault();
   const target = e.target.closest(".queue-item");
-  if (target && parseInt(target.dataset.index, 10) !== draggedQueueIndex) {
+  if (target && queueIndexOf(target) !== draggedQueueIndex) {
     target.classList.add("drag-over");
   }
 }
@@ -1961,7 +1976,7 @@ function onQueueDrop(e) {
   const target = e.target.closest(".queue-item");
   if (!target) return;
 
-  const toIndex = parseInt(target.dataset.index, 10);
+  const toIndex = queueIndexOf(target);
   if (draggedQueueIndex === null || draggedQueueIndex === toIndex) return;
 
   const [item] = localQueue.splice(draggedQueueIndex, 1);

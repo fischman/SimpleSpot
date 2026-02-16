@@ -706,9 +706,13 @@ test("onQueueDrop reorders queue", () => {
 
   // Simulate dragging index 0 to index 2.
   draggedQueueIndex = 0;
-  const fakeTarget = document.createElement("div");
-  fakeTarget.classList.add("queue-item");
-  fakeTarget.dataset.index = "2";
+  const parent = document.createElement("ul");
+  for (let j = 0; j < 4; j++) {
+    const li = document.createElement("li");
+    li.classList.add("queue-item");
+    parent.appendChild(li);
+  }
+  const fakeTarget = parent.children[2];
   // Create a fake event.
   const fakeEvent = {
     preventDefault() {},
