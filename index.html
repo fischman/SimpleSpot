@@ -72,8 +72,11 @@
     .track-artist { font-size: 12px; color: #b3b3b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .track-num { color: #b3b3b3; font-size: 14px; min-width: 24px; text-align: center; }
     #tracks { counter-reset: queue-num; }
+    #tracks:has(.queue-item) { display: flex; flex-direction: column; }
     .queue-item { counter-increment: queue-num; }
     .queue-item .track-num::before { content: counter(queue-num); }
+    .queue-count::after { content: ' (' counter(queue-num) ')'; }
+    .queue-count { order: -1; }
     .track-num-col { display: flex; flex-direction: column; align-items: center; min-width: 24px; gap: 2px; }
     .track-num-col .queue-btn { font-size: 14px; padding: 0; line-height: 1; }
     .track-num-col .radio-btn { font-size: 12px; padding: 0; line-height: 1; background: none; border: none; color: #b3b3b3; cursor: pointer; }

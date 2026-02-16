@@ -1920,8 +1920,8 @@ async function showQueue() {
       saveLocalQueue();
     }
     if (tracks.length > 0) {
-      html = `<h3 class="results-heading">Queue (${tracks.length})</h3>`;
-      html += renderLocalQueueItems(tracks);
+      html = renderLocalQueueItems(tracks);
+      html += '<h3 class="results-heading queue-count">Queue</h3>';
     }
   }
 
