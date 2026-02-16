@@ -394,7 +394,7 @@ test("showQueue renders tracks", async () => {
   const html = document.getElementById("tracks").innerHTML;
   includes(html, "Bohemian Rhapsody");
   includes(html, "Don't Stop Me Now");
-  includes(html, "queue-count");
+  includes(html, "Queue (2)");
 });
 
 test("loadAlbum renders album tracks", async () => {

@@ -1920,8 +1920,8 @@ async function showQueue() {
       saveLocalQueue();
     }
     if (tracks.length > 0) {
-      html = renderLocalQueueItems(tracks);
-      html += '<h3 class="results-heading queue-count">Queue</h3>';
+      html = '<h3 class="results-heading" id="queue-heading">Queue</h3>';
+      html += renderLocalQueueItems(tracks);
     }
   }
 
@@ -1929,6 +1929,19 @@ async function showQueue() {
   document.getElementById("tracks").innerHTML =
     html || '<p class="empty-state">Queue is empty</p>';
 }
+
+function updateQueueCount() {
+  const heading = document.getElementById("queue-heading");
+  if (!heading) return;
+  const count = document.querySelectorAll("#tracks .queue-item").length;
+  heading.textContent = `Queue (${count})`;
+}
+
+// Keep queue heading count in sync when items are added/removed.
+new MutationObserver(updateQueueCount).observe(
+  document.getElementById("tracks"),
+  { childList: true },
+);
 
 function renderLocalQueueItems(tracks) {
   return renderItems(tracks, queueTrackMapper);
