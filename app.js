@@ -1,8 +1,9 @@
 const SIMPLESPOT_CLIENT_ID = "1366988155e64d34b759879f2a575cdd";
 const NCSPOT_CLIENT_ID = "d420a117a32841c2b3474932e49fb54b";
 const DJ_PLAYLIST_ID = "37i9dQZF1EYkqdzj48dyYq";
-const SCOPES =
-  "streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read"; // https://developer.spotify.com/documentation/web-api/concepts/scopes
+
+// https://developer.spotify.com/documentation/web-api/concepts/scopes
+const SCOPES = "streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read";
 
 function assert(condition, message) {
   if (condition) {
@@ -71,9 +72,7 @@ function setAuth(key, value) {
   localStorage.setItem(getAuthPrefix() + key, value);
 }
 function clearAuth() {
-  ["access_token", "refresh_token", "token_expiry", "code_verifier"].map((k) =>
-    localStorage.removeItem(getAuthPrefix() + k),
-  );
+  ["access_token", "refresh_token", "token_expiry", "code_verifier"].map((k) => localStorage.removeItem(getAuthPrefix() + k));
   localStorage.removeItem("chosen_client");
 }
 
@@ -118,10 +117,7 @@ function navigate(route, params = {}, replace = false) {
   paginationGen++;
   const tracksEl = document.getElementById("tracks");
   tracksEl.classList.remove("sectioned", "grid-view");
-  localStorage.setItem(
-    "last_view",
-    params.id ? `${route}:${params.id}` : route,
-  );
+  localStorage.setItem("last_view", params.id ? `${route}:${params.id}` : route);
   const state = { route, params };
   if (!isNavigatingBack) {
     if (replace) {
@@ -135,10 +131,7 @@ function navigate(route, params = {}, replace = false) {
 
 function setActiveNav(route) {
   // Clear all active states (except loop button which has its own state).
-  for (const b of document.querySelectorAll(
-    ".header button.active, .player button.active:not(#loop-btn)",
-  ))
-    b.classList.remove("active");
+  for (const b of document.querySelectorAll(".header button.active, .player button.active:not(#loop-btn)")) b.classList.remove("active");
   // Set active on matching nav button and focus it.
   const btn = document.getElementById(`nav-${route}`);
   if (btn) {
@@ -262,10 +255,7 @@ async function handleNcspotUrl() {
   assert(code, `No authorization code found in URL: ${url}`);
 
   document.getElementById("ncspot-modal").remove();
-  assert(
-    await processAuthCode(code, false, true),
-    "Authentication failed. Please try again.",
-  );
+  assert(await processAuthCode(code, false, true), "Authentication failed. Please try again.");
 }
 
 function logout() {
@@ -315,16 +305,11 @@ async function processAuthCode(code, clearUrl = false, reload = false) {
 
 let refreshPromise = null;
 async function refreshToken() {
-  assert(
-    navigator.onLine,
-    "Caller must check navigator.onLine before calling refreshToken.",
-  );
+  assert(navigator.onLine, "Caller must check navigator.onLine before calling refreshToken.");
 
   // Prevent concurrent refresh attempts.
   if (refreshPromise) {
-    console.log(
-      "Token refresh already in progress, reusing previous promise...",
-    );
+    console.log("Token refresh already in progress, reusing previous promise...");
     return refreshPromise;
   }
 
@@ -352,19 +337,12 @@ async function refreshToken() {
         setAuth("access_token", data.access_token);
         setAuth("token_expiry", Date.now() + data.expires_in * 1000);
         if (data.refresh_token) {
-          console.log(
-            "Saving new refresh token received as part of token refresh.",
-          );
+          console.log("Saving new refresh token received as part of token refresh.");
           setAuth("refresh_token", data.refresh_token);
         }
         return true;
       }
-      console.error(
-        "Token refresh failed:",
-        data.error,
-        data.error_description,
-        data,
-      );
+      console.error("Token refresh failed:", data.error, data.error_description, data);
       return false;
     } catch (e) {
       console.error("Token refresh error:", e);
@@ -377,23 +355,14 @@ async function refreshToken() {
   return refreshPromise;
 }
 
-const CACHEABLE_PATHS = new Set([
-  "albums",
-  "playlists",
-  "artists",
-  "tracks",
-  "search",
-  "browse",
-  "/recommendations",
-]);
+const CACHEABLE_PATHS = new Set(["albums", "playlists", "artists", "tracks", "search", "browse", "/recommendations"]);
 const API_CACHE = {};
 async function api(endpoint, opts = {}) {
   const isCacheable = (endpoint) => {
     endpoint = endpoint.split("?")[0];
     if (endpoint.startsWith("/me/top/")) return true;
     const p = endpoint.split("/");
-    if ((p[1] === "users" || p[1] === "/me") && CACHEABLE_PATHS.has(p[3]))
-      return true;
+    if ((p[1] === "users" || p[1] === "/me") && CACHEABLE_PATHS.has(p[3])) return true;
     return CACHEABLE_PATHS.has(p[1]) || CACHEABLE_PATHS.has(p[2]);
   };
   let key;
@@ -446,9 +415,7 @@ async function _api(endpoint, opts, _retries) {
   // Retry on 5xx with exponential backoff.
   if (res.status >= 500 && _retries < 3) {
     const delay = 500 * 2 ** _retries;
-    console.warn(
-      `Got ${res.status}, retrying ${endpoint} in ${delay}ms (attempt ${_retries + 1}/3)`,
-    );
+    console.warn(`Got ${res.status}, retrying ${endpoint} in ${delay}ms (attempt ${_retries + 1}/3)`);
     await new Promise((r) => setTimeout(r, delay)); // a.k.a. "async sleep".
     return api(endpoint, opts, _retries + 1);
   }
@@ -465,13 +432,7 @@ async function _api(endpoint, opts, _retries) {
   } catch (e) {
     // Don't log for successful responses - some endpoints return non-JSON.
     if (res.status >= 400) {
-      console.error(
-        "API error response:",
-        res.status,
-        endpoint,
-        text.substring(0, 200),
-        e,
-      );
+      console.error("API error response:", res.status, endpoint, text.substring(0, 200), e);
     }
     return null;
   }
@@ -501,9 +462,7 @@ async function fetchTracksByIds(trackIds) {
   for (let i = 0; i < trackIds.length; i += 50) {
     chunks.push(trackIds.slice(i, i + 50));
   }
-  const results = await Promise.all(
-    chunks.map((chunk) => api(`/tracks?ids=${chunk.join(",")}`)),
-  );
+  const results = await Promise.all(chunks.map((chunk) => api(`/tracks?ids=${chunk.join(",")}`)));
   return results.flatMap((r) => r?.tracks || []);
 }
 
@@ -595,11 +554,7 @@ function initPlayer() {
       if (playingFromQueueInProgress) return;
 
       // If loop enabled, re-add the finished track to end of queue (unless already there).
-      if (
-        loopEnabled &&
-        track.uri &&
-        localQueue[localQueue.length - 1] !== track.uri
-      ) {
+      if (loopEnabled && track.uri && localQueue[localQueue.length - 1] !== track.uri) {
         localQueue.push(track.uri);
         saveLocalQueue();
       }
@@ -619,20 +574,13 @@ function initPlayer() {
   // and
   // https://developer.spotify.com/documentation/web-playback-sdk/reference#errors
   // for debugging.
-  [
-    "account_error",
-    "authentication_error",
-    "autoplay_failed",
-    "initialization_error",
-    "not_ready",
-    "playback_error",
-    "player_state_changed",
-    "ready",
-  ].forEach((eventName) => {
-    player.addListener(eventName, (data) => {
-      console.log(`[SDK Event: ${eventName}]`, data);
-    });
-  });
+  ["account_error", "authentication_error", "autoplay_failed", "initialization_error", "not_ready", "playback_error", "player_state_changed", "ready"].forEach(
+    (eventName) => {
+      player.addListener(eventName, (data) => {
+        console.log(`[SDK Event: ${eventName}]`, data);
+      });
+    },
+  );
 
   player.addListener("autoplay_failed", async ({ _message }) => {
     const settingsUrl = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
@@ -655,15 +603,11 @@ function initPlayer() {
   player.addListener("authentication_error", async ({ message }) => {
     console.log(`authentication_error: ${message}; attempting refresh...`);
     if (!navigator.onLine) {
-      console.warn(
-        "Offline: ignoring authentication_error, will retry when back online.",
-      );
+      console.warn("Offline: ignoring authentication_error, will retry when back online.");
       return;
     }
     if (await refreshToken()) {
-      console.log(
-        `Refresh succeeded; now disconnecting, dropping, and re-initPlayer()'ing.`,
-      );
+      console.log(`Refresh succeeded; now disconnecting, dropping, and re-initPlayer()'ing.`);
       player.disconnect();
       player = null;
       initPlayer();
@@ -689,27 +633,14 @@ function showLoading() {
 function updatePlayerUI(info) {
   if (info) {
     const trackId = info.trackUri?.split(":")[2];
-    document.getElementById("player-track").innerHTML = trackId
-      ? shareLink(
-          "track",
-          trackId,
-          escapeHtml(info.trackName),
-          "player.seek(0)",
-        )
-      : escapeHtml(info.trackName);
+    document.getElementById("player-track").innerHTML = trackId ? shareLink("track", trackId, escapeHtml(info.trackName), "player.seek(0)") : escapeHtml(info.trackName);
     document.getElementById("player-artist").innerHTML = info.artistHtml;
     const art = document.getElementById("player-art");
     art.src = info.artUrl;
     art.style.display = info.artUrl ? "block" : "none";
-    document.getElementById("progress-fill").style.width = info.duration
-      ? `${(info.position / info.duration) * 100}%`
-      : "0%";
-    document.getElementById("progress-current").textContent = formatTime(
-      info.position,
-    );
-    document.getElementById("progress-total").textContent = formatTime(
-      info.duration,
-    );
+    document.getElementById("progress-fill").style.width = info.duration ? `${(info.position / info.duration) * 100}%` : "0%";
+    document.getElementById("progress-current").textContent = formatTime(info.position);
+    document.getElementById("progress-total").textContent = formatTime(info.duration);
   } else {
     document.getElementById("player-track").textContent = "Not playing";
     document.getElementById("player-artist").innerHTML = "";
@@ -736,11 +667,7 @@ function escapeHtml(s) {
   // inputs are large (>1KB, definitely, maybe a lot larger than
   // that).
   if (!s) return "";
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function stripHtml(s) {
@@ -815,9 +742,7 @@ async function updateProgress() {
   if (!state) return;
   const pct = (state.position / state.duration) * 100;
   document.getElementById("progress-fill").style.width = `${pct}%`;
-  document.getElementById("progress-current").textContent = formatTime(
-    state.position,
-  );
+  document.getElementById("progress-current").textContent = formatTime(state.position);
 
   // Update lyrics highlight.
   if (lyricsEnabled && lastPlayState) {
@@ -861,9 +786,7 @@ async function search(q) {
   let allAlbums = [];
   let allTracks = [];
 
-  const data = await api(
-    `/search?type=artist,track,album&limit=50&q=${encodeURIComponent(q)}`,
-  );
+  const data = await api(`/search?type=artist,track,album&limit=50&q=${encodeURIComponent(q)}`);
   allArtists = data.artists?.items || [];
   allAlbums = data.albums?.items || [];
   allTracks = data.tracks?.items || [];
@@ -902,9 +825,7 @@ async function search(q) {
 // descriptor; renderItem turns it into <li> HTML.
 function renderItem(d) {
   const overlay = d.playAction ? '<div class="play-overlay"></div>' : "";
-  const artClick = d.playAction
-    ? `onclick="event.stopPropagation(); ${d.playAction}" title="${d.playTitle || ""}"`
-    : "";
+  const artClick = d.playAction ? `onclick="event.stopPropagation(); ${d.playAction}" title="${d.playTitle || ""}"` : "";
   const imgStyle = d.imgStyle ? ` style="${d.imgStyle}"` : "";
   const liClick = d.liOnclick ? ` onclick="${d.liOnclick}"` : "";
   const liClass = d.liClass ? `track ${d.liClass}` : "track";
@@ -929,9 +850,7 @@ function renderItem(d) {
 }
 
 function renderItems(items, mapFn, startNum = 1) {
-  return items
-    .map((item, i) => renderItem(mapFn(item, i, startNum + i)))
-    .join("");
+  return items.map((item, i) => renderItem(mapFn(item, i, startNum + i))).join("");
 }
 
 // --- Shared mapper helpers ---
@@ -974,23 +893,14 @@ function trackMapper(contextUri, contextOffset = 0) {
   return (t, i, num) => {
     const base = baseTrackFields(t);
     const albumId = t.album?.id || t.album?.uri?.split(":")[2] || "";
-    const playAction = contextUri
-      ? `playFromContext('${contextUri}', ${contextOffset + i}, event.shiftKey)`
-      : `playTrack('${t.uri}')`;
+    const playAction = contextUri ? `playFromContext('${contextUri}', ${contextOffset + i}, event.shiftKey)` : `playTrack('${t.uri}')`;
     return {
       ...base,
       num,
       queueBtn: queueAddBtn(`addToQueue(['${t.uri}'], event.shiftKey)`),
       playAction,
-      playTitle: contextUri
-        ? "Play now (shift: drop rest of queue)"
-        : undefined,
-      nameHtml: shareLink(
-        "track",
-        base.trackId,
-        escapeHtml(t.name),
-        `event.stopPropagation(); ${playAction}`,
-      ),
+      playTitle: contextUri ? "Play now (shift: drop rest of queue)" : undefined,
+      nameHtml: shareLink("track", base.trackId, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`),
       extraLines: t.album
         ? `<div class="track-album" title="${escapeHtml(t.album.name)}">${shareLink("album", albumId, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>`
         : "",
@@ -1007,12 +917,7 @@ function albumMapper(a, _i, num) {
     imgSrc: a.images?.[2]?.url || "",
     playAction: `playContext('${a.uri}', !event.shiftKey)`,
     playTitle: "Play instead of queue (shift: keep queue)",
-    nameHtml: shareLink(
-      "album",
-      a.id,
-      escapeHtml(a.name),
-      `event.stopPropagation(); loadAlbum('${a.id}')`,
-    ),
+    nameHtml: shareLink("album", a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`),
     nameTitle: escapeHtml(a.name),
     subtitle: artistLinksHtml(a.artists),
     subtitleTitle: escapeHtml(a.artists?.map((x) => x.name).join(", ") || ""),
@@ -1037,12 +942,7 @@ function playlistMapper(p, _i, num) {
     imgSrc: p.images?.[0]?.url || "",
     playAction: `playContext('spotify:playlist:${p.id}', !event.shiftKey)`,
     playTitle: "Play instead of queue (shift: keep queue)",
-    nameHtml: shareLink(
-      "playlist",
-      p.id,
-      escapeHtml(p.name),
-      `event.stopPropagation(); ${playlistOnclick(p)}`,
-    ),
+    nameHtml: shareLink("playlist", p.id, escapeHtml(p.name), `event.stopPropagation(); ${playlistOnclick(p)}`),
     nameTitle: escapeHtml(p.name),
     subtitle: `${p.tracks.total} tracks`,
     liOnclick: playlistOnclick(p),
@@ -1063,12 +963,7 @@ function artistMapper(a, _i, num) {
     radioId: a.id,
     imgSrc: a.images?.[2]?.url || a.images?.[0]?.url || "",
     imgStyle: "border-radius:50%",
-    nameHtml: shareLink(
-      "artist",
-      a.id,
-      escapeHtml(a.name),
-      `event.stopPropagation(); loadArtist('${a.id}')`,
-    ),
+    nameHtml: shareLink("artist", a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`),
     nameTitle: escapeHtml(a.name),
     subtitle: a.genres?.slice(0, 2).join(", ") || "",
     subtitleTitle: a.genres?.slice(0, 2).join(", ") || "",
@@ -1096,15 +991,9 @@ function queueTrackMapper(t) {
   return {
     ...baseTrackFields(t),
     num: "",
-    queueBtn:
-      '<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(queueIndexOf(this))" title="Remove from queue">\u2212</button>',
+    queueBtn: '<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(queueIndexOf(this))" title="Remove from queue">\u2212</button>',
     playAction,
-    nameHtml: shareLink(
-      "track",
-      t.id,
-      escapeHtml(t.name),
-      `event.stopPropagation(); ${playAction}`,
-    ),
+    nameHtml: shareLink("track", t.id, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`),
     extraLines: t.album
       ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>`
       : "",
@@ -1171,19 +1060,14 @@ async function playFromContext(uri, offset, clearQueue = false) {
     const album = await api(`/albums/${id}`);
     trackUris = album?.tracks?.items?.map((t) => t.uri).filter(Boolean) || [];
   } else if (type === "playlist") {
-    trackUris = await fetchAllPages(
-      `/playlists/${id}/items?limit=100`,
-      (data) => (data?.items || []).map((i) => i.item?.uri).filter(Boolean),
-    );
+    trackUris = await fetchAllPages(`/playlists/${id}/items?limit=100`, (data) => (data?.items || []).map((i) => i.item?.uri).filter(Boolean));
   }
 
   if (trackUris.length === 0) return;
 
   // Start from offset position.
   const tracksFromOffset = trackUris.slice(offset);
-  localQueue = clearQueue
-    ? tracksFromOffset
-    : tracksFromOffset.concat(localQueue);
+  localQueue = clearQueue ? tracksFromOffset : tracksFromOffset.concat(localQueue);
   saveLocalQueue();
   await showQueue();
   await playNextFromLocalQueue();
@@ -1245,10 +1129,7 @@ async function addAlbumToQueue(albumId, toFront = false) {
 }
 
 async function addPlaylistToQueue(playlistId, toFront = false) {
-  const trackUris = await fetchAllPages(
-    `/playlists/${playlistId}/items?limit=100`,
-    (data) => (data?.items || []).map((i) => i.item?.uri).filter(Boolean),
-  );
+  const trackUris = await fetchAllPages(`/playlists/${playlistId}/items?limit=100`, (data) => (data?.items || []).map((i) => i.item?.uri).filter(Boolean));
   return addToQueue(trackUris, toFront);
 }
 
@@ -1326,8 +1207,7 @@ async function fetchAndShowLyrics() {
   }
 
   const trackName = document.getElementById("player-track")?.textContent || "";
-  const artistName =
-    document.getElementById("player-artist")?.textContent || "";
+  const artistName = document.getElementById("player-artist")?.textContent || "";
   const trackKey = `${artistName} ${trackName}`;
 
   if (trackKey === lyricsTrackKey && currentLyrics) {
@@ -1342,8 +1222,7 @@ async function fetchAndShowLyrics() {
   const data = await fetchLyrics(url);
   if (!data) {
     currentLyrics = null;
-    lyricsView.innerHTML =
-      '<div class="lyrics-error">No lyrics available</div>';
+    lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
     return;
   }
 
@@ -1355,8 +1234,7 @@ async function fetchAndShowLyrics() {
       .map((line) => {
         const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
         if (!match) return null;
-        const time =
-          parseInt(match[1], 10) * 60000 + parseFloat(match[2]) * 1000;
+        const time = parseInt(match[1], 10) * 60000 + parseFloat(match[2]) * 1000;
         return { time, words: match[3] };
       })
       .filter((l) => l && (l.time > 0 || l.words.trim()));
@@ -1372,13 +1250,11 @@ async function fetchAndShowLyrics() {
       .filter((l) => l.words.trim());
     currentLyrics.unshift({
       time: -1,
-      words:
-        "<p style='margin-top: 2em;margin-bottom: 2em;'>[missing time-sync data for these lyrics 😕]</p>",
+      words: "<p style='margin-top: 2em;margin-bottom: 2em;'>[missing time-sync data for these lyrics 😕]</p>",
     });
   } else {
     currentLyrics = null;
-    lyricsView.innerHTML =
-      '<div class="lyrics-error">No lyrics available</div>';
+    lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
     return;
   }
 
@@ -1388,15 +1264,12 @@ async function fetchAndShowLyrics() {
 function renderLyrics() {
   const lyricsView = document.getElementById("lyrics-view");
   if (!currentLyrics || currentLyrics.length === 0) {
-    lyricsView.innerHTML =
-      '<div class="lyrics-error">No lyrics available</div>';
+    lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
     return;
   }
 
   const track = currentState?.track_window?.current_track;
-  const title = track
-    ? `<i>${track.name}</i> - ${track.artists.map((a) => a.name).join(", ")} - <i>${track.album.name}</i>`
-    : "";
+  const title = track ? `<i>${track.name}</i> - ${track.artists.map((a) => a.name).join(", ")} - <i>${track.album.name}</i>` : "";
 
   const lineClass = lyricsSynced ? "lyric-line" : "lyric-line plain";
   lyricsView.innerHTML =
@@ -1418,8 +1291,7 @@ function seekToLyric(timeMs) {
 }
 
 function updateLyricsHighlight() {
-  if (!lyricsEnabled || !currentLyrics || !lastPlayState || !lyricsSynced)
-    return;
+  if (!lyricsEnabled || !currentLyrics || !lastPlayState || !lyricsSynced) return;
 
   const position = lastPlayState.position;
   const lines = document.querySelectorAll("#lyrics-view .lyric-line");
@@ -1501,11 +1373,7 @@ async function next() {
   }
 
   // If loop enabled, add current track to end of queue before skipping (unless already there).
-  if (
-    loopEnabled &&
-    currentTrackUri &&
-    localQueue[localQueue.length - 1] !== currentTrackUri
-  ) {
+  if (loopEnabled && currentTrackUri && localQueue[localQueue.length - 1] !== currentTrackUri) {
     localQueue.push(currentTrackUri);
     saveLocalQueue();
   }
@@ -1584,13 +1452,7 @@ async function transferPlayback(id) {
   document.getElementById("device-menu").classList.remove("show");
 }
 
-async function loadPaginatedView({
-  route,
-  breadcrumb,
-  url,
-  extractItems,
-  renderItems,
-}) {
+async function loadPaginatedView({ route, breadcrumb, url, extractItems, renderItems }) {
   navigate(route);
   setBreadcrumb(breadcrumb);
   const el = document.getElementById("tracks");
@@ -1617,8 +1479,7 @@ async function loadLikedSongs() {
     route: "liked",
     breadcrumb: [{ name: "Liked Songs" }],
     url: "/me/tracks?limit=50",
-    extractItems: (data) =>
-      (data.items || []).map((i) => i.track).filter(Boolean),
+    extractItems: (data) => (data.items || []).map((i) => i.track).filter(Boolean),
     renderItems: (tracks, n) => renderTrackItems(tracks, null, n),
   });
 }
@@ -1628,8 +1489,7 @@ async function loadSavedAlbums() {
     route: "albums",
     breadcrumb: [{ name: "Saved Albums" }],
     url: "/me/albums?limit=50",
-    extractItems: (data) =>
-      (data.items || []).map((i) => i.album).filter(Boolean),
+    extractItems: (data) => (data.items || []).map((i) => i.album).filter(Boolean),
     renderItems: (albums, n) => renderItems(albums, albumMapper, n),
   });
 }
@@ -1639,8 +1499,7 @@ async function loadPlaylists() {
     route: "playlists",
     breadcrumb: [{ name: "Playlists" }],
     url: "/me/playlists?limit=50",
-    extractItems: (data) =>
-      (data.items || []).filter((p) => p && p.id !== DJ_PLAYLIST_ID),
+    extractItems: (data) => (data.items || []).filter((p) => p && p.id !== DJ_PLAYLIST_ID),
     renderItems: (playlists, n) => renderItems(playlists, playlistMapper, n),
   });
 }
@@ -1685,27 +1544,12 @@ async function loadExplore() {
   exploreSeenIds = new Set();
 
   // Search for personalized playlists.
-  const personalizedSearches = [
-    "Release Radar",
-    "Discover Weekly",
-    "Daily Mix 1",
-    "Daily Mix 2",
-    "Daily Mix 3",
-    "Daily Mix 4",
-    "Daily Mix 5",
-    "Daily Mix 6",
-  ];
+  const personalizedSearches = ["Release Radar", "Discover Weekly", "Daily Mix 1", "Daily Mix 2", "Daily Mix 3", "Daily Mix 4", "Daily Mix 5", "Daily Mix 6"];
 
   // Start all fetches in parallel.
   // (Note that unlike e.g. DJ, these playlists have per-user IDs, so must fetch and can't hardcode).
-  const mixesPromise = Promise.all(
-    personalizedSearches.map((q) =>
-      api(`/search?type=playlist&limit=1&q=${encodeURIComponent(q)}`),
-    ),
-  );
-  const madeForYouPromise = api(
-    "/browse/categories/0JQ5DAt0tbjZptfcdMSKl3/playlists?limit=50",
-  );
+  const mixesPromise = Promise.all(personalizedSearches.map((q) => api(`/search?type=playlist&limit=1&q=${encodeURIComponent(q)}`)));
+  const madeForYouPromise = api("/browse/categories/0JQ5DAt0tbjZptfcdMSKl3/playlists?limit=50");
   const featuredPromise = api("/browse/featured-playlists?limit=50");
 
   // Render Your Mixes as soon as ready.
@@ -1714,65 +1558,37 @@ async function loadExplore() {
   personalizedSearches.forEach((searchName, idx) => {
     const results = searchResults[idx]?.playlists?.items || [];
     const match =
-      results.find(
-        (p) =>
-          p.name.toLowerCase() === searchName.toLowerCase() &&
-          p.owner?.id === "spotify",
-      ) ||
-      results.find((p) =>
-        p.name.toLowerCase().startsWith(searchName.toLowerCase()),
-      );
+      results.find((p) => p.name.toLowerCase() === searchName.toLowerCase() && p.owner?.id === "spotify") ||
+      results.find((p) => p.name.toLowerCase().startsWith(searchName.toLowerCase()));
     if (match && !exploreSeenIds.has(match.id)) {
       personalizedPlaylists.push(match);
       exploreSeenIds.add(match.id);
     }
   });
   if (personalizedPlaylists.length > 0) {
-    el.insertAdjacentHTML(
-      "beforeend",
-      `<div class="section-header">Your Mixes</div>`,
-    );
-    el.insertAdjacentHTML(
-      "beforeend",
-      `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`,
-    );
+    el.insertAdjacentHTML("beforeend", `<div class="section-header">Your Mixes</div>`);
+    el.insertAdjacentHTML("beforeend", `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`);
   }
 
   // Render Made For You as soon as ready.
   const madeForYouData = await madeForYouPromise;
-  const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter(
-    (p) => p && !exploreSeenIds.has(p.id),
-  );
+  const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter((p) => p && !exploreSeenIds.has(p.id));
   for (const p of madeForYouPlaylists) exploreSeenIds.add(p.id);
   if (madeForYouPlaylists.length > 0) {
-    el.insertAdjacentHTML(
-      "beforeend",
-      `<div class="section-header">Made For You</div>`,
-    );
-    el.insertAdjacentHTML(
-      "beforeend",
-      `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, 1)}</ul>`,
-    );
+    el.insertAdjacentHTML("beforeend", `<div class="section-header">Made For You</div>`);
+    el.insertAdjacentHTML("beforeend", `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, 1)}</ul>`);
   }
 
   // Render Featured Playlists, paginating.
   let featuredCount = 0;
   const featuredData = await featuredPromise;
-  const items = (featuredData?.playlists?.items || []).filter(
-    (p) => p && !exploreSeenIds.has(p.id),
-  );
+  const items = (featuredData?.playlists?.items || []).filter((p) => p && !exploreSeenIds.has(p.id));
   for (const p of items) exploreSeenIds.add(p.id);
   featuredCount += items.length;
 
   // Render first batch immediately.
-  el.insertAdjacentHTML(
-    "beforeend",
-    `<div class="section-header">Featured Playlists</div>`,
-  );
-  el.insertAdjacentHTML(
-    "beforeend",
-    `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`,
-  );
+  el.insertAdjacentHTML("beforeend", `<div class="section-header">Featured Playlists</div>`);
+  el.insertAdjacentHTML("beforeend", `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`);
 
   // Paginate Featured playlists (eagerly up to 300, then infinite scroll).
   const featuredUrl = stripApiBase(featuredData?.playlists?.next);
@@ -1781,16 +1597,9 @@ async function loadExplore() {
     : makePagination(featuredUrl, async (nextUrl) => {
         const data = await api(nextUrl);
         if (gen !== paginationGen) return null;
-        const newItems = (data.playlists?.items || []).filter(
-          (p) => p && !exploreSeenIds.has(p.id),
-        );
+        const newItems = (data.playlists?.items || []).filter((p) => p && !exploreSeenIds.has(p.id));
         if (newItems.length > 0) {
-          document
-            .getElementById("featured-section")
-            .insertAdjacentHTML(
-              "beforeend",
-              renderPlaylistSection(newItems, featuredCount + 1),
-            );
+          document.getElementById("featured-section").insertAdjacentHTML("beforeend", renderPlaylistSection(newItems, featuredCount + 1));
           for (const p of newItems) exploreSeenIds.add(p.id);
           featuredCount += newItems.length;
         }
@@ -1803,29 +1612,18 @@ async function loadExplore() {
 async function loadPlaylist(id) {
   navigate("playlist", { id });
 
-  setBreadcrumb([
-    { name: "Playlists", action: "loadPlaylists()" },
-    { name: "Loading..." },
-  ]);
+  setBreadcrumb([{ name: "Playlists", action: "loadPlaylists()" }, { name: "Loading..." }]);
 
   showLoading();
   const contextUri = `spotify:playlist:${id}`;
 
   const [_, allTracks] = await Promise.all([
     api(`/playlists/${id}`).then((d) => {
-      setBreadcrumb([
-        { name: "Playlists", action: "loadPlaylists()" },
-        { name: d.name || "Playlist" },
-      ]);
+      setBreadcrumb([{ name: "Playlists", action: "loadPlaylists()" }, { name: d.name || "Playlist" }]);
     }),
-    fetchAllPages(`/playlists/${id}/items?limit=50`, (data) =>
-      (data?.items || []).map((i) => i.item).filter(Boolean),
-    ),
+    fetchAllPages(`/playlists/${id}/items?limit=50`, (data) => (data?.items || []).map((i) => i.item).filter(Boolean)),
   ]);
-  document.getElementById("tracks").innerHTML = renderTrackItems(
-    allTracks,
-    contextUri,
-  );
+  document.getElementById("tracks").innerHTML = renderTrackItems(allTracks, contextUri);
 }
 
 async function loadAlbum(id) {
@@ -1898,9 +1696,7 @@ async function loadArtist(id) {
 
   const firstAlbums = albumsData.items || [];
   const nextAlbumsUrl = stripApiBase(albumsData.next);
-  const remainingAlbums = nextAlbumsUrl
-    ? await fetchAllPages(nextAlbumsUrl, (data) => data.items || [])
-    : [];
+  const remainingAlbums = nextAlbumsUrl ? await fetchAllPages(nextAlbumsUrl, (data) => data.items || []) : [];
   const allAlbums = firstAlbums.concat(remainingAlbums);
   if (allAlbums.length) {
     html += '<h3 class="results-heading">Discography</h3>';
@@ -1940,8 +1736,7 @@ async function showQueue() {
   }
 
   if (myVersion !== queueRenderVersion) return;
-  document.getElementById("tracks").innerHTML =
-    html || '<p class="empty-state">Queue is empty</p>';
+  document.getElementById("tracks").innerHTML = html || '<p class="empty-state">Queue is empty</p>';
 }
 
 function updateQueueCount() {
@@ -1952,10 +1747,7 @@ function updateQueueCount() {
 }
 
 // Keep queue heading count in sync when items are added/removed.
-new MutationObserver(updateQueueCount).observe(
-  document.getElementById("tracks"),
-  { childList: true },
-);
+new MutationObserver(updateQueueCount).observe(document.getElementById("tracks"), { childList: true });
 
 function renderLocalQueueItems(tracks) {
   return renderItems(tracks, queueTrackMapper);
@@ -1980,8 +1772,7 @@ function onQueueDragStart(e) {
 
 function onQueueDragEnd(e) {
   e.target.classList.remove("dragging");
-  for (const el of document.querySelectorAll(".queue-item"))
-    el.classList.remove("drag-over");
+  for (const el of document.querySelectorAll(".queue-item")) el.classList.remove("drag-over");
   draggedQueueIndex = null;
 }
 
@@ -2024,8 +1815,7 @@ async function clearQueue() {
   await player.pause();
   localStorage.removeItem("play_state");
   clearPlayerUI();
-  document.getElementById("tracks").innerHTML =
-    '<p class="empty-state">Queue is empty</p>';
+  document.getElementById("tracks").innerHTML = '<p class="empty-state">Queue is empty</p>';
 }
 
 // Help modal (About + Keyboard Shortcuts).
@@ -2046,10 +1836,7 @@ function showHelp() {
     ["→", "Seek forward 10s"],
   ];
   const rows = shortcuts
-    .map(
-      ([key, action]) =>
-        `<tr><td style="color:#fff;font-weight:bold;padding:4px 2em 4px 0">${key}</td><td style="color:#b3b3b3;padding:4px 0">${action}</td></tr>`,
-    )
+    .map(([key, action]) => `<tr><td style="color:#fff;font-weight:bold;padding:4px 2em 4px 0">${key}</td><td style="color:#b3b3b3;padding:4px 0">${action}</td></tr>`)
     .join("");
 
   const overlay = document.createElement("div");
@@ -2116,14 +1903,12 @@ function setBreadcrumb(items) {
 (async () => {
   assert("mediaSession" in navigator, "navigator.mediaSession missing!");
 
-  document.getElementById("ncspot-note").textContent =
-    location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
+  document.getElementById("ncspot-note").textContent = location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
 
   const hasCodeInUrl = new URLSearchParams(window.location.search).has("code");
 
   // Only process callback if we have a chosen client (i.e., user initiated login).
-  const callbackOk =
-    hasCodeInUrl && getClientId() ? await handleCallback() : false;
+  const callbackOk = hasCodeInUrl && getClientId() ? await handleCallback() : false;
 
   // If we have ?code= but callback failed, auth flow is broken - start fresh.
   if (hasCodeInUrl && getClientId() && !callbackOk) {
@@ -2135,11 +1920,7 @@ function setBreadcrumb(items) {
 
   // Clear URL params after successful callback.
   if (hasCodeInUrl && callbackOk) {
-    window.history.replaceState(
-      {},
-      "",
-      window.location.href.split("/login")[0],
-    );
+    window.history.replaceState({}, "", window.location.href.split("/login")[0]);
   }
 
   // Check if we have a valid session.
@@ -2150,22 +1931,15 @@ function setBreadcrumb(items) {
       // Debugging aid.
       hasAccessToken: !!getAuth("access_token"),
       hasRefreshToken,
-      tokenExpiry: tokenExpiry
-        ? new Date(parseInt(tokenExpiry, 10)).toISOString()
-        : null,
-      isExpired: tokenExpiry
-        ? Date.now() > parseInt(tokenExpiry, 10)
-        : "no expiry",
+      tokenExpiry: tokenExpiry ? new Date(parseInt(tokenExpiry, 10)).toISOString() : null,
+      isExpired: tokenExpiry ? Date.now() > parseInt(tokenExpiry, 10) : "no expiry",
     });
     if (Date.now() > getAuth("token_expiry")) {
       console.log("Token expired at init, attempting refresh...");
       const refreshed = await refreshToken();
       console.log("Token refresh result:", refreshed);
       if (!refreshed) {
-        console.error(
-          "Init refresh failed, but have refresh token?",
-          hasRefreshToken,
-        );
+        console.error("Init refresh failed, but have refresh token?", hasRefreshToken);
         forceRelogin("init: token refresh failed");
         return;
       }
@@ -2245,8 +2019,7 @@ window.addEventListener("beforeunload", () => {
   if (!lastPlayState) return;
 
   // Estimate current position based on elapsed time since last state update.
-  if (!lastPlayState.paused)
-    lastPlayState.position += Date.now() - lastPlayState.timestamp;
+  if (!lastPlayState.paused) lastPlayState.position += Date.now() - lastPlayState.timestamp;
   lastPlayState.timestamp = Date.now();
   localStorage.setItem("play_state", JSON.stringify(lastPlayState));
 });
@@ -2255,18 +2028,14 @@ window.addEventListener("beforeunload", () => {
 document.addEventListener("visibilitychange", async () => {
   if (!navigator.onLine || document.hidden || !getAuth("access_token")) return;
   if (Date.now() > getAuth("token_expiry")) {
-    console.log(
-      "Tab became visible, token expired, attempting refresh first...",
-    );
+    console.log("Tab became visible, token expired, attempting refresh first...");
     const refreshed = await refreshToken();
     if (refreshed) {
       console.log(
         "Token refreshed successfully. If existing player fails to get new access token and playback fails with 4xx consider recreating the player as in the commented code deleted in 306777310f.",
       );
     } else {
-      console.error(
-        "Token refresh failed on visibility change, reloading page",
-      );
+      console.error("Token refresh failed on visibility change, reloading page");
       location.reload();
     }
   }
@@ -2294,11 +2063,7 @@ function makePagination(initialUrl, fetchPage) {
         const rawNext = await fetchPage(nextUrl);
         el.querySelector(".loading-more")?.remove();
         nextUrl = stripApiBase(rawNext);
-        if (nextUrl)
-          el.insertAdjacentHTML(
-            "beforeend",
-            '<li class="loading-more">Loading...</li>',
-          );
+        if (nextUrl) el.insertAdjacentHTML("beforeend", '<li class="loading-more">Loading...</li>');
       } finally {
         loading = false;
       }
@@ -2351,10 +2116,7 @@ document.addEventListener("keydown", async (e) => {
     const state = await player?.getCurrentState();
     if (!state) return;
     const delta = e.code === "ArrowLeft" ? -10000 : 10000;
-    const newPos = Math.max(
-      0,
-      Math.min(state.duration, state.position + delta),
-    );
+    const newPos = Math.max(0, Math.min(state.duration, state.position + delta));
     player.seek(newPos);
   } else if (e.key === "/") {
     e.preventDefault();

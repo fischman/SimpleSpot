@@ -175,16 +175,9 @@ window.fetch = async (url, opts) => {
     _apiCalls.push({ endpoint, opts });
 
     for (const route of _apiRoutes) {
-      const matches =
-        typeof route.pattern === "string"
-          ? endpoint === route.pattern ||
-            endpoint.startsWith(`${route.pattern}?`)
-          : route.pattern.test(endpoint);
+      const matches = typeof route.pattern === "string" ? endpoint === route.pattern || endpoint.startsWith(`${route.pattern}?`) : route.pattern.test(endpoint);
       if (matches) {
-        const body =
-          typeof route.response === "function"
-            ? route.response(endpoint, opts)
-            : route.response;
+        const body = typeof route.response === "function" ? route.response(endpoint, opts) : route.response;
         return new Response(JSON.stringify(body), {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -218,8 +211,7 @@ window.fetch = async (url, opts) => {
   if (urlStr.includes("lrclib.net")) {
     return new Response(
       JSON.stringify({
-        syncedLyrics:
-          "[00:10.00]Test lyric line 1\n[00:15.00]Test lyric line 2\n[00:20.00]Test lyric line 3",
+        syncedLyrics: "[00:10.00]Test lyric line 1\n[00:15.00]Test lyric line 2\n[00:20.00]Test lyric line 3",
         plainLyrics: "Test lyric line 1\nTest lyric line 2\nTest lyric line 3",
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },

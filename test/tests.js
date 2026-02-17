@@ -15,40 +15,30 @@ function test(name, fn) {
 
 function eq(actual, expected, msg = "") {
   if (actual !== expected) {
-    throw new Error(
-      `${msg}\n  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`,
-    );
+    throw new Error(`${msg}\n  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`);
   }
 }
 
 function ok(val, msg = "") {
-  if (!val)
-    throw new Error(msg || `expected truthy, got ${JSON.stringify(val)}`);
+  if (!val) throw new Error(msg || `expected truthy, got ${JSON.stringify(val)}`);
 }
 
 function includes(haystack, needle, msg = "") {
   if (!haystack.includes(needle)) {
-    const preview =
-      haystack.length > 200 ? `${haystack.slice(0, 200)}...` : haystack;
-    throw new Error(
-      `${msg}\n  expected to include: ${JSON.stringify(needle)}\n  in: ${preview}`,
-    );
+    const preview = haystack.length > 200 ? `${haystack.slice(0, 200)}...` : haystack;
+    throw new Error(`${msg}\n  expected to include: ${JSON.stringify(needle)}\n  in: ${preview}`);
   }
 }
 
 function notIncludes(haystack, needle, msg = "") {
   if (haystack.includes(needle)) {
-    throw new Error(
-      `${msg}\n  expected NOT to include: ${JSON.stringify(needle)}`,
-    );
+    throw new Error(`${msg}\n  expected NOT to include: ${JSON.stringify(needle)}`);
   }
 }
 
 function deepEq(actual, expected, msg = "") {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(
-      `${msg}\n  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`,
-    );
+    throw new Error(`${msg}\n  expected: ${JSON.stringify(expected)}\n  actual:   ${JSON.stringify(actual)}`);
   }
 }
 
@@ -122,10 +112,7 @@ test("formatTime formats milliseconds", () => {
 });
 
 test("escapeHtml escapes special characters", () => {
-  eq(
-    escapeHtml("<script>alert(1)</script>"),
-    "&lt;script&gt;alert(1)&lt;/script&gt;",
-  );
+  eq(escapeHtml("<script>alert(1)</script>"), "&lt;script&gt;alert(1)&lt;/script&gt;");
   eq(escapeHtml("AT&T"), "AT&amp;T");
   eq(escapeHtml('"quoted"'), "&quot;quoted&quot;");
   eq(escapeHtml(null), "");
@@ -270,10 +257,7 @@ test("setBreadcrumb renders text", () => {
 });
 
 test("setBreadcrumb with action renders link", () => {
-  setBreadcrumb([
-    { name: "Parent", action: "loadPlaylists()" },
-    { name: "Child" },
-  ]);
+  setBreadcrumb([{ name: "Parent", action: "loadPlaylists()" }, { name: "Child" }]);
   const el = document.getElementById("breadcrumb");
   includes(el.innerHTML, '<a onclick="loadPlaylists()">Parent</a>');
   includes(el.innerHTML, "Child");
@@ -370,10 +354,7 @@ test("queueTrackMapper includes drag handle", () => {
 
 test("queueTrackMapper includes remove button in queueBtn", () => {
   const result = queueTrackMapper(FIXTURES.track, 0, 1);
-  ok(
-    result.queueBtn?.includes("removeFromQueue"),
-    "should have remove button in queueBtn",
-  );
+  ok(result.queueBtn?.includes("removeFromQueue"), "should have remove button in queueBtn");
 });
 
 // --- View rendering with mock API ---
@@ -409,14 +390,8 @@ test("loadAlbum renders album tracks", async () => {
 
 test("loadArtist renders artist page", async () => {
   mockApiRoute("/artists/1dfeR4HaWDbWqFHLkxsg1d", FIXTURES.artist);
-  mockApiRoute(
-    /\/artists\/1dfeR4HaWDbWqFHLkxsg1d\/top-tracks/,
-    FIXTURES.artistTopTracks,
-  );
-  mockApiRoute(
-    /\/artists\/1dfeR4HaWDbWqFHLkxsg1d\/albums/,
-    FIXTURES.artistAlbums,
-  );
+  mockApiRoute(/\/artists\/1dfeR4HaWDbWqFHLkxsg1d\/top-tracks/, FIXTURES.artistTopTracks);
+  mockApiRoute(/\/artists\/1dfeR4HaWDbWqFHLkxsg1d\/albums/, FIXTURES.artistAlbums);
   await loadArtist("1dfeR4HaWDbWqFHLkxsg1d");
   const html = document.getElementById("tracks").innerHTML;
   includes(html, "Queen");
@@ -507,10 +482,7 @@ test("loop re-adds track on next()", async () => {
 
   await next();
   // Current track should have been added to end of queue.
-  ok(
-    localQueue.includes(FIXTURES.track.uri),
-    "original track should be re-added",
-  );
+  ok(localQueue.includes(FIXTURES.track.uri), "original track should be re-added");
 });
 
 test("loop does not duplicate track already at end", async () => {
