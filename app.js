@@ -1,4 +1,4 @@
-const PLAYPAUSE_CLIENT_ID = "1366988155e64d34b759879f2a575cdd";
+const SIMPLESPOT_CLIENT_ID = "1366988155e64d34b759879f2a575cdd";
 const NCSPOT_CLIENT_ID = "d420a117a32841c2b3474932e49fb54b";
 const DJ_PLAYLIST_ID = "37i9dQZF1EYkqdzj48dyYq";
 const SCOPES =
@@ -35,8 +35,8 @@ function getClientId() {
   switch (c) {
     case "ncspot":
       return NCSPOT_CLIENT_ID;
-    case "playpause":
-      return PLAYPAUSE_CLIENT_ID;
+    case "simplespot":
+      return SIMPLESPOT_CLIENT_ID;
     case null:
       return null;
     default:
@@ -45,7 +45,7 @@ function getClientId() {
 }
 
 function getRedirectUri() {
-  if (getClientChoice() === "playpause") {
+  if (getClientChoice() === "simplespot") {
     return window.location.href.split("?")[0].split("#")[0];
   }
   // Try to use our origin (including port!) if on 127.0.0.1, otherwise fall back to manual paste flow.
@@ -57,7 +57,7 @@ function getRedirectUri() {
 }
 
 function areDeprecatedFeaturesUnavailable() {
-  return localStorage.getItem("chosen_client") === "playpause";
+  return localStorage.getItem("chosen_client") === "simplespot";
 }
 
 // Auth storage helpers - namespace by client ID so switching clients requires re-auth.
@@ -396,7 +396,7 @@ async function api(endpoint, opts = {}) {
       return true;
     return CACHEABLE_PATHS.has(p[1]) || CACHEABLE_PATHS.has(p[2]);
   };
-  var key;
+  let key;
   if (isCacheable(endpoint)) {
     key = JSON.stringify({ endpoint, opts });
     const prev = API_CACHE[key];
@@ -1291,7 +1291,7 @@ async function fetchLyrics(url) {
   if (url in lyricsCache) {
     return lyricsCache[url];
   }
-  var res;
+  let res;
   try {
     res = await fetch(url);
   } catch (e) {
@@ -2065,7 +2065,7 @@ function showHelp() {
         target="_blank" style="color:#1db954">Web Playback</a>,
         and <a href="https://lrclib.net/docs" target="_blank"
         style="color:#1db954">LRCLIB</a>'s
-        APIs. Requires <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded)"
+        APIs. Requires a <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded) subscription."
         target="_blank" style="color:#1db954">Spotify Premium</a>.
       </p>
       <hr style="border:none;border-top:1px solid #444;margin:16px 0">
