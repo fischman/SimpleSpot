@@ -1,6 +1,3 @@
-// TODO:
-// - review each remaining piece of global state for sanity.
-
 const PLAYPAUSE_CLIENT_ID = "1366988155e64d34b759879f2a575cdd";
 const NCSPOT_CLIENT_ID = "d420a117a32841c2b3474932e49fb54b";
 const DJ_PLAYLIST_ID = "37i9dQZF1EYkqdzj48dyYq";
@@ -79,6 +76,8 @@ function clearAuth() {
   );
   localStorage.removeItem("chosen_client");
 }
+
+// TODO: review each remaining piece of global state for sanity.
 
 let player = null;
 let deviceId = null;
@@ -535,19 +534,19 @@ function initPlayer() {
     },
   });
 
-  player.addListener("ready", ({ device_id }) => {
+  player.addListener("ready", async ({ device_id }) => {
     deviceId = device_id;
+    await transferPlayback(deviceId);
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
   });
 
   player.addListener("player_state_changed", (state) => {
-    if (!state) {
-      console.log("Playback transferred to another device - clearing UI");
-      clearPlayerUI();
-      return;
-    }
     currentState = state;
+    if (!state) {
+      console.log("Playback transferred to another device.");
+      return updateQueueButtons();
+    }
     const track = state.track_window.current_track;
     currentAlbumUri = track.album.uri;
     updatePlayerUI({
@@ -702,7 +701,6 @@ function updatePlayerUI(info) {
     const art = document.getElementById("player-art");
     art.src = info.artUrl;
     art.style.display = info.artUrl ? "block" : "none";
-    document.getElementById("play-btn").textContent = info.paused ? "▶" : "⏸";
     document.getElementById("progress-fill").style.width = info.duration
       ? `${(info.position / info.duration) * 100}%`
       : "0%";
@@ -718,7 +716,6 @@ function updatePlayerUI(info) {
     const art = document.getElementById("player-art");
     art.src = "";
     art.style.display = "none";
-    document.getElementById("play-btn").textContent = "▶";
     document.getElementById("progress-fill").style.width = "0%";
     document.getElementById("progress-current").textContent = "0:00";
     document.getElementById("progress-total").textContent = "0:00";
@@ -1210,6 +1207,7 @@ function updateQueueButtons() {
   const canPrev = hasHistory;
   playBtn.disabled = !canPlay;
   playBtn.style.opacity = canPlay ? "1" : "0.5";
+  playBtn.textContent = isPlaying ? "⏸" : "▶";
   nextBtn.disabled = !canNext;
   nextBtn.style.opacity = canNext ? "1" : "0.5";
   prevBtn.disabled = !canPrev;
