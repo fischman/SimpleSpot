@@ -1288,6 +1288,28 @@ function toggleLyrics() {
   }
 }
 
+const lyricsCache = {};
+async function fetchLyrics(url) {
+  if (url in lyricsCache) {
+    return lyricsCache[url];
+  }
+  var res;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    console.error(`fetch(${url}):`, e);
+    return undefined;
+  }
+  if (res.status === 404) {
+    lyricsCache[url] = undefined;
+    return undefined;
+  }
+  if (!res.ok) return undefined;
+  const data = await res.json();
+  lyricsCache[url] = data;
+  return data;
+}
+
 async function fetchAndShowLyrics() {
   const lyricsView = document.getElementById("lyrics-view");
   if (!lastPlayState?.trackUri) {
@@ -1308,59 +1330,51 @@ async function fetchAndShowLyrics() {
   lyricsTrackKey = trackKey;
   lyricsView.innerHTML = '<div class="lyrics-error">Loading lyrics...</div>';
 
-  try {
-    const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistName)}&track_name=${encodeURIComponent(trackName)}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      currentLyrics = null;
-      lyricsView.innerHTML =
-        '<div class="lyrics-error">No lyrics available</div>';
-      return;
-    }
-    const data = await res.json();
-
-    if (data?.syncedLyrics) {
-      // Parse LRC format: [mm:ss.xx]text.
-      lyricsSynced = true;
-      currentLyrics = data.syncedLyrics
-        .split("\n")
-        .map((line) => {
-          const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
-          if (!match) return null;
-          const time =
-            parseInt(match[1], 10) * 60000 + parseFloat(match[2]) * 1000;
-          return { time, words: match[3] };
-        })
-        .filter((l) => l && (l.time > 0 || l.words.trim()));
-    } else if (data?.plainLyrics) {
-      // Fall back to plain lyrics (no timestamps, no highlighting).
-      lyricsSynced = false;
-      currentLyrics = data.plainLyrics
-        .split("\n")
-        .map((line, i) => ({
-          time: i,
-          words: line,
-        }))
-        .filter((l) => l.words.trim());
-      currentLyrics.unshift({
-        time: -1,
-        words:
-          "<p style='margin-top: 2em;margin-bottom: 2em;'>[missing time-sync data for these lyrics 😕]</p>",
-      });
-    } else {
-      currentLyrics = null;
-      lyricsView.innerHTML =
-        '<div class="lyrics-error">No lyrics available</div>';
-      return;
-    }
-
-    renderLyrics();
-  } catch (e) {
-    console.error("Lyrics fetch error:", e);
+  const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistName)}&track_name=${encodeURIComponent(trackName)}`;
+  const data = await fetchLyrics(url);
+  if (!data) {
     currentLyrics = null;
     lyricsView.innerHTML =
-      '<div class="lyrics-error">Failed to load lyrics</div>';
+      '<div class="lyrics-error">No lyrics available</div>';
+    return;
   }
+
+  if (data?.syncedLyrics) {
+    // Parse LRC format: [mm:ss.xx]text.
+    lyricsSynced = true;
+    currentLyrics = data.syncedLyrics
+      .split("\n")
+      .map((line) => {
+        const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)$/);
+        if (!match) return null;
+        const time =
+          parseInt(match[1], 10) * 60000 + parseFloat(match[2]) * 1000;
+        return { time, words: match[3] };
+      })
+      .filter((l) => l && (l.time > 0 || l.words.trim()));
+  } else if (data?.plainLyrics) {
+    // Fall back to plain lyrics (no timestamps, no highlighting).
+    lyricsSynced = false;
+    currentLyrics = data.plainLyrics
+      .split("\n")
+      .map((line, i) => ({
+        time: i,
+        words: line,
+      }))
+      .filter((l) => l.words.trim());
+    currentLyrics.unshift({
+      time: -1,
+      words:
+        "<p style='margin-top: 2em;margin-bottom: 2em;'>[missing time-sync data for these lyrics 😕]</p>",
+    });
+  } else {
+    currentLyrics = null;
+    lyricsView.innerHTML =
+      '<div class="lyrics-error">No lyrics available</div>';
+    return;
+  }
+
+  renderLyrics();
 }
 
 function renderLyrics() {
@@ -2419,9 +2433,5 @@ async function resumePlaybackIfNeeded() {
     }
   }
 
-  try {
-    togglePlay();
-  } catch (e) {
-    console.log(`AMI: togglePlay triggered: ${e}`);
-  }
+  togglePlay();
 }
