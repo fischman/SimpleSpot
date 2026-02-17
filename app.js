@@ -1138,6 +1138,9 @@ function renderSearchResults(data) {
 
 async function play(body) {
   assert(deviceId, "No device ID - player not ready");
+  if (!currentState) {
+    await transferPlayback(deviceId);
+  }
   await api(`/me/player/play?device_id=${deviceId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
