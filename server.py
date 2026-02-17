@@ -27,8 +27,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.serve_file('index.html')
         if path in NON_INDEX_FILES:
             return self.serve_file('.' + path)
+        self.send_error(403)
 
     def log_message(self, format, *args):
         pass
 
+print(f'SimpleSpot is at http://127.0.0.1:8000/')
 HTTPServer(('', 8000), Handler).serve_forever()
