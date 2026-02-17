@@ -66,6 +66,11 @@ LRCLIB's [API](https://lrclib.net/docs).
 ## Development
 Run `./server.py` and load the webapp at http://127.0.0.1:8000/
 
+This project uses biome to format & lint JS & HTML. Build a docker
+container for it using `biome/build`, use the docker container to
+check the codebase using `biome/check` and format/fix the codebase
+using `biome/fix`.
+
 Symlink `.hook_pre-commit` to `.git/hooks/pre-commit` to automatically
 check formatting and run (contrived, non-comprehensive tests).
 
