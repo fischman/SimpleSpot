@@ -903,7 +903,7 @@ async function search(q) {
 function renderItem(d) {
   const overlay = d.playAction ? '<div class="play-overlay"></div>' : "";
   const artClick = d.playAction
-    ? `onclick="event.stopPropagation(); ${d.playAction}"`
+    ? `onclick="event.stopPropagation(); ${d.playAction}" title="${d.playTitle || ""}"`
     : "";
   const imgStyle = d.imgStyle ? ` style="${d.imgStyle}"` : "";
   const liClick = d.liOnclick ? ` onclick="${d.liOnclick}"` : "";
@@ -975,13 +975,16 @@ function trackMapper(contextUri, contextOffset = 0) {
     const base = baseTrackFields(t);
     const albumId = t.album?.id || t.album?.uri?.split(":")[2] || "";
     const playAction = contextUri
-      ? `playFromContext('${contextUri}', ${contextOffset + i})`
+      ? `playFromContext('${contextUri}', ${contextOffset + i}, event.shiftKey)`
       : `playTrack('${t.uri}')`;
     return {
       ...base,
       num,
       queueBtn: queueAddBtn(`addToQueue(['${t.uri}'], event.shiftKey)`),
       playAction,
+      playTitle: contextUri
+        ? "Play now (shift: drop rest of queue)"
+        : undefined,
       nameHtml: shareLink(
         "track",
         base.trackId,
@@ -1002,7 +1005,8 @@ function albumMapper(a, _i, num) {
     radioType: "album",
     radioId: a.id,
     imgSrc: a.images?.[2]?.url || "",
-    playAction: `playContext('${a.uri}')`,
+    playAction: `playContext('${a.uri}', !event.shiftKey)`,
+    playTitle: "Play instead of queue (shift: keep queue)",
     nameHtml: shareLink(
       "album",
       a.id,
@@ -1031,7 +1035,8 @@ function playlistMapper(p, _i, num) {
     radioType: "playlist",
     radioId: p.id,
     imgSrc: p.images?.[0]?.url || "",
-    playAction: `playContext('spotify:playlist:${p.id}')`,
+    playAction: `playContext('spotify:playlist:${p.id}', !event.shiftKey)`,
+    playTitle: "Play instead of queue (shift: keep queue)",
     nameHtml: shareLink(
       "playlist",
       p.id,
@@ -1153,12 +1158,12 @@ function playTrack(uri) {
 }
 
 // Fetch tracks from album/playlist and add to front of queue.
-async function playContext(uri) {
-  return playFromContext(uri, 0);
+async function playContext(uri, clearQueue = false) {
+  return playFromContext(uri, 0, clearQueue);
 }
 
 // Play specific track and queue the rest from that position.
-async function playFromContext(uri, offset) {
+async function playFromContext(uri, offset, clearQueue = false) {
   const [, type, id] = uri.split(":");
   let trackUris = [];
 
@@ -1176,7 +1181,9 @@ async function playFromContext(uri, offset) {
 
   // Start from offset position.
   const tracksFromOffset = trackUris.slice(offset);
-  localQueue = tracksFromOffset.concat(localQueue);
+  localQueue = clearQueue
+    ? tracksFromOffset
+    : tracksFromOffset.concat(localQueue);
   saveLocalQueue();
   await showQueue();
   await playNextFromLocalQueue();
@@ -1834,13 +1841,13 @@ async function loadAlbum(id) {
   document.getElementById("tracks").innerHTML =
     `
     <div class="detail-float">
-      <div class="track-art" style="width:150px;height:150px" onclick="playContext('${contextUri}')">
+      <div class="track-art" style="width:150px;height:150px" onclick="playContext('${contextUri}', !event.shiftKey)" title="Play instead of queue (shift: keep queue)">
         <img src="${data.images?.[1]?.url || ""}" class="detail-art" />
         <div class="play-overlay" style="font-size:48px"></div>
       </div>
       <div style="width:150px;margin-top:8px">
         <div class="detail-type">ALBUM</div>
-        <div class="detail-title">${shareLink("album", data.id, escapeHtml(data.name), `playContext('${contextUri}')`)}</div>
+        <div class="detail-title">${shareLink("album", data.id, escapeHtml(data.name), `playContext('${contextUri}', !event.shiftKey)`)}</div>
         <div class="detail-meta">${artistLinks}</div>
         <div class="detail-meta">${data.release_date?.slice(0, 4)} • ${data.total_tracks} tracks</div>
       </div>
