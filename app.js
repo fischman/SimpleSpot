@@ -1089,7 +1089,7 @@ function loadLocalQueue() {
 
 // Single owner of play/next/prev button enabled state.
 function updateQueueButtons() {
-  const isPlaying = !!currentState;
+  const isPlaying = currentState && !currentState.paused;
   const hasQueue = localQueue.length > 0;
   const hasHistory = playHistory.length > 0;
   const playBtn = document.getElementById("play-btn");
