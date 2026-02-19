@@ -2203,5 +2203,7 @@ async function resumePlaybackIfNeeded() {
     }
   }
 
-  togglePlay();
+  if (!state.paused) {
+    togglePlay();
+  }
 }
