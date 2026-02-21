@@ -1218,7 +1218,9 @@ async function fetchAndShowLyrics() {
   lyricsTrackKey = trackKey;
   lyricsView.innerHTML = '<div class="lyrics-error">Loading lyrics...</div>';
 
-  const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistName)}&track_name=${encodeURIComponent(trackName)}`;
+  const duration = Math.round(currentState?.duration / 1000);
+  const durationParam = duration ? `&duration=${duration}` : "";
+  const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistName)}&track_name=${encodeURIComponent(trackName)}${durationParam}`;
   const data = await fetchLyrics(url);
   if (!data) {
     currentLyrics = null;
