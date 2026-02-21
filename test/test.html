@@ -27,8 +27,8 @@
   <!-- Hidden app DOM (replicates index.html structure) -->
   <div id="test-dom" style="display:none">
     <div id="login" style="display:flex">
-      <button onclick="loginWith('ncspot')">Login ncspot</button>
-      <button onclick="loginWith('simplespot')">Login simplespot</button>
+      <button type="button" onclick="loginWith('ncspot')">Login ncspot</button>
+      <button type="button" onclick="loginWith('simplespot')">Login simplespot</button>
     </div>
     <div id="app">
       <div class="header">
@@ -36,13 +36,13 @@
           <input type="text" id="search" placeholder="Search tracks..." />
           <span id="search-clear">⊗</span>
         </div>
-        <button id="nav-dj">DJ</button>
-        <button id="nav-playlists">📜</button>
-        <button id="nav-albums">💿</button>
-        <button id="nav-liked">❤️</button>
-        <button id="nav-topArtists">⬆️A</button>
-        <button id="nav-topTracks">⬆️T</button>
-        <button id="nav-explore">✨</button>
+        <button type="button" id="nav-dj">DJ</button>
+        <button type="button" id="nav-playlists">📜</button>
+        <button type="button" id="nav-albums">💿</button>
+        <button type="button" id="nav-liked">❤️</button>
+        <button type="button" id="nav-topArtists">⬆️A</button>
+        <button type="button" id="nav-topTracks">⬆️T</button>
+        <button type="button" id="nav-explore">✨</button>
         <input type="range" id="column-count" min="1" max="10" value="3" />
         <span id="ncspot-note"></span>
       </div>
@@ -58,9 +58,9 @@
           <div id="player-artist"></div>
         </div>
         <div class="player-controls">
-          <button id="prev-btn">⏮</button>
-          <button id="play-btn" disabled style="opacity:0.5">▶</button>
-          <button id="next-btn">⏭</button>
+          <button type="button" id="prev-btn">⏮</button>
+          <button type="button" id="play-btn" disabled style="opacity:0.5">▶</button>
+          <button type="button" id="next-btn">⏭</button>
         </div>
         <div class="progress-container">
           <span class="progress-time" id="progress-current">0:00</span>
@@ -70,11 +70,11 @@
           </div>
           <span class="progress-time" id="progress-total">0:00</span>
         </div>
-        <button id="loop-btn">↻</button>
-        <button id="cc-btn"><span class="cc-icon">CC</span></button>
-        <button id="nav-queue" class="queue-btn">☰</button>
+        <button type="button" id="loop-btn">↻</button>
+        <button type="button" id="cc-btn"><span class="cc-icon">CC</span></button>
+        <button type="button" id="nav-queue" class="queue-btn">☰</button>
         <div class="device-picker">
-          <button>📱</button>
+          <button type="button">📱</button>
           <div class="device-menu" id="device-menu"></div>
         </div>
       </div>
