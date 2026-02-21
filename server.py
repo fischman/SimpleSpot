@@ -33,4 +33,4 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 print(f'SimpleSpot is at http://127.0.0.1:8000/')
-HTTPServer(('', 8000), Handler).serve_forever()
+HTTPServer(('127.0.0.1', 8000), Handler).serve_forever()
