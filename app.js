@@ -976,13 +976,7 @@ function artistMapper(a, _i, num) {
   };
 }
 
-function searchArtistMapper(a, i, num) {
-  return {
-    ...artistMapper(a, i, num),
-    subtitle: `${a.followers?.total?.toLocaleString() || 0} followers`,
-    subtitleTitle: undefined,
-  };
-}
+const searchArtistMapper = artistMapper;
 
 // Get the queue index of an element by its position among .queue-item siblings.
 function queueIndexOf(el) {
@@ -1694,7 +1688,6 @@ async function loadArtist(id) {
       <div>
         <div class="detail-type">ARTIST</div>
         <h1 class="artist-name">${shareLink("artist", artist.id, escapeHtml(artist.name), "")}</h1>
-        <div style="color:#b3b3b3">${artist.followers?.total?.toLocaleString() || 0} followers</div>
       </div>
     </div>
   `;
