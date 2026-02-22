@@ -113,6 +113,14 @@
     #lyrics-view .lyric-line:hover { color: #999; }
     #lyrics-view .lyric-line.active { color: #fff; font-size: 28px; font-weight: bold; }
     #lyrics-view .lyrics-error { color: #b3b3b3; font-size: 18px; margin-top: 40px; }
+    @property --ls { syntax: '<integer>'; initial-value: 0; inherits: true; }
+    @property --lt { syntax: '<integer>'; initial-value: 0; inherits: true; }
+    @keyframes ls { from { --ls: 0 } to { --ls: 60 } }
+    @keyframes lt { from { --lt: 0 } to { --lt: 10 } }
+    #lyrics-view .lyrics-loading { color: #b3b3b3; font-size: 18px; margin-top: 40px;
+      animation: ls 60s steps(60) 1 forwards, lt 1s steps(10) infinite; }
+    #lyrics-view .lyrics-loading::after { counter-reset: ls var(--ls) lt var(--lt);
+      content: '... (' counter(ls) '.' counter(lt) 's)'; }
     .track-album { font-size: 12px; color: #b3b3b3; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .track-album:hover { text-decoration: underline; }
     #column-count { width: 100px; cursor: pointer; }

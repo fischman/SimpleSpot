@@ -1216,7 +1216,7 @@ async function fetchAndShowLyrics() {
   }
 
   lyricsTrackKey = trackKey;
-  lyricsView.innerHTML = '<div class="lyrics-error">Loading lyrics...</div>';
+  lyricsView.innerHTML = '<div class="lyrics-loading">Loading lyrics</div>';
 
   const duration = Math.round(currentState?.duration / 1000);
   const durationParam = duration ? `&duration=${duration}` : "";
