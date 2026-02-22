@@ -944,7 +944,7 @@ function playlistMapper(p, _i, num) {
     playTitle: "Play instead of queue (shift: keep queue)",
     nameHtml: shareLink("playlist", p.id, escapeHtml(p.name), `event.stopPropagation(); ${playlistOnclick(p)}`),
     nameTitle: escapeHtml(p.name),
-    subtitle: `${p.tracks.total} tracks`,
+    subtitle: `${(p.items ?? p.tracks).total} tracks`,
     liOnclick: playlistOnclick(p),
   };
 }
