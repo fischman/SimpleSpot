@@ -786,19 +786,24 @@ async function search(q) {
   let allAlbums = [];
   let allTracks = [];
 
-  const data = await api(`/search?type=artist,track,album&limit=50&q=${encodeURIComponent(q)}`);
+  const data = await api(`/search?type=artist,track,album&limit=10&q=${encodeURIComponent(q)}`);
   allArtists = data.artists?.items || [];
   allAlbums = data.albums?.items || [];
   allTracks = data.tracks?.items || [];
 
-  // Fetch more albums & tracks if available (up to 100 total).
-  if (data.albums?.next) {
-    const more = await api(stripApiBase(data.albums.next));
-    allAlbums = allAlbums.concat(more?.items || []);
-  }
-  if (data.tracks?.next) {
-    const more = await api(stripApiBase(data.tracks.next));
-    allTracks = allTracks.concat(more?.items || []);
+  // Paginate albums & tracks to ~50 results each (limit=10 per page).
+  let albumNext = stripApiBase(data.albums?.next);
+  let trackNext = stripApiBase(data.tracks?.next);
+  while (albumNext || trackNext) {
+    const pages = await Promise.all([albumNext && allAlbums.length < 50 ? api(albumNext) : null, trackNext && allTracks.length < 50 ? api(trackNext) : null]);
+    if (pages[0]) {
+      allAlbums = allAlbums.concat(pages[0].items || []);
+      albumNext = stripApiBase(pages[0].next);
+    } else albumNext = null;
+    if (pages[1]) {
+      allTracks = allTracks.concat(pages[1].items || []);
+      trackNext = stripApiBase(pages[1].next);
+    } else trackNext = null;
   }
 
   const results = {
@@ -811,8 +816,8 @@ async function search(q) {
     // Local storage has a 5MB per-origin limit, so it might seem
     // worrisome to store hundreds of search results
     // here. Experimenting shows that this is not in fact an
-    // issue. E.g. searching [queen] results in 50
-    // Artists/Albums/Tracks for a total of 150 records, but
+    // issue. E.g. searching [queen] results in ~10 Artists
+    // and ~50 Albums/Tracks for a total of ~110 records, but
     // localStorage.last_search.length is just 256588. Slimming the
     // results to just the fields used in rendering only reduces this
     // to 51566. Not worth doing.
