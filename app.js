@@ -490,7 +490,6 @@ function initPlayer() {
 
   player.addListener("ready", async ({ device_id }) => {
     deviceId = device_id;
-    await transferPlayback(deviceId);
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
   });
@@ -1026,9 +1025,6 @@ function renderSearchResults(data) {
 
 async function play(body) {
   assert(deviceId, "No device ID - player not ready");
-  if (!currentState) {
-    await transferPlayback(deviceId);
-  }
   await api(`/me/player/play?device_id=${deviceId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -1439,11 +1435,11 @@ function toggleDevices() {
   if (menu.classList.contains("show")) loadDevices();
 }
 
-async function transferPlayback(id) {
+async function transferPlayback(id, play = true) {
   await api("/me/player", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ device_ids: [id] }),
+    body: JSON.stringify({ device_ids: [id], play }),
   });
   document.getElementById("device-menu").classList.remove("show");
 }
@@ -2167,7 +2163,10 @@ function setupMediaSessionHandlers() {
 
 async function resumePlaybackIfNeeded() {
   const saved = localStorage.getItem("play_state");
-  if (!saved) return;
+  if (!saved) {
+    await transferPlayback(deviceId, false);
+    return;
+  }
 
   const state = JSON.parse(saved);
 
@@ -2182,26 +2181,33 @@ async function resumePlaybackIfNeeded() {
       artUrl: "https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg",
       position: 0,
       duration: 0,
-      paused: true,
+      paused: state.paused,
     });
-  } else {
-    // Fetch track info to update UI.
-    const trackData = await api(`/tracks/${state.trackUri.split(":")[2]}`);
-    if (trackData) {
-      updatePlayerUI({
-        trackName: trackData.name,
-        trackUri: state.trackUri,
-        artistHtml: artistLinksHtml(trackData.artists),
-        artUrl: trackData.album.images[0]?.url,
-        position: state.position,
-        duration: trackData.duration_ms,
-        paused: true,
-      });
-      currentAlbumUri = trackData.album.uri;
+    if (!state.paused) {
+      await playDJ();
+    } else {
+      await transferPlayback(deviceId, false);
     }
+    return;
   }
 
+  // Fetch track info to update UI.
+  const trackData = await api(`/tracks/${state.trackUri.split(":")[2]}`);
+  if (trackData) {
+    updatePlayerUI({
+      trackName: trackData.name,
+      trackUri: state.trackUri,
+      artistHtml: artistLinksHtml(trackData.artists),
+      artUrl: trackData.album.images[0]?.url,
+      position: state.position,
+      duration: trackData.duration_ms,
+      paused: true,
+    });
+    currentAlbumUri = trackData.album.uri;
+  }
   if (!state.paused) {
-    togglePlay();
+    await play({ uris: [state.trackUri], position_ms: state.position || 0 });
+  } else {
+    await transferPlayback(deviceId, false);
   }
 }
