@@ -42,6 +42,12 @@ function deepEq(actual, expected, msg = "") {
   }
 }
 
+// Mock individual /tracks/{id} lookups from an array of track fixtures.
+function mockTrackLookups(tracks) {
+  const byId = Object.fromEntries(tracks.map((t) => [t.id, t]));
+  mockApiRoute(/^\/tracks\//, (endpoint) => byId[endpoint.split("/").pop()] ?? null);
+}
+
 async function runTests() {
   const results = [];
   for (const t of _tests) {
@@ -164,30 +170,28 @@ test("addToQueue appends URIs to end", async () => {
   // Stub player to avoid playback.
   player = new Spotify.Player({});
   player._state = { paused: false }; // Pretend playing.
-  mockApiRoute(/\/tracks/, { tracks: [FIXTURES.track, FIXTURES.track2] });
+  mockTrackLookups([FIXTURES.track, FIXTURES.track2]);
 
-  localQueue = ["spotify:track:aaa"];
-  await addToQueue(["spotify:track:bbb"]);
-  // 'aaa' was already there, 'bbb' appended.
-  eq(localQueue[0], "spotify:track:aaa");
-  eq(localQueue[1], "spotify:track:bbb");
+  localQueue = [FIXTURES.track.uri];
+  await addToQueue([FIXTURES.track2.uri]);
+  // track was already there, track2 appended.
+  eq(localQueue[0], FIXTURES.track.uri);
+  eq(localQueue[1], FIXTURES.track2.uri);
 });
 
 test("addToQueue with toFront prepends URIs", async () => {
   player = new Spotify.Player({});
   player._state = { paused: false };
-  mockApiRoute(/\/tracks/, {
-    tracks: [FIXTURES.track, FIXTURES.track2, FIXTURES.track3],
-  });
+  mockTrackLookups([FIXTURES.track, FIXTURES.track2, FIXTURES.track3]);
 
-  localQueue = ["spotify:track:aaa", "spotify:track:bbb"];
-  await addToQueue(["spotify:track:ccc"], true);
-  eq(localQueue[0], "spotify:track:ccc");
+  localQueue = [FIXTURES.track.uri, FIXTURES.track2.uri];
+  await addToQueue([FIXTURES.track3.uri], true);
+  eq(localQueue[0], FIXTURES.track3.uri);
 });
 
 test("removeFromQueue removes by index", () => {
   localQueue = ["a", "b", "c"];
-  mockApiRoute(/\/tracks/, { tracks: [] });
+  mockTrackLookups([]);
   removeFromQueue(1);
   deepEq(localQueue, ["a", "c"]);
 });
@@ -225,7 +229,7 @@ test("toggleLoop toggles loopEnabled", () => {
 
 test("clearQueue empties the queue", async () => {
   localQueue = ["a", "b", "c"];
-  mockApiRoute(/\/tracks/, { tracks: [] });
+  mockTrackLookups([]);
   await clearQueue();
   deepEq(localQueue, []);
 });
@@ -370,7 +374,7 @@ test("showQueue renders empty state", async () => {
 
 test("showQueue renders tracks", async () => {
   localQueue = [FIXTURES.track.uri, FIXTURES.track2.uri];
-  mockApiRoute(/\/tracks/, { tracks: [FIXTURES.track, FIXTURES.track2] });
+  mockTrackLookups([FIXTURES.track, FIXTURES.track2]);
   await showQueue();
   const html = document.getElementById("tracks").innerHTML;
   includes(html, "Bohemian Rhapsody");
@@ -478,7 +482,7 @@ test("loop re-adds track on next()", async () => {
   loopEnabled = true;
 
   mockApiRoute(/\/me\/player/, null);
-  mockApiRoute(/\/tracks/, { tracks: [FIXTURES.track2] });
+  mockTrackLookups([FIXTURES.track2]);
 
   await next();
   // Current track should have been added to end of queue.
@@ -497,7 +501,7 @@ test("loop does not duplicate track already at end", async () => {
   loopEnabled = true;
 
   mockApiRoute(/\/me\/player/, null);
-  mockApiRoute(/\/tracks/, { tracks: [FIXTURES.track2] });
+  mockTrackLookups([FIXTURES.track2]);
 
   await next();
   // Should NOT have duplicated it.
@@ -521,7 +525,7 @@ test("previous restores from history", async () => {
   localQueue = [];
 
   mockApiRoute(/\/me\/player/, null);
-  mockApiRoute(/\/tracks/, { tracks: [] });
+  mockTrackLookups([]);
 
   await previous();
   // Current track should be pushed to front of queue.
@@ -641,9 +645,7 @@ test("addAlbumToQueue fetches album and queues tracks", async () => {
   player = new Spotify.Player({});
   player._state = { paused: false };
   mockApiRoute(/\/albums\//, FIXTURES.album);
-  mockApiRoute(/\/tracks/, {
-    tracks: [FIXTURES.track, FIXTURES.track2, FIXTURES.track3],
-  });
+  mockTrackLookups([FIXTURES.track, FIXTURES.track2, FIXTURES.track3]);
 
   localQueue = [];
   await addAlbumToQueue("1GbtB4zTqAsyfZEsm1RZfx");
@@ -659,9 +661,7 @@ test("addPlaylistToQueue fetches playlist and queues tracks", async () => {
     items: FIXTURES.playlist.tracks.items.map((i) => ({ ...i, item: i.track })),
     next: null,
   });
-  mockApiRoute(/\/tracks/, {
-    tracks: [FIXTURES.track, FIXTURES.track2, FIXTURES.track3],
-  });
+  mockTrackLookups([FIXTURES.track, FIXTURES.track2, FIXTURES.track3]);
 
   localQueue = [];
   await addPlaylistToQueue("37i9dQZF1DXcBWIGoYBM5M");
@@ -674,7 +674,7 @@ group("Queue drag and drop");
 
 test("onQueueDrop reorders queue", () => {
   localQueue = ["a", "b", "c", "d"];
-  mockApiRoute(/\/tracks/, { tracks: [] });
+  mockTrackLookups([]);
 
   // Simulate dragging index 0 to index 2.
   draggedQueueIndex = 0;

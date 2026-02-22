@@ -455,15 +455,10 @@ async function fetchAllPages(initialUrl, extractItems) {
   return allItems;
 }
 
-// Fetch tracks by IDs, chunking to respect API limit of 50.
+// Fetch tracks by IDs using parallel individual requests.
 async function fetchTracksByIds(trackIds) {
   if (!trackIds || trackIds.length === 0) return [];
-  const chunks = [];
-  for (let i = 0; i < trackIds.length; i += 50) {
-    chunks.push(trackIds.slice(i, i + 50));
-  }
-  const results = await Promise.all(chunks.map((chunk) => api(`/tracks?ids=${chunk.join(",")}`)));
-  return results.flatMap((r) => r?.tracks || []);
+  return Promise.all(trackIds.map((id) => api(`/tracks/${id}`)));
 }
 
 function getDeviceName() {
