@@ -625,7 +625,7 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 
 function showLoading() {
   const el = document.getElementById("tracks");
-  el.innerHTML = '<li class="empty-state">Loading...</li>';
+  el.innerHTML = '<li class="empty-state loading-timer">Loading...</li>';
 }
 
 // Centralised player-UI updater. Pass an info object to show track details,
@@ -1216,7 +1216,7 @@ async function fetchAndShowLyrics() {
   }
 
   lyricsTrackKey = trackKey;
-  lyricsView.innerHTML = '<div class="lyrics-loading">Loading lyrics</div>';
+  lyricsView.innerHTML = '<div class="lyrics-loading loading-timer">Loading lyrics...</div>';
 
   const duration = Math.round(currentState?.duration / 1000);
   const durationParam = duration ? `&duration=${duration}` : "";
@@ -1459,7 +1459,7 @@ async function loadPaginatedView({ route, breadcrumb, url, extractItems, renderI
   setBreadcrumb(breadcrumb);
   const el = document.getElementById("tracks");
   el.classList.add("grid-view");
-  el.innerHTML = "";
+  showLoading();
   document.querySelector(".content").scrollTop = 0;
 
   let count = 0;
@@ -1468,6 +1468,7 @@ async function loadPaginatedView({ route, breadcrumb, url, extractItems, renderI
     const data = await api(nextUrl);
     if (gen !== paginationGen) return null; // View changed, stop.
     const items = extractItems(data);
+    if (!count) el.innerHTML = "";
     el.insertAdjacentHTML("beforeend", renderItems(items, count + 1));
     count += items.length;
     return data.next;
@@ -1539,7 +1540,7 @@ async function loadExplore() {
   const el = document.getElementById("tracks");
   el.classList.remove("grid-view");
   el.classList.add("sectioned");
-  el.innerHTML = "";
+  showLoading();
   document.querySelector(".content").scrollTop = 0;
 
   const gen = paginationGen;
@@ -1567,6 +1568,7 @@ async function loadExplore() {
       exploreSeenIds.add(match.id);
     }
   });
+  el.innerHTML = "";
   if (personalizedPlaylists.length > 0) {
     el.insertAdjacentHTML("beforeend", `<div class="section-header">Your Mixes</div>`);
     el.insertAdjacentHTML("beforeend", `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`);
@@ -1630,6 +1632,7 @@ async function loadPlaylist(id) {
 
 async function loadAlbum(id) {
   navigate("album", { id });
+  showLoading();
   const data = await api(`/albums/${id}`);
   setBreadcrumb([{ name: `Album: ${data.name}` }]);
   const contextUri = data.uri;
@@ -2065,7 +2068,7 @@ function makePagination(initialUrl, fetchPage) {
         const rawNext = await fetchPage(nextUrl);
         el.querySelector(".loading-more")?.remove();
         nextUrl = stripApiBase(rawNext);
-        if (nextUrl) el.insertAdjacentHTML("beforeend", '<li class="loading-more">Loading...</li>');
+        if (nextUrl) el.insertAdjacentHTML("beforeend", '<li class="loading-more loading-timer">Loading...</li>');
       } finally {
         loading = false;
       }

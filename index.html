@@ -117,10 +117,10 @@
     @property --lt { syntax: '<integer>'; initial-value: 0; inherits: true; }
     @keyframes ls { from { --ls: 0 } to { --ls: 60 } }
     @keyframes lt { from { --lt: 0 } to { --lt: 10 } }
-    #lyrics-view .lyrics-loading { color: #b3b3b3; font-size: 18px; margin-top: 40px;
-      animation: ls 60s steps(60) 1 forwards, lt 1s steps(10) infinite; }
-    #lyrics-view .lyrics-loading::after { counter-reset: ls var(--ls) lt var(--lt);
-      content: '... (' counter(ls) '.' counter(lt) 's)'; }
+    .loading-timer { animation: ls 60s steps(60) 1 forwards, lt 1s steps(10) infinite; }
+    .loading-timer::after { counter-reset: ls var(--ls) lt var(--lt);
+      content: ' (' counter(ls) '.' counter(lt) 's)'; }
+    #lyrics-view .lyrics-loading { color: #b3b3b3; font-size: 18px; margin-top: 40px; }
     .track-album { font-size: 12px; color: #b3b3b3; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .track-album:hover { text-decoration: underline; }
     #column-count { width: 100px; cursor: pointer; }
@@ -202,7 +202,7 @@
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content">
-      <ul class="tracks" id="tracks"></ul>
+      <ul class="tracks" id="tracks"><li class="empty-state loading-timer">Loading...</li></ul>
       <div id="lyrics-view"></div>
     </div>
     <div class="player">
