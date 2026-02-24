@@ -504,6 +504,10 @@ function initPlayer() {
 
   player.addListener("ready", async ({ device_id }) => {
     deviceId = device_id;
+    // Since we manage localQueue and loopEnabled locally, disable
+    // Spotify's notion of {track,context} "repeat" mode to avoid
+    // confusion.
+    await api(`/me/player/repeat?state=off&device_id=${deviceId}`, { method: "PUT" });
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
   });
