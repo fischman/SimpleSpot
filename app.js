@@ -900,7 +900,7 @@ function trackMapper(contextUri, contextOffset = 0) {
   return (t, i, num) => {
     const base = baseTrackFields(t);
     const albumId = t.album?.id || t.album?.uri?.split(":")[2] || "";
-    const playAction = contextUri ? `playFromContext('${contextUri}', ${contextOffset + i}, event.shiftKey)` : `playTrack('${t.uri}')`;
+    const playAction = contextUri ? `playFromContext('${contextUri}', ${contextOffset + i}, event.shiftKey)` : `play('${t.uri}')`;
     return {
       ...base,
       num,
@@ -1031,36 +1031,23 @@ function renderSearchResults(data) {
   el.innerHTML = html;
 }
 
-async function play(body) {
+async function _play(body) {
   assert(deviceId, "No device ID - player not ready");
-
-  if (loopEnabled) {
-    if (lastPlayedTrackUri) {
-      localQueue.push(lastPlayedTrackUri);
-      lastPlayedTrackUri = null;
-      saveLocalQueue();
-    }
-
-    // TODO: review all ways this can fail to be true.
-    // Currently this is playDJ, and 2 paths through togglePlay().
-    // Review the latter, and if they are dead code, maybe rethink the
-    // API here; possibly playDJ should issue the api() call directly,
-    // and this function play can simply take a single URI (and
-    // optional position) for clarity.
-    if (body.uris?.length === 1) {
-      lastPlayedTrackUri = body.uris[0];
-    }
-  }
-
-  await api(`/me/player/play?device_id=${deviceId}`, {
+  return api(`/me/player/play?device_id=${deviceId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 }
 
-function playTrack(uri) {
-  return play({ uris: [uri] });
+async function play(uri, position_ms = 0) {
+  if (loopEnabled && lastPlayedTrackUri) {
+    localQueue.push(lastPlayedTrackUri);
+    lastPlayedTrackUri = null;
+    saveLocalQueue();
+  }
+  lastPlayedTrackUri = uri;
+  await _play({ uris: [uri], position_ms });
 }
 
 // Fetch tracks from album/playlist and add to front of queue.
@@ -1092,8 +1079,7 @@ async function playFromContext(uri, offset, clearQueue = false) {
 
 async function playDJ() {
   if (loopEnabled) toggleLoop();
-  await play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
-  showQueue();
+  await _play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
 }
 
 function saveLocalQueue() {
@@ -1354,7 +1340,7 @@ async function playNextFromLocalQueue() {
 
   const nextUri = localQueue.shift();
   saveLocalQueue();
-  await playTrack(nextUri);
+  await play(nextUri);
 }
 
 async function togglePlay() {
@@ -1374,21 +1360,9 @@ async function togglePlay() {
   }
 
   const s = JSON.parse(saved);
-  if (!s.contextUri && !s.trackUri) {
-    console.log("Nothing to resume playing from localStorage.play_state:", s);
-    return;
+  if (s.trackUri) {
+    return await play(s.trackUri, s.position || 0);
   }
-  if (!s.contextUri) {
-    return await play({ uris: [s.trackUri], position_ms: s.position || 0 });
-  }
-  if (!s.trackUri || !s.trackUri.startsWith("spotify:track:")) {
-    return await play({ context_uri: s.contextUri });
-  }
-  await play({
-    context_uri: s.contextUri,
-    offset: { uri: s.trackUri },
-    position_ms: s.position || 0,
-  });
 }
 
 async function next() {
@@ -1423,7 +1397,7 @@ async function previous() {
 
   // Play previous track from history.
   const prevUri = playHistory.pop();
-  await playTrack(prevUri);
+  await play(prevUri);
   updateQueueButtons();
   refreshQueueIfViewing();
 }
@@ -1778,7 +1752,7 @@ async function playFromLocalQueue(index) {
   const uri = localQueue[index];
   localQueue = localQueue.slice(index + 1);
   saveLocalQueue();
-  await playTrack(uri);
+  await play(uri);
   refreshQueueIfViewing();
 }
 
@@ -2233,7 +2207,7 @@ async function resumePlaybackIfNeeded() {
     currentAlbumUri = trackData.album.uri;
   }
   if (!state.paused) {
-    await play({ uris: [state.trackUri], position_ms: state.position || 0 });
+    await play(state.trackUri, state.position || 0);
   } else {
     await transferPlayback(deviceId, false);
   }

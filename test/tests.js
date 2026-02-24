@@ -293,10 +293,10 @@ test("trackMapper produces correct structure", () => {
   ok(result.radioType, "should have radio type");
 });
 
-test("trackMapper without context uses playTrack", () => {
+test("trackMapper without context uses play", () => {
   const mapper = trackMapper(null);
   const result = mapper(FIXTURES.track, 0, 1);
-  includes(result.nameHtml, "playTrack");
+  includes(result.nameHtml, "play");
 });
 
 test("trackMapper with context uses playFromContext", () => {
