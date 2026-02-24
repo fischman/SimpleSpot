@@ -534,6 +534,7 @@ function initPlayer() {
     clearInterval(progressInterval);
     if (!state.paused) progressInterval = setInterval(updateProgress, 1000);
     updateMediaSession(track, state);
+    updateLoopButton();
 
     // Store play state in memory (saved to localStorage on beforeunload).
     lastPlayState = {
@@ -1082,7 +1083,6 @@ async function playFromContext(uri, offset, clearQueue = false) {
 }
 
 async function playDJ() {
-  if (loopEnabled) toggleLoop();
   await _play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
 }
 
@@ -1150,21 +1150,19 @@ function removeFromQueue(index) {
 }
 
 function toggleLoop() {
-  if (currentState?.context.uri === `spotify:playlist:${DJ_PLAYLIST_ID}`) {
-    // TODO: make the toggle button inactive during DJ, instead.
-    alert("Can't loop during DJ", "DJ playlist doesn't support looping");
-    return;
-  }
   loopEnabled = !loopEnabled;
   localStorage.setItem("loop_enabled", loopEnabled);
   updateLoopButton();
 }
 
 function updateLoopButton() {
+  const isDJ = currentState?.context.uri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
   const btn = document.getElementById("loop-btn");
-  if (btn) {
-    btn.classList.toggle("active", loopEnabled);
-  }
+  btn.disabled = isDJ;
+  btn.style.opacity = isDJ ? "0.4" : "";
+  btn.style.cursor = isDJ ? "not-allowed" : "";
+  btn.title = isDJ ? "Loop (unavailable during DJ)" : "Loop";
+  btn.classList.toggle("active", loopEnabled);
 }
 
 function hideLyrics() {
