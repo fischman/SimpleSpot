@@ -477,7 +477,7 @@ test("loop re-adds track on next()", async () => {
     context: { metadata: {} },
     track_window: { current_track: FIXTURES.track },
   };
-  currentTrackUri = FIXTURES.track.uri;
+  lastPlayedTrackUri = FIXTURES.track.uri;
   localQueue = [FIXTURES.track2.uri];
   loopEnabled = true;
 

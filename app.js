@@ -23,6 +23,19 @@ function assert(condition, message) {
   throw new Error(message);
 }
 
+function alert(heading, message) {
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.innerHTML = `
+    <div class="modal" style="max-width:500px">
+      <h2>${heading}</h2>
+      <p style="color:#b3b3b3;margin:16px 0"><pre>${message}</pre></p>
+      <button onclick="this.closest('.modal-overlay').remove()">Close</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
 function setClientChoice(choice) {
   return localStorage.setItem("chosen_client", choice);
 }
@@ -98,6 +111,7 @@ let isNavigatingBack = false; // Flag to prevent pushing state during popstate.
 
 // Loop mode - when enabled, finished tracks are re-added to end of queue.
 let loopEnabled = localStorage.getItem("loop_enabled") === "true";
+let lastPlayedTrackUri = null;
 
 // Infinite scroll state — single object replaced by each view that supports pagination.
 let pagination = null;
@@ -546,12 +560,6 @@ function initPlayer() {
     if (state.paused && state.position === 0 && track.uri === currentTrackUri) {
       // Guard against multiple rapid calls.
       if (playingFromQueueInProgress) return;
-
-      // If loop enabled, re-add the finished track to end of queue (unless already there).
-      if (loopEnabled && track.uri && localQueue[localQueue.length - 1] !== track.uri) {
-        localQueue.push(track.uri);
-        saveLocalQueue();
-      }
 
       // Play next from queue if available.
       if (localQueue.length > 0) {
@@ -1025,6 +1033,25 @@ function renderSearchResults(data) {
 
 async function play(body) {
   assert(deviceId, "No device ID - player not ready");
+
+  if (loopEnabled) {
+    if (lastPlayedTrackUri) {
+      localQueue.push(lastPlayedTrackUri);
+      lastPlayedTrackUri = null;
+      saveLocalQueue();
+    }
+
+    // TODO: review all ways this can fail to be true.
+    // Currently this is playDJ, and 2 paths through togglePlay().
+    // Review the latter, and if they are dead code, maybe rethink the
+    // API here; possibly playDJ should issue the api() call directly,
+    // and this function play can simply take a single URI (and
+    // optional position) for clarity.
+    if (body.uris?.length === 1) {
+      lastPlayedTrackUri = body.uris[0];
+    }
+  }
+
   await api(`/me/player/play?device_id=${deviceId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -1064,6 +1091,7 @@ async function playFromContext(uri, offset, clearQueue = false) {
 }
 
 async function playDJ() {
+  if (loopEnabled) toggleLoop();
   await play({ context_uri: `spotify:playlist:${DJ_PLAYLIST_ID}` });
   showQueue();
 }
@@ -1132,6 +1160,11 @@ function removeFromQueue(index) {
 }
 
 function toggleLoop() {
+  if (currentState?.context.uri === `spotify:playlist:${DJ_PLAYLIST_ID}`) {
+    // TODO: make the toggle button inactive during DJ, instead.
+    alert("Can't loop during DJ", "DJ playlist doesn't support looping");
+    return;
+  }
   loopEnabled = !loopEnabled;
   localStorage.setItem("loop_enabled", loopEnabled);
   updateLoopButton();
@@ -1362,12 +1395,6 @@ async function next() {
   const state = await player?.getCurrentState();
   if (state?.context.metadata.context_description === "DJ") {
     return player.nextTrack();
-  }
-
-  // If loop enabled, add current track to end of queue before skipping (unless already there).
-  if (loopEnabled && currentTrackUri && localQueue[localQueue.length - 1] !== currentTrackUri) {
-    localQueue.push(currentTrackUri);
-    saveLocalQueue();
   }
 
   if (localQueue.length > 0) {
