@@ -1076,6 +1076,7 @@ async function playFromContext(uri, offset, clearQueue = false) {
 
   // Start from offset position.
   const tracksFromOffset = trackUris.slice(offset);
+  if (clearQueue) lastPlayedTrackUri = null;
   localQueue = clearQueue ? tracksFromOffset : tracksFromOffset.concat(localQueue);
   saveLocalQueue();
   await showQueue();
