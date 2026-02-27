@@ -584,7 +584,7 @@ function initPlayer() {
   ["account_error", "authentication_error", "autoplay_failed", "initialization_error", "not_ready", "playback_error", "player_state_changed", "ready"].forEach(
     (eventName) => {
       player.addListener(eventName, (data) => {
-        console.log(`[SDK Event: ${eventName}]`, data);
+        console.log(`[SDK: ${eventName}]`, data);
       });
     },
   );
@@ -1899,6 +1899,15 @@ function setBreadcrumb(items) {
 
 // Init.
 (async () => {
+  ["debug", "error", "info", "log", "trace", "warn"].forEach((m) => {
+    console[m] = (
+      (orig) =>
+      (...args) => {
+        orig.call(console, Temporal.Now.zonedDateTimeISO().toString({ timeZoneName: "never", fractionalSecondDigits: 3 }), ...args);
+      }
+    )(console[m]);
+  });
+
   assert("mediaSession" in navigator, "navigator.mediaSession missing!");
 
   document.getElementById("ncspot-note").textContent = location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
