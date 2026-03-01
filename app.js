@@ -2021,15 +2021,17 @@ document.getElementById("search").addEventListener("keyup", (e) => {
   }
 });
 
-// Save play state before page unload (before player disconnects and sets paused=true).
-window.addEventListener("beforeunload", () => {
+function savePlayState() {
   if (!lastPlayState) return;
-
   // Estimate current position based on elapsed time since last state update.
   if (!lastPlayState.paused) lastPlayState.position += Date.now() - lastPlayState.timestamp;
   lastPlayState.timestamp = Date.now();
   localStorage.setItem("play_state", JSON.stringify(lastPlayState));
-});
+}
+
+// Save play state before page unload (before player disconnects and sets paused=true).
+window.addEventListener("beforeunload", savePlayState);
+window.addEventListener("offline", savePlayState);
 
 // Refresh token if needed, when tab becomes visible.
 document.addEventListener("visibilitychange", async () => {
@@ -2175,6 +2177,8 @@ function setupMediaSessionHandlers() {
 }
 
 async function resumePlaybackIfNeeded() {
+  savePlayState(); // No-op on new page load, but ensures we use lastPlayState if available (e.g. during offline->online transition).
+
   const saved = localStorage.getItem("play_state");
   if (!saved) {
     await transferPlayback(deviceId, false);
