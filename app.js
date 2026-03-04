@@ -98,6 +98,7 @@ let currentAlbumUri = null;
 
 let progressInterval = null;
 let lastPlayState = null;
+let silentAudio = null;
 let queueRefreshPending = false;
 let queueRenderVersion = 0; // Incremented each render to detect stale renders.
 
@@ -516,8 +517,11 @@ function initPlayer() {
     currentState = state;
     if (!state) {
       console.log("Playback transferred to another device.");
+      startSilentAudio();
+      navigator.mediaSession.playbackState = "paused";
       return updateQueueButtons();
     }
+    stopSilentAudio();
     const track = state.track_window.current_track;
     currentAlbumUri = track.album.uri;
     updatePlayerUI({
@@ -2165,8 +2169,16 @@ function updateMediaSession(track, state) {
 }
 
 function setupMediaSessionHandlers() {
-  navigator.mediaSession.setActionHandler("play", () => player?.resume());
-  navigator.mediaSession.setActionHandler("pause", () => player?.pause());
+  navigator.mediaSession.setActionHandler("play", () => {
+    if (currentState) return player?.resume();
+    // After transfer to another device, "play" should transfer back to us.
+    return transferPlayback(deviceId, true);
+  });
+  navigator.mediaSession.setActionHandler("pause", () => {
+    if (currentState) return player?.pause();
+    // "Pause" on silentAudio means a play/pause event fired, so take playback back.
+    if (silentAudio) return transferPlayback(deviceId, true);
+  });
   navigator.mediaSession.setActionHandler("previoustrack", previous);
   navigator.mediaSession.setActionHandler("nexttrack", next);
   navigator.mediaSession.setActionHandler("seekto", (details) => {
@@ -2174,6 +2186,25 @@ function setupMediaSessionHandlers() {
       player?.seek(details.seekTime * 1000);
     }
   });
+}
+
+// Keep Chrome's media session alive when playback transfers to another device.
+// Chrome ties media session lifetime to an active audio element; without one,
+// media key events stop routing to us. Loop a single-sample silent WAV.
+function startSilentAudio() {
+  if (silentAudio) return;
+  // Regenerate with: b=new ArrayBuffer(46);d=new DataView(b);[...'RIFF'].forEach((c,i)=>d.setUint8(i,c.charCodeAt()));d.setUint32(4,38,!0);[...'WAVEfmt '].forEach((c,i)=>d.setUint8(8+i,c.charCodeAt()));d.setUint32(16,16,!0);d.setUint16(20,1,!0);d.setUint16(22,1,!0);d.setUint32(24,8000,!0);d.setUint32(28,16000,!0);d.setUint16(32,2,!0);d.setUint16(34,16,!0);[...'data'].forEach((c,i)=>d.setUint8(36+i,c.charCodeAt()));d.setUint32(40,2,!0);'data:audio/wav;base64,'+btoa(String.fromCharCode(...new Uint8Array(b)))
+  const audio = new Audio("data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==");
+  audio.loop = true;
+  audio.play().catch((e) => console.warn("Silent audio play failed:", e));
+  silentAudio = audio;
+  console.log("Silent audio started to keep media session alive.");
+}
+function stopSilentAudio() {
+  if (!silentAudio) return;
+  silentAudio.pause(); // Immediately stop playback without waiting for silentAudio to be GC'd.
+  silentAudio = null;
+  console.log("Silent audio stopped.");
 }
 
 async function resumePlaybackIfNeeded() {
