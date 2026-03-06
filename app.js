@@ -114,7 +114,7 @@ let isNavigatingBack = false; // Flag to prevent pushing state during popstate.
 let loopEnabled = localStorage.getItem("loop_enabled") === "true";
 let lastPlayedTrackUri = null;
 
-// Infinite scroll state — single object replaced by each view that supports pagination.
+// Infinite scroll state - single object replaced by each view that supports pagination.
 let pagination = null;
 let paginationGen = 0; // Incremented on each view load; stale fetchPage callbacks bail out.
 
@@ -372,7 +372,7 @@ async function refreshToken() {
 
 const CACHEABLE_PATHS = new Set(["albums", "playlists", "artists", "tracks", "search", "browse", "/recommendations"]);
 const API_CACHE = {};
-async function api(endpoint, opts = {}) {
+async function api(endpoint, opts = {}, statusHandlers = null) {
   const isCacheable = (endpoint) => {
     endpoint = endpoint.split("?")[0];
     if (endpoint.startsWith("/me/top/")) return true;
@@ -386,13 +386,13 @@ async function api(endpoint, opts = {}) {
     const prev = API_CACHE[key];
     if (prev) return prev;
   }
-  const val = _api(endpoint, opts, 0);
+  const val = _api(endpoint, opts, 0, statusHandlers);
   if (key) API_CACHE[key] = val;
   return val;
 }
 
 // _retries: number of previous attempts (used internally for 401/403 refresh and 5xx backoff).
-async function _api(endpoint, opts, _retries) {
+async function _api(endpoint, opts, _retries, statusHandlers) {
   if (!navigator.onLine) {
     console.warn("Offline: skipping API call.");
     return null;
@@ -420,7 +420,7 @@ async function _api(endpoint, opts, _retries) {
   if ((res.status === 401 || res.status === 403) && _retries === 0) {
     console.log(`Got ${res.status}, attempting token refresh and retry`);
     if (await refreshToken()) {
-      return api(endpoint, opts, 1);
+      return _api(endpoint, opts, 1, statusHandlers);
     } else {
       forceRelogin(`api: token refresh failed after ${res.status}`);
       return null;
@@ -432,10 +432,12 @@ async function _api(endpoint, opts, _retries) {
     const delay = 500 * 2 ** _retries;
     console.warn(`Got ${res.status}, retrying ${endpoint} in ${delay}ms (attempt ${_retries + 1}/3)`);
     await new Promise((r) => setTimeout(r, delay)); // a.k.a. "async sleep".
-    return api(endpoint, opts, _retries + 1);
+    return _api(endpoint, opts, _retries + 1, statusHandlers);
   }
 
   if (!res.ok) {
+    const handler = statusHandlers?.[res.status];
+    if (handler) return handler(res);
     console.error("API error:", res.status, res.statusText, endpoint);
     return null;
   }
@@ -1444,11 +1446,24 @@ function toggleDevices() {
 }
 
 async function transferPlayback(id, play = true) {
-  await api("/me/player", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ device_ids: [id], play }),
-  });
+  await api(
+    "/me/player",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device_ids: [id], play }),
+    },
+    id !== deviceId
+      ? null
+      : {
+          404: () => {
+            console.warn("transferPlayback: 404, device invalidated - recreating player");
+            player.disconnect();
+            player = null;
+            initPlayer();
+          },
+        },
+  );
   document.getElementById("device-menu").classList.remove("show");
 }
 

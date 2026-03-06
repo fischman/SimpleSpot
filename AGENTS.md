@@ -21,6 +21,7 @@ Serving the webapp locally is done by `server.py`.
 - Use `async/await` over `.then()` chains
 - Use template literals for HTML generation
 - Use `const`/`let`, never `var`
+- **Never use emdashes** (— or –) anywhere - code, comments, commit messages, etc. Use hyphens or reword.
 - Keep functions focused and small
 - Use descriptive variable names
 
@@ -107,9 +108,9 @@ Always use `escapeHtml()` for user-provided strings. It handles null/undefined s
 ## Subagents
 
 When launching subagents for parallel work:
-- Each subagent must work in its **own worktree and branch** — never on main.
+- Each subagent must work in its **own worktree and branch** - never on main.
 - Subagents must **not edit files in ~/SimpleSpot** (the main worktree).
-- Subagents must **not push** — only the orchestrating agent pushes after review.
+- Subagents must **not push** - only the orchestrating agent pushes after review.
 
 ## Development Server
 
