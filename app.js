@@ -596,6 +596,10 @@ function initPlayer() {
   );
 
   player.addListener("autoplay_failed", async ({ _message }) => {
+    // On file:// origins the SDK always fires autoplay_failed (opaque origin
+    // can't grant autoplay permission), but playback works fine via the Web
+    // API transfer in resumePlaybackIfNeeded(). Suppress the overlay.
+    if (window.location.protocol === "file:") return;
     const settingsUrl = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
