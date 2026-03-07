@@ -445,7 +445,14 @@ async function _api(endpoint, opts, _retries, statusHandlers) {
   if (!text) return null;
   try {
     // Do this rather than asking for res.json() above b/c that doesn't distinguish between empty and malformed JSON.
-    return JSON.parse(text);
+    const json = JSON.parse(text);
+    // Filter out restricted tracks so the user never sees unplayable entries.
+    if (json?.tracks?.items) {
+      json.tracks.total -= json.tracks.items.length;
+      json.tracks.items = json.tracks.items.filter((t) => !t?.restrictions || Object.keys(t.restrictions).length === 0);
+      json.tracks.total += json.tracks.items.length;
+    }
+    return json;
   } catch (e) {
     // Don't log for successful responses - some endpoints return non-JSON.
     if (res.status >= 400) {
