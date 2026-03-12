@@ -1065,7 +1065,10 @@ async function _play(body) {
 }
 
 async function play(uri, position_ms = 0) {
-  if (loopEnabled && lastPlayedTrackUri) {
+  if (loopEnabled && lastPlayedTrackUri && localQueue.at(-1) !== lastPlayedTrackUri) {
+    // Prevent duplicates being added through callpaths to us that
+    // didn't consume a whole track (e.g. previous(), spurious
+    // player_state_changed callbacks, resumePlaybackIfNeeded, etc).
     localQueue.push(lastPlayedTrackUri);
     lastPlayedTrackUri = null;
     saveLocalQueue();
@@ -1408,6 +1411,8 @@ async function next() {
 
 async function previous() {
   const state = await player?.getCurrentState();
+  lastPlayedTrackUri = null; // Avoid confusion during looping.
+
   if (state?.context.metadata.context_description === "DJ") {
     return player.previousTrack();
   }
