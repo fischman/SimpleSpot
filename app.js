@@ -370,26 +370,30 @@ async function refreshToken() {
   return refreshPromise;
 }
 
-const CACHEABLE_PATHS = new Set(["albums", "playlists", "artists", "tracks", "search", "browse", "/recommendations"]);
-const API_CACHE = {};
-async function api(endpoint, opts = {}, statusHandlers = null) {
-  const isCacheable = (endpoint) => {
-    endpoint = endpoint.split("?")[0];
-    if (endpoint.startsWith("/me/top/")) return true;
-    const p = endpoint.split("/");
-    if ((p[1] === "users" || p[1] === "/me") && CACHEABLE_PATHS.has(p[3])) return true;
-    return CACHEABLE_PATHS.has(p[1]) || CACHEABLE_PATHS.has(p[2]);
+const api = (() => {
+  const API_CACHE = {};
+  const isCacheable = (() => {
+    const CACHEABLE_PATHS = new Set(["albums", "playlists", "artists", "tracks", "search", "browse", "/recommendations"]);
+    return (endpoint) => {
+      endpoint = endpoint.split("?")[0];
+      if (endpoint.startsWith("/me/top/")) return true;
+      const p = endpoint.split("/");
+      if ((p[1] === "users" || p[1] === "/me") && CACHEABLE_PATHS.has(p[3])) return true;
+      return CACHEABLE_PATHS.has(p[1]) || CACHEABLE_PATHS.has(p[2]);
+    };
+  })();
+  return async (endpoint, opts = {}, statusHandlers = null) => {
+    let key;
+    if (isCacheable(endpoint)) {
+      key = JSON.stringify({ endpoint, opts });
+      const prev = API_CACHE[key];
+      if (prev) return prev;
+    }
+    const val = _api(endpoint, opts, 0, statusHandlers);
+    if (key) API_CACHE[key] = val;
+    return val;
   };
-  let key;
-  if (isCacheable(endpoint)) {
-    key = JSON.stringify({ endpoint, opts });
-    const prev = API_CACHE[key];
-    if (prev) return prev;
-  }
-  const val = _api(endpoint, opts, 0, statusHandlers);
-  if (key) API_CACHE[key] = val;
-  return val;
-}
+})();
 
 // _retries: number of previous attempts (used internally for 401/403 refresh and 5xx backoff).
 async function _api(endpoint, opts, _retries, statusHandlers) {
@@ -1000,8 +1004,6 @@ function artistMapper(a, _i, num) {
   };
 }
 
-const searchArtistMapper = artistMapper;
-
 // Get the queue index of an element by its position among .queue-item siblings.
 function queueIndexOf(el) {
   const li = el.closest(".queue-item");
@@ -1040,7 +1042,7 @@ function renderSearchResults(data) {
   let html = "";
   if (data.artists?.items.length) {
     html += '<h3 class="results-heading">Artists</h3>';
-    html += renderItems(data.artists.items, searchArtistMapper);
+    html += renderItems(data.artists.items, artistMapper);
   }
   if (data.albums?.items.length) {
     html += '<h3 class="results-heading">Albums</h3>';
@@ -1206,27 +1208,29 @@ function toggleLyrics() {
   }
 }
 
-const lyricsCache = {};
-async function fetchLyrics(url) {
-  if (url in lyricsCache) {
-    return lyricsCache[url];
-  }
-  let res;
-  try {
-    res = await fetch(url);
-  } catch (e) {
-    console.error(`fetch(${url}):`, e);
-    return undefined;
-  }
-  if (res.status === 404) {
-    lyricsCache[url] = undefined;
-    return undefined;
-  }
-  if (!res.ok) return undefined;
-  const data = await res.json();
-  lyricsCache[url] = data;
-  return data;
-}
+const fetchLyrics = (() => {
+  const lyricsCache = {};
+  return async (url) => {
+    if (url in lyricsCache) {
+      return lyricsCache[url];
+    }
+    let res;
+    try {
+      res = await fetch(url);
+    } catch (e) {
+      console.error(`fetch(${url}):`, e);
+      return undefined;
+    }
+    if (res.status === 404) {
+      lyricsCache[url] = undefined;
+      return undefined;
+    }
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    lyricsCache[url] = data;
+    return data;
+  };
+})();
 
 async function fetchAndShowLyrics() {
   const lyricsView = document.getElementById("lyrics-view");
@@ -2123,52 +2127,52 @@ document.querySelector(".content").addEventListener("scroll", function () {
   }
 });
 
-// Simple key-to-action shortcuts.
-const keyboardShortcuts = {
-  "?": showHelp,
-  q: showQueue,
-  p: loadPlaylists,
-  l: loadLikedSongs,
-  a: loadTopArtists,
-  t: loadTopTracks,
-  e: loadExplore,
-  s: loadSavedAlbums,
-  d: playDJ,
-  c: toggleLyrics,
-};
-
 // Keyboard shortcuts (when not in input).
-document.addEventListener("keydown", async (e) => {
-  // Escape works even in input fields.
-  if (e.key === "Escape") {
-    if (e.target.tagName === "INPUT") {
-      e.target.blur();
-    } else {
-      hideHelp();
+document.addEventListener(
+  "keydown",
+  ((shortcuts) => async (e) => {
+    // Escape works even in input fields.
+    if (e.key === "Escape") {
+      if (e.target.tagName === "INPUT") {
+        e.target.blur();
+      } else {
+        hideHelp();
+      }
+      return;
     }
-    return;
-  }
 
-  if (e.target.tagName === "INPUT") return;
-  if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.target.tagName === "INPUT") return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
 
-  if (e.code === "Space") {
-    e.preventDefault();
-    togglePlay();
-  } else if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
-    e.preventDefault();
-    const state = await player?.getCurrentState();
-    if (!state) return;
-    const delta = e.code === "ArrowLeft" ? -10000 : 10000;
-    const newPos = Math.max(0, Math.min(state.duration, state.position + delta));
-    player.seek(newPos);
-  } else if (e.key === "/") {
-    e.preventDefault();
-    document.getElementById("search").focus();
-  } else {
-    keyboardShortcuts[e.key]?.();
-  }
-});
+    if (e.code === "Space") {
+      e.preventDefault();
+      togglePlay();
+    } else if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+      e.preventDefault();
+      const state = await player?.getCurrentState();
+      if (!state) return;
+      const delta = e.code === "ArrowLeft" ? -10000 : 10000;
+      const newPos = Math.max(0, Math.min(state.duration, state.position + delta));
+      player.seek(newPos);
+    } else if (e.key === "/") {
+      e.preventDefault();
+      document.getElementById("search").focus();
+    } else {
+      shortcuts[e.key]?.();
+    }
+  })({
+    "?": showHelp,
+    q: showQueue,
+    p: loadPlaylists,
+    l: loadLikedSongs,
+    a: loadTopArtists,
+    t: loadTopTracks,
+    e: loadExplore,
+    s: loadSavedAlbums,
+    d: playDJ,
+    c: toggleLyrics,
+  }),
+);
 
 // Media Session API (MPRIS support).
 function updateMediaSession(track, state) {
