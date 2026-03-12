@@ -1419,13 +1419,18 @@ async function previous() {
 
   if (playHistory.length === 0) return;
 
-  if (currentTrackUri) {
+  if (currentTrackUri && localQueue.at(0) !== currentTrackUri) {
     localQueue.unshift(currentTrackUri);
     saveLocalQueue();
   }
+  currentTrackUri = null;
 
   // Play previous track from history.
   const prevUri = playHistory.pop();
+  if (loopEnabled && prevUri === localQueue.at(-1)) {
+    localQueue.pop();
+    saveLocalQueue();
+  }
   await play(prevUri);
   updateQueueButtons();
   refreshQueueIfViewing();
