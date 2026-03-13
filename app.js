@@ -598,6 +598,12 @@ function initPlayer() {
         });
       }
     }
+
+    // Skip DJ X's blathering.
+    if (state.context?.uri === `spotify:playlist:${DJ_PLAYLIST_ID}` && state.track_window?.current_track?.content_type === "narration") {
+      console.log("Skipping DJ narration track!");
+      next();
+    }
   });
 
   // Log all
@@ -1127,6 +1133,7 @@ function loadLocalQueue() {
 
 // Single owner of play/next/prev button enabled state.
 function updateQueueButtons() {
+  const isDJ = currentState?.context.uri === `spotify:playlist:${DJ_PLAYLIST_ID}`;
   const isPlaying = currentState && !currentState.paused;
   const hasQueue = localQueue.length > 0;
   const hasHistory = playHistory.length > 0;
@@ -1135,8 +1142,8 @@ function updateQueueButtons() {
   const prevBtn = document.getElementById("prev-btn");
   assert(playBtn && nextBtn && prevBtn, "Missing button!");
   const canPlay = isPlaying || hasQueue;
-  const canNext = hasQueue;
-  const canPrev = hasHistory;
+  const canNext = hasQueue || isDJ;
+  const canPrev = hasHistory || isDJ;
   playBtn.disabled = !canPlay;
   playBtn.style.opacity = canPlay ? "1" : "0.5";
   playBtn.textContent = isPlaying ? "⏸" : "▶";
