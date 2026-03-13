@@ -1955,15 +1955,6 @@ function setBreadcrumb(items) {
 
 // Init.
 (async () => {
-  ["debug", "error", "info", "log", "trace", "warn"].forEach((m) => {
-    console[m] = (
-      (orig) =>
-      (...args) => {
-        orig.call(console, Temporal.Now.zonedDateTimeISO().toString({ timeZoneName: "never", fractionalSecondDigits: 3 }), ...args);
-      }
-    )(console[m]);
-  });
-
   assert("mediaSession" in navigator, "navigator.mediaSession missing!");
 
   document.getElementById("ncspot-note").textContent = location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
