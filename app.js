@@ -500,6 +500,13 @@ function getDeviceName() {
   return "Browser";
 }
 
+async function disableNativeLooping(deviceId) {
+  // Since we manage localQueue and loopEnabled locally, disable
+  // Spotify's notion of {track,context} "repeat" mode to avoid
+  // confusion.
+  await api(`/me/player/repeat?state=off&device_id=${deviceId}`, { method: "PUT" });
+}
+
 function initPlayer() {
   player = new Spotify.Player({
     name: getDeviceName(),
@@ -518,10 +525,7 @@ function initPlayer() {
 
   player.addListener("ready", async ({ device_id }) => {
     deviceId = device_id;
-    // Since we manage localQueue and loopEnabled locally, disable
-    // Spotify's notion of {track,context} "repeat" mode to avoid
-    // confusion.
-    await api(`/me/player/repeat?state=off&device_id=${deviceId}`, { method: "PUT" });
+    await disableNativeLooping(deviceId);
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
   });
@@ -549,7 +553,10 @@ function initPlayer() {
     updateProgress();
 
     clearInterval(progressInterval);
-    if (!state.paused) progressInterval = setInterval(updateProgress, 1000);
+    if (!state.paused) {
+      progressInterval = setInterval(updateProgress, 1000);
+      if (state.repeat_mode !== 0) disableNativeLooping(deviceId);
+    }
     updateMediaSession(track, state);
     updateLoopButton();
 
