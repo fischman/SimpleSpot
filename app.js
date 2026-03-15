@@ -471,14 +471,14 @@ function stripApiBase(url) {
 }
 
 // Fetch all pages from a paginated Spotify API endpoint.
-async function fetchAllPages(initialUrl, extractItems) {
+async function fetchAllPages(initialUrl, extractItems, extractNext = (data) => data?.next, maxResults = -1) {
   const allItems = [];
   let url = initialUrl;
-  while (url) {
+  while (url && (maxResults < 0 || allItems.length < maxResults)) {
     const data = await api(url);
     const items = extractItems(data);
     allItems.push(...items);
-    url = stripApiBase(data?.next);
+    url = stripApiBase(extractNext(data));
   }
   return allItems;
 }
@@ -830,53 +830,24 @@ async function search(q) {
   // TODO: it would be nice to populate the view as results come in
   // (like makePagination and its callers do) instead of the existing
   // wait for all data of all types to load.
-  //
-  // TODO: currently the `await Promise.all` awaits (up to) four
-  // concurrent fetches (of the different result types), but it would
-  // be faster (probably) to kick off each "next" fetch as soon as its
-  // URL is received.
-  const data = await api(`/search?type=artist,track,album,playlist&limit=10&q=${encodeURIComponent(q)}`);
-  let allArtists = data.artists?.items || [];
-  let allAlbums = data.albums?.items || [];
-  let allTracks = data.tracks?.items || [];
-  let allPlaylists = data.playlists?.items || [];
 
-  // Paginate to ~50 results each (limit=10 per page).
-  let artistNext = stripApiBase(data.artists?.next);
-  let albumNext = stripApiBase(data.albums?.next);
-  let trackNext = stripApiBase(data.tracks?.next);
-  let playlistNext = stripApiBase(data.playlists?.next);
-  while (artistNext || albumNext || trackNext || playlistNext) {
-    const pages = await Promise.all([
-      artistNext && allArtists.length < 50 ? api(artistNext) : null,
-      albumNext && allAlbums.length < 50 ? api(albumNext) : null,
-      trackNext && allTracks.length < 50 ? api(trackNext) : null,
-      playlistNext && allPlaylists.length < 50 ? api(playlistNext) : null,
-    ]);
-    if (pages[0]) {
-      allArtists = allArtists.concat(pages[0].artists?.items || []);
-      artistNext = stripApiBase(pages[0].artists?.next);
-    } else artistNext = null;
-    if (pages[1]) {
-      allAlbums = allAlbums.concat(pages[1].albums?.items || []);
-      albumNext = stripApiBase(pages[1].albums?.next);
-    } else albumNext = null;
-    if (pages[2]) {
-      allTracks = allTracks.concat(pages[2].tracks?.items || []);
-      trackNext = stripApiBase(pages[2].tracks?.next);
-    } else trackNext = null;
-    if (pages[3]) {
-      allPlaylists = allPlaylists.concat(pages[3].playlists?.items || []);
-      playlistNext = stripApiBase(pages[3].playlists?.next);
-    } else playlistNext = null;
-  }
+  const types = ["artist", "album", "track", "playlist"];
 
-  const results = {
-    artists: { items: allArtists },
-    albums: { items: allAlbums },
-    tracks: { items: allTracks },
-    playlists: { items: allPlaylists },
-  };
+  const results = Object.fromEntries(
+    await Promise.all(
+      types.map(async (t) => {
+        const plural = `${t}s`;
+        const allItems = await fetchAllPages(
+          `/search?type=${t}&limit=10&q=${encodeURIComponent(q)}`,
+          (data) => data[plural]?.items || [],
+          (data) => data[plural]?.next,
+          50,
+        );
+        return [plural, { items: allItems }];
+      }),
+    ),
+  );
+
   localStorage.setItem(
     "last_search",
     // Local storage has a 5MB per-origin limit, so it might seem
