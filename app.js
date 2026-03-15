@@ -823,34 +823,59 @@ async function search(q) {
   setBreadcrumb([{ name: `Search: ${q}` }]);
   showLoading();
 
-  let allArtists = [];
-  let allAlbums = [];
-  let allTracks = [];
+  // TODO: the remainder of this function has a remarkable amount of
+  // duplication and is amenable to a refactor that makes the
+  // artist/album/track/playlist attribute generic.
+  //
+  // TODO: it would be nice to populate the view as results come in
+  // (like makePagination and its callers do) instead of the existing
+  // wait for all data of all types to load.
+  //
+  // TODO: currently the `await Promise.all` awaits (up to) four
+  // concurrent fetches (of the different result types), but it would
+  // be faster (probably) to kick off each "next" fetch as soon as its
+  // URL is received.
+  const data = await api(`/search?type=artist,track,album,playlist&limit=10&q=${encodeURIComponent(q)}`);
+  let allArtists = data.artists?.items || [];
+  let allAlbums = data.albums?.items || [];
+  let allTracks = data.tracks?.items || [];
+  let allPlaylists = data.playlists?.items || [];
 
-  const data = await api(`/search?type=artist,track,album&limit=10&q=${encodeURIComponent(q)}`);
-  allArtists = data.artists?.items || [];
-  allAlbums = data.albums?.items || [];
-  allTracks = data.tracks?.items || [];
-
-  // Paginate albums & tracks to ~50 results each (limit=10 per page).
+  // Paginate to ~50 results each (limit=10 per page).
+  let artistNext = stripApiBase(data.artists?.next);
   let albumNext = stripApiBase(data.albums?.next);
   let trackNext = stripApiBase(data.tracks?.next);
-  while (albumNext || trackNext) {
-    const pages = await Promise.all([albumNext && allAlbums.length < 50 ? api(albumNext) : null, trackNext && allTracks.length < 50 ? api(trackNext) : null]);
+  let playlistNext = stripApiBase(data.playlists?.next);
+  while (artistNext || albumNext || trackNext || playlistNext) {
+    const pages = await Promise.all([
+      artistNext && allArtists.length < 50 ? api(artistNext) : null,
+      albumNext && allAlbums.length < 50 ? api(albumNext) : null,
+      trackNext && allTracks.length < 50 ? api(trackNext) : null,
+      playlistNext && allPlaylists.length < 50 ? api(playlistNext) : null,
+    ]);
     if (pages[0]) {
-      allAlbums = allAlbums.concat(pages[0].items || []);
-      albumNext = stripApiBase(pages[0].next);
-    } else albumNext = null;
+      allArtists = allArtists.concat(pages[0].artists?.items || []);
+      artistNext = stripApiBase(pages[0].artists?.next);
+    } else artistNext = null;
     if (pages[1]) {
-      allTracks = allTracks.concat(pages[1].items || []);
-      trackNext = stripApiBase(pages[1].next);
+      allAlbums = allAlbums.concat(pages[1].albums?.items || []);
+      albumNext = stripApiBase(pages[1].albums?.next);
+    } else albumNext = null;
+    if (pages[2]) {
+      allTracks = allTracks.concat(pages[2].tracks?.items || []);
+      trackNext = stripApiBase(pages[2].tracks?.next);
     } else trackNext = null;
+    if (pages[3]) {
+      allPlaylists = allPlaylists.concat(pages[3].playlists?.items || []);
+      playlistNext = stripApiBase(pages[3].playlists?.next);
+    } else playlistNext = null;
   }
 
   const results = {
     artists: { items: allArtists },
     albums: { items: allAlbums },
     tracks: { items: allTracks },
+    playlists: { items: allPlaylists },
   };
   localStorage.setItem(
     "last_search",
@@ -1048,6 +1073,10 @@ function renderTrackItems(tracks, contextUri, startNum = 1, contextOffset = 0) {
   return renderItems(tracks, trackMapper(contextUri, contextOffset), startNum);
 }
 
+function renderPlaylistItems(playlists, contextUri, startNum = 1, contextOffset = 0) {
+  return renderItems(playlists, playlistMapper(contextUri, contextOffset), startNum);
+}
+
 function renderSearchResults(data) {
   const el = document.getElementById("tracks");
   pagination = null;
@@ -1064,6 +1093,10 @@ function renderSearchResults(data) {
   if (data.tracks?.items.length) {
     html += '<h3 class="results-heading">Tracks</h3>';
     html += renderTrackItems(data.tracks.items, null);
+  }
+  if (data.playlists?.items.length) {
+    html += '<h3 class="results-heading">Playlists</h3>';
+    html += renderItems(data.playlists.items, playlistMapper);
   }
   el.innerHTML = html;
 }
