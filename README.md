@@ -77,8 +77,20 @@ check formatting and run (contrived, non-comprehensive tests).
 Run `./biome/fix` to auto-format and `./test/run` to run the tests
 without a `git commit`.
 
-## Authorship / Licensing
+## Authorship
 
-Although I've reviewed all the code in the repo, much of it was
-written by LLMs, so I make no claims of authorship/ownership. Do as
-you like with this, other than asserting your own authorship over it.
+The initial code for this repo was output by [Shelley](https://github.com/boldsoftware/shelley/) operating
+`claude-opus-4.5`. After an initial flurry of seeming success, it
+emerged that every bug-fix introduced more bugs. I ended up manually
+reviewing the whole thing and making significant changes (both to
+high-level layout & fixing numerous bugs / WTFs). At this point
+changes to the codebase are a mix of manual and LLM outputs.
+
+I've reviewed all the code and am confident asserting it is benign,
+though not optimal or bug-free.
+
+## Licensing
+
+Much of this codebase was emitted by LLMs, so I make no claims of
+ownership. Do as you like with this, other than asserting your own
+ownership over it.
