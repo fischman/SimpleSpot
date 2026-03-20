@@ -15,11 +15,12 @@ function assert(condition, message) {
   modal.innerHTML = `
     <div class="modal" style="max-width:500px">
       <h2>Assertion failed!</h2>
-      <p style="color:#b3b3b3;margin:16px 0"><pre>${message}</pre></p>
+      <p style="color:#b3b3b3;margin:16px 0"><pre id="assert-message"></pre></p>
       <button onclick="this.closest('.modal-overlay').remove()">Close</button>
     </div>
   `;
   document.body.appendChild(modal);
+  document.getElementById("assert-message").textContent = message;
   throw new Error(message);
 }
 
@@ -28,12 +29,14 @@ function alert(heading, message) {
   modal.className = "modal-overlay";
   modal.innerHTML = `
     <div class="modal" style="max-width:500px">
-      <h2>${heading}</h2>
-      <p style="color:#b3b3b3;margin:16px 0"><pre>${message}</pre></p>
+      <h2 id="alert-heading"></h2>
+      <p style="color:#b3b3b3;margin:16px 0"><pre id="alert-message"></pre></p>
       <button onclick="this.closest('.modal-overlay').remove()">Close</button>
     </div>
   `;
   document.body.appendChild(modal);
+  document.getElementById("alert-heading").textContent = heading;
+  document.getElementById("alert-message").textContent = message;
 }
 
 function setClientChoice(choice) {
@@ -1326,17 +1329,18 @@ function renderLyrics() {
   }
 
   const track = currentState?.track_window?.current_track;
-  const title = track ? `<i>${track.name}</i> - ${track.artists.map((a) => a.name).join(", ")} - <i>${track.album.name}</i>` : "";
+  const title = track ? `<i>${escapeHtml(track.name)}</i> - ${track.artists.map((a) => escapeHtml(a.name)).join(", ")} - <i>${escapeHtml(track.album.name)}</i>` : "";
 
   const lineClass = lyricsSynced ? "lyric-line" : "lyric-line plain";
   lyricsView.innerHTML =
     `<div class="lyrics-title-wrap"><div class="lyrics-title">${title}</div></div><div class="lyrics-lines">` +
     currentLyrics
-      .map((line, _i) =>
-        lyricsSynced
+      .map((line, _i) => {
+        line.words = escapeHtml(line.words);
+        return lyricsSynced
           ? `<div class="${lineClass}" data-time="${line.time}" onclick="seekToLyric(${line.time})">${line.words || "♪"}</div>`
-          : `<div class="${lineClass}">${line.words || ""}</div>`,
-      )
+          : `<div class="${lineClass}">${line.words || ""}</div>`;
+      })
       .join("") +
     "</div>";
 
