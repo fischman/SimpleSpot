@@ -521,6 +521,7 @@ function initPlayer() {
       }
       cb(getAuth("access_token"));
     },
+    volume: (localStorage.getItem("volume") || 100) / 100,
   });
 
   player.addListener("ready", async ({ device_id }) => {
@@ -1967,6 +1968,20 @@ function setBreadcrumb(items) {
 // Init.
 (async () => {
   assert("mediaSession" in navigator, "navigator.mediaSession missing!");
+
+  const slider = document.getElementById("volume-slider");
+  const saved = localStorage.getItem("volume");
+  if (saved) {
+    slider.value = saved;
+    slider.title = `Volume: ${saved}%`;
+  }
+  slider.addEventListener("input", () => {
+    slider.title = `Volume: ${slider.value}%`;
+  });
+  slider.addEventListener("change", () => {
+    localStorage.setItem("volume", slider.value);
+    player?.setVolume(slider.value / 100);
+  });
 
   document.getElementById("ncspot-note").textContent = location.hostname === "127.0.0.1" ? "" : "(more complex login flow)";
 
