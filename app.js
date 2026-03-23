@@ -134,7 +134,7 @@ function navigate(route, params = {}, replace = false) {
   tracksEl.classList.remove("sectioned", "grid-view");
   localStorage.setItem("last_view", params.id ? `${route}:${params.id}` : route);
   const state = { route, params };
-  if (!isNavigatingBack) {
+  if (!isNavigatingBack && JSON.stringify(history.state) !== JSON.stringify(state)) {
     if (replace) {
       history.replaceState(state, "", location.pathname);
     } else {
