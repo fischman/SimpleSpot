@@ -239,6 +239,53 @@
       </div>
     </div>
   </div>
+
+  <template id="template-alert">
+    <div class="modal-overlay">
+      <div class="modal" style="max-width:500px">
+        <h2 id="alert-heading"></h2>
+        <p style="color:#b3b3b3;margin:16px 0"><pre id="alert-message"></pre></p>
+        <button type="button" onclick="this.closest('.modal-overlay').remove()">Close</button>
+      </div>
+    </div>
+  </template>
+
+  <template id="template-help">
+    <div class="modal-overlay" id="help-modal" onclick="if (event.target === this) this.remove()">
+      <div class="modal" >
+        <h2 style="color:#fff">About <span style="color:#1db954">SimpleSpot</span></h2>
+        <p>
+          A lightweight Spotify client. Almost all the functionality,
+          with almost none of the bloat; minimal CPU usage while
+          playing, near-zero while idle.
+        </p>
+        <p style="padding-bottom:1em"></p>
+        <p>
+          Uses
+          Spotify's <a href="https://developer.spotify.com/documentation/web-api" target="_blank" style="color:#1db954">Web</a>
+          and <a href="https://developer.spotify.com/documentation/web-playback-sdk" target="_blank" style="color:#1db954">Web Playback</a>,
+          and <a href="https://lrclib.net/docs" target="_blank" style="color:#1db954">LRCLIB</a>'s
+          APIs. Requires a <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded) subscription." target="_blank" style="color:#1db954">Spotify Premium</a>.
+        </p>
+        <hr style="border:none;border-top:1px solid #444;margin:16px 0">
+        <h3 style="margin:0 0 8px;font-size:14px;color:#b3b3b3">Keyboard Shortcuts</h3>
+        <table id="help-shortcuts"></table>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
+          <button type="button" onclick="this.closest('.modal-overlay').remove()" style="margin-top:0">Close</button>
+          <a href="https://github.com/fischman/SimpleSpot" target="_blank" rel="noopener" title="GitHub" style="color:#666;text-decoration:none;line-height:0;transition:color .15s" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#666'" onclick="event.stopPropagation()">
+            <svg width="33" height="33" viewBox="0 0 16 16" fill="currentColor"><title>GitHub logo</title><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </template>
+  <template id="template-help-shortcut-row">
+    <tr>
+      <td class="help-shortcut-key" style="color:#fff;font-weight:bold;padding:4px 2em 4px 0"></td>
+      <td class="help-shortcut-action" style="color:#b3b3b3;padding:4px 0"></td>
+    </tr>
+  </template>
+
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script src="app.js"></script>
 </body>
