@@ -621,8 +621,10 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 };
 
 function showLoading() {
-  const el = document.getElementById("tracks");
-  el.innerHTML = '<li class="empty-state loading-timer">Loading...</li>';
+  const li = document.createElement("li");
+  li.class = "empty-state loading-timer";
+  li.textContent = "Loading...";
+  document.getElementById("tracks").replaceChildren(li);
 }
 
 // Centralised player-UI updater. Pass an info object to show track details,
