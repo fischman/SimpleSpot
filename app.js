@@ -592,20 +592,8 @@ function initPlayer() {
     // can't grant autoplay permission), but playback works fine via the Web
     // API transfer in resumePlaybackIfNeeded(). Suppress the overlay.
     if (window.location.protocol === "file:") return;
-    const settingsUrl = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay";
-    overlay.onclick = (e) => {
-      if (e.target === overlay) overlay.remove();
-    };
-    overlay.innerHTML = `
-      <div class="modal" style="max-width:500px">
-        <h2 style="color:#fff">Autoplay <span style="color:#1db954">Blocked</span></h2>
-        <p>Please "allow" (not just "Automatic (default)" Sound in your browser site settings to enable autoplay:</p>
-        <p style="user-select:all;font-family:monospace;background:#333;padding:8px;border-radius:4px;word-break:break-all">${settingsUrl}</p>
-        <button onclick="this.closest('.modal-overlay').remove()">OK</button>
-      </div>
-    `;
+    const overlay = document.getElementById("template-autoplay-failed").content.firstElementChild.cloneNode(true);
+    overlay.querySelector("#autoplay-settings-url").textContent = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
     document.body.appendChild(overlay);
   });
 

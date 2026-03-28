@@ -305,6 +305,17 @@
     </div>
   </template>
 
+  <template id="template-autoplay-failed">
+    <div class="modal-overlay" onclick="if (event.target === this) this.remove()">
+      <div class="modal" style="max-width:500px">
+        <h2 style="color:#fff">Autoplay <span style="color:#1db954">Blocked</span></h2>
+        <p>Please select &quot;Allow&quot; (not just &quot;Automatic (default)&quot;) for Sound in your browser site settings to enable autoplay:</p>
+        <p id="autoplay-settings-url" style="user-select:all;font-family:monospace;background:#333;padding:8px;border-radius:4px;word-break:break-all"></p>
+        <button type="button" onclick="this.closest('.modal-overlay').remove()">OK</button>
+      </div>
+    </div>
+  </template>
+
 
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script src="app.js"></script>
