@@ -217,26 +217,9 @@ async function loginWith(clientChoice) {
 }
 
 function showNcspotLoginModal(authUrl) {
-  const modal = document.createElement("div");
-  modal.className = "modal-overlay";
-  modal.id = "ncspot-modal";
-  modal.innerHTML = `
-    <div class="modal" style="max-width:500px">
-      <h2>Login with Spotify (ncspot)</h2>
-      <p style="color:#b3b3b3;margin:16px 0">After authorizing, you'll be redirected to a page that won't load. Copy the URL from the popup's address bar and paste it below:</p>
-      <button onclick="window.open('${authUrl}', 'spotify-auth', 'width=500,height=700')" style="width:100%;margin-bottom:16px">
-        Open Spotify Auth
-      </button>
-      <input type="text" id="ncspot-url" placeholder="Paste the redirect URL here (http://127.0.0.1/login?code=...)"
-        style="width:100%;padding:10px;border-radius:4px;border:1px solid #444;background:#181818;color:#fff;margin-bottom:16px"
-        oninput="const b=document.getElementById('ncspot-continue'),v=!!this.value.trim();b.disabled=!v;b.style.opacity=v?1:0.5;b.style.background=v?'#1db954':'#333'" />
-      <div style="display:flex;gap:8px">
-        <button onclick="this.closest('.modal-overlay').remove()" style="flex:1;background:#333">Cancel</button>
-        <button id="ncspot-continue" onclick="handleNcspotUrl()" style="flex:1;opacity:0.5;background:#333" disabled>Continue</button>
-      </div>
-    </div>
-  `;
+  const modal = document.getElementById("template-ncspot").content.firstElementChild.cloneNode(true);
   document.body.appendChild(modal);
+  document.getElementById("open-spotify-auth").onclick = () => window.open(authUrl, "spotify-auth", "width=500,height=700");
 }
 
 async function handleNcspotUrl() {
