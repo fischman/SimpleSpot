@@ -1895,14 +1895,14 @@ async function loadExplore() {
 async function loadPlaylist(id) {
   navigate("playlist", { id });
 
-  setBreadcrumb([{ name: "Playlists", action: "loadPlaylists()" }, { name: "Loading..." }]);
+  setBreadcrumb([{ name: "Playlists", action: loadPlaylists }, { name: "Loading..." }]);
 
   showLoading();
   const contextUri = `spotify:playlist:${id}`;
 
   const [_, allTracks] = await Promise.all([
     api(`/playlists/${id}`).then((d) => {
-      setBreadcrumb([{ name: "Playlists", action: "loadPlaylists()" }, { name: d.name || "Playlist" }]);
+      setBreadcrumb([{ name: "Playlists", action: loadPlaylists }, { name: d.name || "Playlist" }]);
     }),
     fetchAllPages(`/playlists/${id}/items?limit=50`, (data) => (data?.items || []).map((i) => i.item).filter(Boolean)),
   ]);
@@ -2125,7 +2125,7 @@ function setBreadcrumb(items) {
   for (const [i, item] of items.entries()) {
     const content = cloneTemplate(item.action ? "template-breadcrumb-link" : "template-breadcrumb-text");
     content.textContent = item.name;
-    if (item.action) content.setAttribute("onclick", item.action);
+    if (item.action) content.onclick = item.action;
     if (item.suffixTemplateId) {
       const suffix = cloneTemplate(item.suffixTemplateId);
       item.suffixSetup?.(suffix);

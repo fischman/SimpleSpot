@@ -249,10 +249,10 @@ test("setBreadcrumb renders text", () => {
 });
 
 test("setBreadcrumb with action renders link", () => {
-  setBreadcrumb([{ name: "Parent", action: "loadPlaylists()" }, { name: "Child" }]);
+  setBreadcrumb([{ name: "Parent", action: loadPlaylists }, { name: "Child" }]);
   const el = document.getElementById("breadcrumb");
   eq(el.querySelector("a").textContent, "Parent");
-  eq(el.querySelector("a").getAttribute("onclick"), "loadPlaylists()");
+  eq(el.querySelector("a").onclick, loadPlaylists);
   includes(el.textContent, "Child");
   includes(el.textContent, " \u203a "); // separator
 });
