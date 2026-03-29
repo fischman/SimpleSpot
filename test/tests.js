@@ -68,11 +68,17 @@ function renderResults(results) {
   const passed = results.filter((r) => r.passed).length;
   const failed = results.filter((r) => !r.passed).length;
   const total = results.length;
-
-  let html = `<div class="summary ${failed ? "fail" : "pass"}">`;
-  html += `${passed}/${total} passed`;
-  if (failed) html += `, <b>${failed} failed</b>`;
-  html += "</div>";
+  const children = [];
+  const summary = document.createElement("div");
+  summary.className = `summary ${failed ? "fail" : "pass"}`;
+  summary.textContent = `${passed}/${total} passed`;
+  if (failed) {
+    summary.append(`, `);
+    const bold = document.createElement("b");
+    bold.textContent = `${failed} failed`;
+    summary.appendChild(bold);
+  }
+  children.push(summary);
 
   // Group results.
   const groups = new Map();
@@ -82,15 +88,28 @@ function renderResults(results) {
   }
 
   for (const [groupName, tests] of groups) {
-    html += `<div class="group"><div class="group-name">${groupName}</div>`;
+    const group = document.createElement("div");
+    group.className = "group";
+    const name = document.createElement("div");
+    name.className = "group-name";
+    name.textContent = groupName;
+    group.appendChild(name);
     for (const t of tests) {
-      html += `<div class="test ${t.passed ? "pass" : "fail"}">${t.name}</div>`;
-      if (!t.passed) html += `<div class="error-detail">${t.error}</div>`;
+      const testEl = document.createElement("div");
+      testEl.className = `test ${t.passed ? "pass" : "fail"}`;
+      testEl.textContent = t.name;
+      group.appendChild(testEl);
+      if (!t.passed) {
+        const error = document.createElement("div");
+        error.className = "error-detail";
+        error.textContent = t.error;
+        group.appendChild(error);
+      }
     }
-    html += "</div>";
+    children.push(group);
   }
 
-  document.getElementById("results").innerHTML = html;
+  document.getElementById("results").replaceChildren(...children);
   // Also log summary for headless testing.
   console.log(`[tests] ${passed}/${total} passed, ${failed} failed`);
   if (failed) {
@@ -117,15 +136,6 @@ test("formatTime formats milliseconds", () => {
   eq(formatTime(125000), "2:05");
 });
 
-test("escapeHtml escapes special characters", () => {
-  eq(escapeHtml("<script>alert(1)</script>"), "&lt;script&gt;alert(1)&lt;/script&gt;");
-  eq(escapeHtml("AT&T"), "AT&amp;T");
-  eq(escapeHtml('"quoted"'), "&quot;quoted&quot;");
-  eq(escapeHtml(null), "");
-  eq(escapeHtml(undefined), "");
-  eq(escapeHtml(""), "");
-});
-
 test("stripHtml removes HTML tags", () => {
   eq(stripHtml("<b>bold</b>"), "bold");
   eq(stripHtml("no tags"), "no tags");
@@ -138,28 +148,6 @@ test("shareLink generates correct HTML", () => {
   includes(html, "My Track");
   includes(html, "event.preventDefault()");
   includes(html, "playTrack('uri')");
-});
-
-test("artistLinksHtml generates links for artists", () => {
-  const html = artistLinksHtml([
-    { id: "a1", name: "Artist One", uri: "spotify:artist:a1" },
-    { id: "a2", name: "Artist Two", uri: "spotify:artist:a2" },
-  ]);
-  includes(html, "Artist One");
-  includes(html, "Artist Two");
-  includes(html, "loadArtist");
-  includes(html, ", "); // comma separator
-});
-
-test("artistLinksHtml handles artist without id", () => {
-  const html = artistLinksHtml([{ name: "Unknown" }]);
-  eq(html, "Unknown");
-  notIncludes(html, "loadArtist");
-});
-
-test("artistLinksHtml handles empty/null", () => {
-  eq(artistLinksHtml([]), "");
-  eq(artistLinksHtml(null), "");
 });
 
 // --- Queue management ---
@@ -256,16 +244,17 @@ test("navigate clears other active buttons", () => {
 test("setBreadcrumb renders text", () => {
   setBreadcrumb([{ name: "Test Crumb" }]);
   const el = document.getElementById("breadcrumb");
-  includes(el.innerHTML, "Test Crumb");
+  includes(el.textContent, "Test Crumb");
   eq(el.style.display, "block");
 });
 
 test("setBreadcrumb with action renders link", () => {
   setBreadcrumb([{ name: "Parent", action: "loadPlaylists()" }, { name: "Child" }]);
   const el = document.getElementById("breadcrumb");
-  includes(el.innerHTML, '<a onclick="loadPlaylists()">Parent</a>');
-  includes(el.innerHTML, "Child");
-  includes(el.innerHTML, " \u203a "); // separator
+  eq(el.querySelector("a").textContent, "Parent");
+  eq(el.querySelector("a").getAttribute("onclick"), "loadPlaylists()");
+  includes(el.textContent, "Child");
+  includes(el.textContent, " \u203a "); // separator
 });
 
 test("setBreadcrumb empty hides element", () => {
@@ -287,78 +276,79 @@ test("trackMapper produces correct structure", () => {
   const mapper = trackMapper("spotify:album:xxx");
   const result = mapper(FIXTURES.track, 0, 1);
   eq(result.num, 1);
-  includes(result.nameHtml, "Bohemian Rhapsody");
-  includes(result.subtitle, "Queen");
-  ok(result.queueBtn, "should have queue button");
-  ok(result.radioType, "should have radio type");
+  eq(result.name.text, "Bohemian Rhapsody");
+  eq(result.subtitle.artists[0].name, "Queen");
+  eq(result.queueButton.text, "+");
+  eq(result.radio.type, "track");
 });
 
 test("trackMapper without context uses play", () => {
   const mapper = trackMapper(null);
   const result = mapper(FIXTURES.track, 0, 1);
-  includes(result.nameHtml, "play");
+  ok(result.playAction.onClick, "should have play action");
 });
 
 test("trackMapper with context uses playFromContext", () => {
   const mapper = trackMapper("spotify:album:xxx");
   const result = mapper(FIXTURES.track, 0, 1);
-  includes(result.nameHtml, "playFromContext");
+  ok(result.playAction.onClick, "should have context play action");
 });
 
 test("albumMapper produces correct structure", () => {
   const result = albumMapper(FIXTURES.album, 0, 1);
   eq(result.num, 1);
-  includes(result.nameHtml, "A Night at the Opera");
-  includes(result.subtitle, "Queen");
-  ok(result.liOnclick.includes("loadAlbum"));
+  eq(result.name.text, "A Night at the Opera");
+  eq(result.subtitle.artists[0].name, "Queen");
+  ok(result.liOnclick, "should have click handler");
 });
 
 test("playlistMapper produces correct structure", () => {
   const p = FIXTURES.playlists.items[0];
   const result = playlistMapper(p, 0, 1);
-  includes(result.nameHtml, p.name);
-  includes(result.subtitle, "tracks");
-  ok(result.liOnclick.includes("loadPlaylist"));
+  eq(result.name.text, p.name);
+  includes(result.subtitle.text, "tracks");
+  ok(result.liOnclick, "should have click handler");
 });
 
 test("artistMapper produces correct structure", () => {
   const result = artistMapper(FIXTURES.artist, 0, 1);
-  includes(result.nameHtml, "Queen");
+  eq(result.name.text, "Queen");
   // artistMapper uses genres for subtitle, not followers.
-  ok(result.subtitle.length > 0, "should have genre subtitle");
+  ok(result.subtitle.text.length > 0, "should have genre subtitle");
   ok(result.imgStyle.includes("border-radius"), "should have round image");
 });
 
 test("discographyAlbumMapper shows type and year", () => {
   const result = discographyAlbumMapper(FIXTURES.album, 0, 1);
-  includes(result.subtitle, "album");
-  includes(result.subtitle, "1975");
+  includes(result.subtitle.text, "album");
+  includes(result.subtitle.text, "1975");
 });
 
-test("renderItem generates valid HTML", () => {
+test("renderItem generates valid DOM", () => {
   const mapper = trackMapper(null);
-  const html = renderItem(mapper(FIXTURES.track, 0, 1));
-  includes(html, '<li class="track"');
-  includes(html, "Bohemian Rhapsody");
-  includes(html, "track-info");
-  includes(html, "track-art");
+  const el = renderItem(mapper(FIXTURES.track, 0, 1));
+  eq(el.tagName, "LI");
+  includes(el.textContent, "Bohemian Rhapsody");
+  ok(el.querySelector(".track-info"));
+  ok(el.querySelector(".track-art"));
 });
 
-test("renderItems maps and joins", () => {
+test("renderItems maps to nodes", () => {
   const tracks = [FIXTURES.track, FIXTURES.track2];
-  const html = renderItems(tracks, trackMapper(null));
-  includes(html, "Bohemian Rhapsody");
-  includes(html, "Don't Stop Me Now");
+  const els = renderItems(tracks, trackMapper(null));
+  eq(els.length, 2);
+  includes(els[0].textContent, "Bohemian Rhapsody");
+  includes(els[1].textContent, "Don't Stop Me Now");
 });
 
 test("queueTrackMapper includes drag handle", () => {
   const result = queueTrackMapper(FIXTURES.track, 0, 1);
-  ok(result.suffix?.includes("drag-handle"), "should have drag handle");
+  eq(result.suffix.templateId, "template-drag-handle");
 });
 
 test("queueTrackMapper includes remove button in queueBtn", () => {
   const result = queueTrackMapper(FIXTURES.track, 0, 1);
-  ok(result.queueBtn?.includes("removeFromQueue"), "should have remove button in queueBtn");
+  eq(result.queueButton.text, "\u2212");
 });
 
 // --- View rendering with mock API ---
@@ -368,28 +358,25 @@ group("Views");
 test("showQueue renders empty state", async () => {
   localQueue = [];
   await showQueue();
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Queue is empty");
+  includes(document.getElementById("tracks").textContent, "Queue is empty");
 });
 
 test("showQueue renders tracks", async () => {
   localQueue = [FIXTURES.track.uri, FIXTURES.track2.uri];
   mockTrackLookups([FIXTURES.track, FIXTURES.track2]);
   await showQueue();
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Bohemian Rhapsody");
-  includes(html, "Don't Stop Me Now");
-  includes(html, "Queue (2)");
+  const tracksEl = document.getElementById("tracks");
+  includes(tracksEl.textContent, "Bohemian Rhapsody");
+  includes(tracksEl.textContent, "Don't Stop Me Now");
+  eq(document.getElementById("queue-heading").textContent, "Queue (2)");
 });
 
 test("loadAlbum renders album tracks", async () => {
   mockApiRoute(/\/albums\/1GbtB4zTqAsyfZEsm1RZfx/, FIXTURES.album);
   await loadAlbum("1GbtB4zTqAsyfZEsm1RZfx");
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Bohemian Rhapsody");
+  includes(document.getElementById("tracks").textContent, "Bohemian Rhapsody");
   // Check breadcrumb.
-  const bc = document.getElementById("breadcrumb").innerHTML;
-  includes(bc, "A Night at the Opera");
+  includes(document.getElementById("breadcrumb").textContent, "A Night at the Opera");
 });
 
 test("loadArtist renders artist page", async () => {
@@ -397,20 +384,18 @@ test("loadArtist renders artist page", async () => {
   mockApiRoute(/\/artists\/1dfeR4HaWDbWqFHLkxsg1d\/top-tracks/, FIXTURES.artistTopTracks);
   mockApiRoute(/\/artists\/1dfeR4HaWDbWqFHLkxsg1d\/albums/, FIXTURES.artistAlbums);
   await loadArtist("1dfeR4HaWDbWqFHLkxsg1d");
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Queen");
-  const bc = document.getElementById("breadcrumb").innerHTML;
-  includes(bc, "Queen");
+  includes(document.getElementById("tracks").textContent, "Queen");
+  includes(document.getElementById("breadcrumb").textContent, "Queen");
 });
 
 test("search renders results", async () => {
   mockApiRoute(/\/search/, FIXTURES.searchResults);
   await search("queen");
-  const html = document.getElementById("tracks").innerHTML;
+  const text = document.getElementById("tracks").textContent;
   // Should have section headers.
-  includes(html, "Tracks");
-  includes(html, "Artists");
-  includes(html, "Bohemian Rhapsody");
+  includes(text, "Tracks");
+  includes(text, "Artists");
+  includes(text, "Bohemian Rhapsody");
 });
 
 test("loadPlaylist renders playlist tracks", async () => {
@@ -421,10 +406,8 @@ test("loadPlaylist renders playlist tracks", async () => {
   });
   mockApiRoute(/\/playlists\/37i9dQZF1DXcBWIGoYBM5M/, FIXTURES.playlist);
   await loadPlaylist("37i9dQZF1DXcBWIGoYBM5M");
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Bohemian Rhapsody");
-  const bc = document.getElementById("breadcrumb").innerHTML;
-  includes(bc, "Today's Top Hits");
+  includes(document.getElementById("tracks").textContent, "Bohemian Rhapsody");
+  includes(document.getElementById("breadcrumb").textContent, "Today's Top Hits");
 });
 
 // --- Paginated views ---
@@ -434,36 +417,31 @@ group("Paginated views");
 test("loadPlaylists fetches and renders", async () => {
   mockApiRoute(/\/me\/playlists/, FIXTURES.playlists);
   await loadPlaylists();
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, FIXTURES.playlists.items[0].name);
+  includes(document.getElementById("tracks").textContent, FIXTURES.playlists.items[0].name);
 });
 
 test("loadSavedAlbums fetches and renders", async () => {
   mockApiRoute(/\/me\/albums/, FIXTURES.savedAlbums);
   await loadSavedAlbums();
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "A Night at the Opera");
+  includes(document.getElementById("tracks").textContent, "A Night at the Opera");
 });
 
 test("loadLikedSongs fetches and renders", async () => {
   mockApiRoute(/\/me\/tracks/, FIXTURES.likedSongs);
   await loadLikedSongs();
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Bohemian Rhapsody");
+  includes(document.getElementById("tracks").textContent, "Bohemian Rhapsody");
 });
 
 test("loadTopArtists fetches and renders", async () => {
   mockApiRoute(/\/me\/top\/artists/, FIXTURES.topArtists);
   await loadTopArtists();
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Queen");
+  includes(document.getElementById("tracks").textContent, "Queen");
 });
 
 test("loadTopTracks fetches and renders", async () => {
   mockApiRoute(/\/me\/top\/tracks/, FIXTURES.topTracks);
   await loadTopTracks();
-  const html = document.getElementById("tracks").innerHTML;
-  includes(html, "Bohemian Rhapsody");
+  includes(document.getElementById("tracks").textContent, "Bohemian Rhapsody");
 });
 
 // --- Loop behavior ---
@@ -617,9 +595,9 @@ test("fetchAndShowLyrics renders synced lyrics", async () => {
   document.getElementById("player-track").textContent = "Bohemian Rhapsody";
   document.getElementById("player-artist").textContent = "Queen";
   await fetchAndShowLyrics();
-  const html = document.getElementById("lyrics-view").innerHTML;
-  includes(html, "Test lyric line 1");
-  includes(html, "lyric-line");
+  const lyrics = document.getElementById("lyrics-view");
+  includes(lyrics.textContent, "Test lyric line 1");
+  ok(lyrics.querySelector(".lyric-line"));
 });
 
 // --- API mock verification ---

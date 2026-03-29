@@ -516,7 +516,7 @@ function initPlayer() {
     updatePlayerUI({
       trackName: track.name,
       trackUri: track.uri,
-      artistHtml: artistLinksHtml(track.artists),
+      artists: track.artists,
       artUrl: track.album.images[0]?.url,
       position: state.position,
       duration: state.duration,
@@ -626,7 +626,7 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 
 function showLoading() {
   const li = document.createElement("li");
-  li.class = "empty-state loading-timer";
+  li.className = "empty-state loading-timer";
   li.textContent = "Loading...";
   document.getElementById("tracks").replaceChildren(li);
 }
@@ -634,10 +634,12 @@ function showLoading() {
 // Centralised player-UI updater. Pass an info object to show track details,
 // or null to clear the player to its empty state.
 function updatePlayerUI(info) {
+  const trackEl = document.getElementById("player-track");
+  const artistEl = document.getElementById("player-artist");
   if (info) {
     const trackId = info.trackUri?.split(":")[2];
-    document.getElementById("player-track").innerHTML = trackId ? shareLink("track", trackId, escapeHtml(info.trackName), "player.seek(0)") : escapeHtml(info.trackName);
-    document.getElementById("player-artist").innerHTML = info.artistHtml;
+    trackEl.replaceChildren(trackId ? createShareLinkElement("track", trackId, info.trackName, () => player.seek(0)) : document.createTextNode(info.trackName));
+    artistEl.replaceChildren(...createArtistChildren(info));
     const art = document.getElementById("player-art");
     art.src = info.artUrl;
     art.style.display = info.artUrl ? "block" : "none";
@@ -645,8 +647,8 @@ function updatePlayerUI(info) {
     document.getElementById("progress-current").textContent = formatTime(info.position);
     document.getElementById("progress-total").textContent = formatTime(info.duration);
   } else {
-    document.getElementById("player-track").textContent = "Not playing";
-    document.getElementById("player-artist").innerHTML = "";
+    trackEl.textContent = "Not playing";
+    artistEl.replaceChildren();
     const art = document.getElementById("player-art");
     art.src = "";
     art.style.display = "none";
@@ -660,17 +662,6 @@ function updatePlayerUI(info) {
 function formatTime(ms) {
   const s = Math.floor(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-}
-
-function escapeHtml(s) {
-  // Note that a more sophisticated approach would create a DOM
-  // element and extract its innerHtml, but that seems like a much
-  // more complex thing than needed. Our inputs are always short
-  // strings and the DOM approach is only a performance win when the
-  // inputs are large (>1KB, definitely, maybe a lot larger than
-  // that).
-  if (!s) return "";
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function stripHtml(s) {
@@ -825,49 +816,216 @@ async function search(q) {
   renderSearchResults(results);
 }
 
+function setOptionalTitle(el, title) {
+  if (title) {
+    el.title = title;
+  } else {
+    el.removeAttribute("title");
+  }
+}
+
+function createShareLinkElement(type, id, text, onClick) {
+  const link = cloneTemplate("template-share-link");
+  link.href = `https://open.spotify.com/${type}/${id}`;
+  link.textContent = text;
+  link.onclick = (event) => {
+    event.preventDefault();
+    onClick?.(event);
+  };
+  return link;
+}
+
+function createArtistLinksFragment(artists, onArtistClick = (id) => loadArtist(id), { stopPropagation = false } = {}) {
+  const children = [];
+  for (const [i, artist] of (artists || []).entries()) {
+    if (i > 0) children.push(document.createTextNode(", "));
+    const id = artist.id || artist.uri?.split(":")[2] || "";
+    if (!id) {
+      children.push(document.createTextNode(artist.name || ""));
+      continue;
+    }
+    const wrapper = cloneTemplate("template-artist-link");
+    wrapper.appendChild(
+      createShareLinkElement("artist", id, artist.name, (event) => {
+        if (stopPropagation) event.stopPropagation();
+        onArtistClick(id);
+      }),
+    );
+    children.push(wrapper);
+  }
+  return children;
+}
+
+function createArtistChildren(info) {
+  if (info.artistText) {
+    return [document.createTextNode(info.artistText)];
+  }
+  return createArtistLinksFragment(info.artists, (id) => loadArtist(id), { stopPropagation: true });
+}
+
+function createQueueButtonElement({ text, title, onClick, disabled = false, unavailable = false }) {
+  const button = cloneTemplate("template-queue-button");
+  button.textContent = text;
+  button.title = title;
+  button.disabled = disabled;
+  if (unavailable) button.classList.add("unavailable");
+  button.onclick = (event) => {
+    event.stopPropagation();
+    onClick?.(event);
+  };
+  return button;
+}
+
+function createRadioButtonElement(type, id) {
+  if (areDeprecatedFeaturesUnavailable()) {
+    const button = cloneTemplate("template-radio-button");
+    button.classList.add("unavailable");
+    button.title = "Start radio - Unavailable";
+    button.disabled = true;
+    return button;
+  }
+  const button = cloneTemplate("template-radio-button");
+  button.title = "Start radio";
+  button.onclick = (event) => {
+    event.stopPropagation();
+    startRadio(type, id);
+  };
+  return button;
+}
+
+function createResultsHeading(text) {
+  const heading = cloneTemplate("template-results-heading");
+  heading.textContent = text;
+  return heading;
+}
+
+function createSectionHeader(text) {
+  const heading = cloneTemplate("template-section-header");
+  heading.textContent = text;
+  return heading;
+}
+
+function createPlaylistSection(playlists, startNum = 1) {
+  const section = cloneTemplate("template-playlist-section");
+  section.append(...renderPlaylistSection(playlists, startNum));
+  return section;
+}
+
+function createEmptyState(message) {
+  const el = cloneTemplate("template-empty-state");
+  el.textContent = message;
+  return el;
+}
+
+function createTrackAlbumElement({ text, title, onClick, type = "div", id = "", shareType, shareId }) {
+  const el = cloneTemplate("template-track-album");
+  setOptionalTitle(el, title);
+  if (type === "link") {
+    el.appendChild(createShareLinkElement(shareType, shareId, text, onClick));
+  } else {
+    el.textContent = text;
+    if (onClick) el.onclick = onClick;
+  }
+  if (id) el.id = id;
+  return el;
+}
+
+function createAlbumDetailElement(data, contextUri) {
+  const detail = cloneTemplate("template-album-detail");
+  const art = detail.querySelector(".album-detail-art");
+  art.title = "Play instead of queue (shift: keep queue)";
+  art.onclick = (event) => playContext(contextUri, !event.shiftKey);
+  const image = detail.querySelector(".detail-art");
+  image.src = data.images?.[1]?.url || "";
+  image.alt = data.name || "";
+  const title = detail.querySelector(".detail-title");
+  title.appendChild(
+    createShareLinkElement("album", data.id, data.name, (event) => {
+      event.stopPropagation();
+      loadAlbum(data.id);
+    }),
+  );
+  detail.querySelector(".album-detail-artists").append(...createArtistLinksFragment(data.artists, (id) => loadArtist(id), { stopPropagation: true }));
+  detail.querySelector(".album-detail-summary").textContent = `${data.release_date?.slice(0, 4)} • ${data.total_tracks} tracks`;
+  return detail;
+}
+
+function createArtistHeroElement(artist) {
+  const hero = cloneTemplate("template-artist-hero");
+  const image = hero.querySelector(".artist-avatar");
+  image.src = artist.images?.[1]?.url || "";
+  image.alt = artist.name || "";
+  hero.querySelector(".artist-name").appendChild(createShareLinkElement("artist", artist.id, artist.name));
+  return hero;
+}
+
 // Unified list item renderer. Each caller provides a mapper that returns a
-// descriptor; renderItem turns it into <li> HTML.
+// descriptor; renderItem turns it into a <li>.
 function renderItem(d) {
-  const overlay = d.playAction ? '<div class="play-overlay"></div>' : "";
-  const artClick = d.playAction ? `onclick="event.stopPropagation(); ${d.playAction}" title="${d.playTitle || ""}"` : "";
-  const imgStyle = d.imgStyle ? ` style="${d.imgStyle}"` : "";
-  const liClick = d.liOnclick ? ` onclick="${d.liOnclick}"` : "";
-  const liClass = d.liClass ? `track ${d.liClass}` : "track";
-  return `
-    <li class="${liClass}"${d.liAttr || ""}${liClick}>
-      <div class="track-num-col">
-        <span class="track-num">${d.num}</span>
-        ${d.queueBtn || ""}
-        ${d.radioType ? radioBtn(d.radioType, d.radioId) : ""}
-      </div>
-      <div class="track-art" ${artClick}>
-        <img src="${d.imgSrc || ""}"${imgStyle} />
-        ${overlay}
-      </div>
-      <div class="track-info">
-        <div class="track-name" title="${d.nameTitle || ""}">${d.nameHtml}</div>
-        <div class="track-artist"${d.subtitleTitle ? ` title="${d.subtitleTitle}"` : ""}>${d.subtitle || ""}</div>
-        ${d.extraLines || ""}
-      </div>
-      ${d.suffix || ""}
-    </li>`;
+  const li = cloneTemplate("template-track-item");
+  if (d.liClass) li.classList.add(...d.liClass.split(" "));
+  if (d.liOnclick) li.onclick = d.liOnclick;
+  if (d.draggable) {
+    li.draggable = true;
+    li.ondragstart = onQueueDragStart;
+    li.ondragend = onQueueDragEnd;
+    li.ondragover = onQueueDragOver;
+    li.ondragleave = onQueueDragLeave;
+    li.ondrop = onQueueDrop;
+  }
+
+  li.querySelector(".track-num").textContent = d.num;
+  const numCol = li.querySelector(".track-num-col");
+  if (d.queueButton) numCol.appendChild(createQueueButtonElement(d.queueButton));
+  if (d.radio) numCol.appendChild(createRadioButtonElement(d.radio.type, d.radio.id));
+
+  const art = li.querySelector(".track-art");
+  const image = art.querySelector("img");
+  image.src = d.imgSrc || "";
+  image.alt = d.name?.text || "";
+  if (d.imgStyle) image.style.cssText = d.imgStyle;
+  if (d.playAction) {
+    art.title = d.playAction.title || "";
+    art.onclick = (event) => {
+      event.stopPropagation();
+      d.playAction.onClick(event);
+    };
+  } else {
+    art.querySelector(".play-overlay").remove();
+  }
+
+  const nameEl = li.querySelector(".track-name");
+  setOptionalTitle(nameEl, d.name?.title);
+  if (d.name?.link) {
+    nameEl.appendChild(createShareLinkElement(d.name.link.type, d.name.link.id, d.name.text, d.name.link.onClick));
+  } else {
+    nameEl.textContent = d.name?.text || "";
+  }
+
+  const subtitleEl = li.querySelector(".track-artist");
+  setOptionalTitle(subtitleEl, d.subtitle?.title);
+  if (d.subtitle?.artists) {
+    subtitleEl.append(...createArtistLinksFragment(d.subtitle.artists, (id) => loadArtist(id), { stopPropagation: true }));
+  } else {
+    subtitleEl.textContent = d.subtitle?.text || "";
+  }
+
+  if (d.extraLines?.length) {
+    for (const extra of d.extraLines) {
+      li.querySelector(".track-info").appendChild(createTrackAlbumElement(extra));
+    }
+  }
+
+  if (d.suffix) li.appendChild(cloneTemplate(d.suffix.templateId));
+
+  return li;
 }
 
 function renderItems(items, mapFn, startNum = 1) {
-  return items.map((item, i) => renderItem(mapFn(item, i, startNum + i))).join("");
+  return items.map((item, i) => renderItem(mapFn(item, i, startNum + i)));
 }
 
 // --- Shared mapper helpers ---
-
-function artistLinksHtml(artists) {
-  return (artists || [])
-    .map((a) => {
-      const id = a.id || a.uri?.split(":")[2] || "";
-      if (!id) return escapeHtml(a.name);
-      return `<span class="artist-link">${shareLink("artist", id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${id}')`)}</span>`;
-    })
-    .join(", ");
-}
 
 function queueAddBtn(onclick) {
   return `<button class="queue-btn" onclick="event.stopPropagation(); ${onclick}" title="Add to queue (Shift: play next)">+</button>`;
@@ -884,12 +1042,10 @@ function baseTrackFields(t) {
   const trackId = t.uri?.split(":")[2] || t.id;
   return {
     trackId,
-    radioType: "track",
-    radioId: trackId,
+    radio: { type: "track", id: trackId },
     imgSrc: t.album?.images?.[2]?.url || "",
-    nameTitle: escapeHtml(t.name),
-    subtitle: artistLinksHtml(t.artists),
-    subtitleTitle: escapeHtml(t.artists?.map((a) => a.name).join(", ") || ""),
+    name: { text: t.name, title: t.name },
+    subtitle: { artists: t.artists, title: t.artists?.map((a) => a.name).join(", ") || "" },
   };
 }
 
@@ -897,17 +1053,45 @@ function trackMapper(contextUri, contextOffset = 0) {
   return (t, i, num) => {
     const base = baseTrackFields(t);
     const albumId = t.album?.id || t.album?.uri?.split(":")[2] || "";
-    const playAction = contextUri ? `playFromContext('${contextUri}', ${contextOffset + i}, event.shiftKey)` : `play('${t.uri}')`;
+    const playAction = {
+      onClick: (event) => (contextUri ? playFromContext(contextUri, contextOffset + i, event.shiftKey) : play(t.uri)),
+      title: contextUri ? "Play now (shift: drop rest of queue)" : "",
+    };
     return {
       ...base,
       num,
-      queueBtn: queueAddBtn(`addToQueue(['${t.uri}'], event.shiftKey)`),
+      queueButton: {
+        text: "+",
+        title: "Add to queue (Shift: play next)",
+        onClick: (event) => addToQueue([t.uri], event.shiftKey),
+      },
       playAction,
-      playTitle: contextUri ? "Play now (shift: drop rest of queue)" : undefined,
-      nameHtml: shareLink("track", base.trackId, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`),
+      name: {
+        ...base.name,
+        link: {
+          type: "track",
+          id: base.trackId,
+          onClick: (event) => {
+            event.stopPropagation();
+            playAction.onClick(event);
+          },
+        },
+      },
       extraLines: t.album
-        ? `<div class="track-album" title="${escapeHtml(t.album.name)}">${shareLink("album", albumId, escapeHtml(t.album.name), `event.stopPropagation(); loadAlbum('${albumId}')`)}</div>`
-        : "",
+        ? [
+            {
+              type: "link",
+              text: t.album.name,
+              title: t.album.name,
+              shareType: "album",
+              shareId: albumId,
+              onClick: (event) => {
+                event.stopPropagation();
+                loadAlbum(albumId);
+              },
+            },
+          ]
+        : [],
     };
   };
 }
@@ -915,63 +1099,99 @@ function trackMapper(contextUri, contextOffset = 0) {
 function albumMapper(a, _i, num) {
   return {
     num,
-    queueBtn: queueAddBtn(`addAlbumToQueue('${a.id}', event.shiftKey)`),
-    radioType: "album",
-    radioId: a.id,
+    queueButton: {
+      text: "+",
+      title: "Add to queue (Shift: play next)",
+      onClick: (event) => addAlbumToQueue(a.id, event.shiftKey),
+    },
+    radio: { type: "album", id: a.id },
     imgSrc: a.images?.[2]?.url || "",
-    playAction: `playContext('${a.uri}', !event.shiftKey)`,
-    playTitle: "Play instead of queue (shift: keep queue)",
-    nameHtml: shareLink("album", a.id, escapeHtml(a.name), `event.stopPropagation(); loadAlbum('${a.id}')`),
-    nameTitle: escapeHtml(a.name),
-    subtitle: artistLinksHtml(a.artists),
-    subtitleTitle: escapeHtml(a.artists?.map((x) => x.name).join(", ") || ""),
-    liOnclick: `loadAlbum('${a.id}')`,
+    playAction: {
+      onClick: (event) => playContext(a.uri, !event.shiftKey),
+      title: "Play instead of queue (shift: keep queue)",
+    },
+    name: {
+      text: a.name,
+      title: a.name,
+      link: {
+        type: "album",
+        id: a.id,
+        onClick: (event) => {
+          event.stopPropagation();
+          loadAlbum(a.id);
+        },
+      },
+    },
+    subtitle: { artists: a.artists, title: a.artists?.map((x) => x.name).join(", ") || "" },
+    liOnclick: () => loadAlbum(a.id),
   };
 }
 
 function discographyAlbumMapper(a, i, num) {
   return {
     ...albumMapper(a, i, num),
-    subtitle: `${a.album_type} \u2022 ${a.release_date?.slice(0, 4)}`,
-    subtitleTitle: undefined,
+    subtitle: { text: `${a.album_type} \u2022 ${a.release_date?.slice(0, 4)}` },
   };
 }
 
 function playlistMapper(p, _i, num) {
   return {
     num,
-    queueBtn: queueAddBtn(`addPlaylistToQueue('${p.id}', event.shiftKey)`),
-    radioType: "playlist",
-    radioId: p.id,
+    queueButton: {
+      text: "+",
+      title: "Add to queue (Shift: play next)",
+      onClick: (event) => addPlaylistToQueue(p.id, event.shiftKey),
+    },
+    radio: { type: "playlist", id: p.id },
     imgSrc: p.images?.[0]?.url || "",
-    playAction: `playContext('spotify:playlist:${p.id}', !event.shiftKey)`,
-    playTitle: "Play instead of queue (shift: keep queue)",
-    nameHtml: shareLink("playlist", p.id, escapeHtml(p.name), `event.stopPropagation(); ${playlistOnclick(p)}`),
-    nameTitle: escapeHtml(p.name),
-    subtitle: `${(p.items ?? p.tracks).total} tracks`,
-    liOnclick: playlistOnclick(p),
+    playAction: {
+      onClick: (event) => playContext(`spotify:playlist:${p.id}`, !event.shiftKey),
+      title: "Play instead of queue (shift: keep queue)",
+    },
+    name: {
+      text: p.name,
+      title: p.name,
+      link: {
+        type: "playlist",
+        id: p.id,
+        onClick: (event) => {
+          event.stopPropagation();
+          loadPlaylist(p.id);
+        },
+      },
+    },
+    subtitle: { text: `${(p.items ?? p.tracks).total} tracks` },
+    liOnclick: () => loadPlaylist(p.id),
   };
 }
 
 function playlistSectionMapper(p, i, num) {
   return {
     ...playlistMapper(p, i, num),
-    subtitle: stripHtml(p.description || ""),
+    subtitle: { text: stripHtml(p.description || "") },
   };
 }
 
 function artistMapper(a, _i, num) {
   return {
     num,
-    radioType: "artist",
-    radioId: a.id,
+    radio: { type: "artist", id: a.id },
     imgSrc: a.images?.[2]?.url || a.images?.[0]?.url || "",
     imgStyle: "border-radius:50%",
-    nameHtml: shareLink("artist", a.id, escapeHtml(a.name), `event.stopPropagation(); loadArtist('${a.id}')`),
-    nameTitle: escapeHtml(a.name),
-    subtitle: a.genres?.slice(0, 2).join(", ") || "",
-    subtitleTitle: a.genres?.slice(0, 2).join(", ") || "",
-    liOnclick: `loadArtist('${a.id}')`,
+    name: {
+      text: a.name,
+      title: a.name,
+      link: {
+        type: "artist",
+        id: a.id,
+        onClick: (event) => {
+          event.stopPropagation();
+          loadArtist(a.id);
+        },
+      },
+    },
+    subtitle: { text: a.genres?.slice(0, 2).join(", ") || "", title: a.genres?.slice(0, 2).join(", ") || "" },
+    liOnclick: () => loadArtist(a.id),
   };
 }
 
@@ -983,20 +1203,44 @@ function queueIndexOf(el) {
 }
 
 function queueTrackMapper(t) {
-  const playAction = "playFromLocalQueue(queueIndexOf(this))";
   return {
     ...baseTrackFields(t),
     num: "",
-    queueBtn: '<button class="queue-btn" onclick="event.stopPropagation(); removeFromQueue(queueIndexOf(this))" title="Remove from queue">\u2212</button>',
-    playAction,
-    nameHtml: shareLink("track", t.id, escapeHtml(t.name), `event.stopPropagation(); ${playAction}`),
+    queueButton: {
+      text: "\u2212",
+      title: "Remove from queue",
+      onClick: (event) => removeFromQueue(queueIndexOf(event.currentTarget)),
+    },
+    playAction: {
+      onClick: (event) => playFromLocalQueue(queueIndexOf(event.currentTarget)),
+    },
+    name: {
+      text: t.name,
+      title: t.name,
+      link: {
+        type: "track",
+        id: t.id,
+        onClick: (event) => {
+          event.stopPropagation();
+          playFromLocalQueue(queueIndexOf(event.currentTarget));
+        },
+      },
+    },
     extraLines: t.album
-      ? `<div class="track-album" title="${escapeHtml(t.album.name)}" onclick="event.stopPropagation(); loadAlbum('${t.album.id}')">${escapeHtml(t.album.name)}</div>`
-      : "",
+      ? [
+          {
+            text: t.album.name,
+            title: t.album.name,
+            onClick: (event) => {
+              event.stopPropagation();
+              loadAlbum(t.album.id);
+            },
+          },
+        ]
+      : [],
     liClass: "queue-item",
-    liAttr:
-      ' draggable="true" ondragstart="onQueueDragStart(event)" ondragend="onQueueDragEnd(event)" ondragover="onQueueDragOver(event)" ondragleave="onQueueDragLeave(event)" ondrop="onQueueDrop(event)"',
-    suffix: '<div class="drag-handle" title="Drag to reorder">\u2261</div>',
+    draggable: true,
+    suffix: { templateId: "template-drag-handle" },
   };
 }
 
@@ -1014,24 +1258,20 @@ function renderSearchResults(data) {
   const el = document.getElementById("tracks");
   pagination = null;
   paginationGen++;
-  let html = "";
+  const children = [];
   if (data.artists?.items.length) {
-    html += '<h3 class="results-heading">Artists</h3>';
-    html += renderItems(data.artists.items, artistMapper);
+    children.push(createResultsHeading("Artists"), ...renderItems(data.artists.items, artistMapper));
   }
   if (data.albums?.items.length) {
-    html += '<h3 class="results-heading">Albums</h3>';
-    html += renderItems(data.albums.items, albumMapper);
+    children.push(createResultsHeading("Albums"), ...renderItems(data.albums.items, albumMapper));
   }
   if (data.tracks?.items.length) {
-    html += '<h3 class="results-heading">Tracks</h3>';
-    html += renderTrackItems(data.tracks.items, null);
+    children.push(createResultsHeading("Tracks"), ...renderTrackItems(data.tracks.items, null));
   }
   if (data.playlists?.items.length) {
-    html += '<h3 class="results-heading">Playlists</h3>';
-    html += renderItems(data.playlists.items, playlistMapper);
+    children.push(createResultsHeading("Playlists"), ...renderItems(data.playlists.items, playlistMapper));
   }
-  el.innerHTML = html;
+  el.replaceChildren(...children);
 }
 
 async function _play(body) {
@@ -1508,8 +1748,8 @@ async function loadPaginatedView({ route, breadcrumb, url, extractItems, renderI
     const data = await api(nextUrl);
     if (gen !== paginationGen) return null; // View changed, stop.
     const items = extractItems(data);
-    if (!count) el.innerHTML = "";
-    el.insertAdjacentHTML("beforeend", renderItems(items, count + 1));
+    if (!count) el.replaceChildren();
+    el.append(...renderItems(items, count + 1));
     count += items.length;
     return data.next;
   });
@@ -1608,10 +1848,9 @@ async function loadExplore() {
       exploreSeenIds.add(match.id);
     }
   });
-  el.innerHTML = "";
+  el.replaceChildren();
   if (personalizedPlaylists.length > 0) {
-    el.insertAdjacentHTML("beforeend", `<div class="section-header">Your Mixes</div>`);
-    el.insertAdjacentHTML("beforeend", `<ul class="playlist-section">${renderPlaylistSection(personalizedPlaylists, 1)}</ul>`);
+    el.append(createSectionHeader("Your Mixes"), createPlaylistSection(personalizedPlaylists, 1));
   }
 
   // Render Made For You as soon as ready.
@@ -1619,8 +1858,7 @@ async function loadExplore() {
   const madeForYouPlaylists = (madeForYouData?.playlists?.items || []).filter((p) => p && !exploreSeenIds.has(p.id));
   for (const p of madeForYouPlaylists) exploreSeenIds.add(p.id);
   if (madeForYouPlaylists.length > 0) {
-    el.insertAdjacentHTML("beforeend", `<div class="section-header">Made For You</div>`);
-    el.insertAdjacentHTML("beforeend", `<ul class="playlist-section">${renderPlaylistSection(madeForYouPlaylists, 1)}</ul>`);
+    el.append(createSectionHeader("Made For You"), createPlaylistSection(madeForYouPlaylists, 1));
   }
 
   // Render Featured Playlists, paginating.
@@ -1631,8 +1869,9 @@ async function loadExplore() {
   featuredCount += items.length;
 
   // Render first batch immediately.
-  el.insertAdjacentHTML("beforeend", `<div class="section-header">Featured Playlists</div>`);
-  el.insertAdjacentHTML("beforeend", `<ul class="playlist-section" id="featured-section">${renderPlaylistSection(items, 1)}</ul>`);
+  const featuredSection = createPlaylistSection(items, 1);
+  featuredSection.id = "featured-section";
+  el.append(createSectionHeader("Featured Playlists"), featuredSection);
 
   // Paginate Featured playlists (eagerly up to 300, then infinite scroll).
   const featuredUrl = stripApiBase(featuredData?.playlists?.next);
@@ -1643,7 +1882,7 @@ async function loadExplore() {
         if (gen !== paginationGen) return null;
         const newItems = (data.playlists?.items || []).filter((p) => p && !exploreSeenIds.has(p.id));
         if (newItems.length > 0) {
-          document.getElementById("featured-section").insertAdjacentHTML("beforeend", renderPlaylistSection(newItems, featuredCount + 1));
+          document.getElementById("featured-section").append(...renderPlaylistSection(newItems, featuredCount + 1));
           for (const p of newItems) exploreSeenIds.add(p.id);
           featuredCount += newItems.length;
         }
@@ -1667,7 +1906,7 @@ async function loadPlaylist(id) {
     }),
     fetchAllPages(`/playlists/${id}/items?limit=50`, (data) => (data?.items || []).map((i) => i.item).filter(Boolean)),
   ]);
-  document.getElementById("tracks").innerHTML = renderTrackItems(allTracks, contextUri);
+  document.getElementById("tracks").replaceChildren(...renderTrackItems(allTracks, contextUri));
 }
 
 async function loadAlbum(id) {
@@ -1680,24 +1919,9 @@ async function loadAlbum(id) {
     ...t,
     album: { id: data.id, name: data.name, images: data.images },
   }));
-  const artistLinks = artistLinksHtml(data.artists);
-  document.getElementById("tracks").innerHTML =
-    `
-    <div class="detail-float">
-      <div class="track-art" style="width:150px;height:150px" onclick="playContext('${contextUri}', !event.shiftKey)" title="Play instead of queue (shift: keep queue)">
-        <img src="${data.images?.[1]?.url || ""}" class="detail-art" />
-        <div class="play-overlay" style="font-size:48px"></div>
-      </div>
-      <div style="width:150px;margin-top:8px">
-        <div class="detail-type">ALBUM</div>
-        <div class="detail-title">${shareLink("album", data.id, escapeHtml(data.name), `playContext('${contextUri}', !event.shiftKey)`)}</div>
-        <div class="detail-meta">${artistLinks}</div>
-        <div class="detail-meta">${data.release_date?.slice(0, 4)} • ${data.total_tracks} tracks</div>
-      </div>
-    </div>
-  ` +
-    `<div style="clear:left"></div>` +
-    renderTrackItems(tracks, contextUri);
+  const clear = document.createElement("div");
+  clear.style.clear = "left";
+  document.getElementById("tracks").replaceChildren(createAlbumDetailElement(data, contextUri), clear, ...renderTrackItems(tracks, contextUri));
 }
 
 async function showCurrentAlbum() {
@@ -1723,19 +1947,10 @@ async function loadArtist(id) {
   setBreadcrumb([{ name: artist.name }]);
 
   const el = document.getElementById("tracks");
-  let html = `
-    <div class="artist-hero">
-      <img src="${artist.images?.[1]?.url || ""}" class="artist-avatar" />
-      <div>
-        <div class="detail-type">ARTIST</div>
-        <h1 class="artist-name">${shareLink("artist", artist.id, escapeHtml(artist.name), "")}</h1>
-      </div>
-    </div>
-  `;
+  const children = [createArtistHeroElement(artist)];
 
   if (topTracks.tracks?.length) {
-    html += '<h3 class="results-heading">Top Tracks</h3>';
-    html += renderTrackItems(topTracks.tracks.slice(0, 5), null);
+    children.push(createResultsHeading("Top Tracks"), ...renderTrackItems(topTracks.tracks.slice(0, 5), null));
   }
 
   const firstAlbums = albumsData.items || [];
@@ -1743,11 +1958,10 @@ async function loadArtist(id) {
   const remainingAlbums = nextAlbumsUrl ? await fetchAllPages(nextAlbumsUrl, (data) => data.items || []) : [];
   const allAlbums = firstAlbums.concat(remainingAlbums);
   if (allAlbums.length) {
-    html += '<h3 class="results-heading">Discography</h3>';
-    html += renderAlbumItems(allAlbums, 1);
+    children.push(createResultsHeading("Discography"), ...renderAlbumItems(allAlbums, 1));
   }
 
-  el.innerHTML = html;
+  el.replaceChildren(...children);
 }
 
 async function showQueue() {
@@ -1765,7 +1979,7 @@ async function showQueue() {
 
   const myVersion = ++queueRenderVersion;
 
-  let html = "";
+  const children = [];
   if (localQueue.length > 0) {
     const trackIds = localQueue.map((uri) => uri.split(":")[2]);
     let tracks = await fetchTracksByIds(trackIds);
@@ -1776,13 +1990,14 @@ async function showQueue() {
       saveLocalQueue();
     }
     if (tracks.length > 0) {
-      html = '<h3 class="results-heading" id="queue-heading">Queue</h3>';
-      html += renderLocalQueueItems(tracks);
+      const heading = createResultsHeading("Queue");
+      heading.id = "queue-heading";
+      children.push(heading, ...renderLocalQueueItems(tracks));
     }
   }
 
   if (myVersion !== queueRenderVersion) return;
-  document.getElementById("tracks").innerHTML = html || '<p class="empty-state">Queue is empty</p>';
+  document.getElementById("tracks").replaceChildren(...(children.length ? children : [createEmptyState("Queue is empty")]));
 }
 
 function updateQueueCount() {
@@ -1861,7 +2076,7 @@ async function clearQueue() {
   await player.pause();
   localStorage.removeItem("play_state");
   clearPlayerUI();
-  document.getElementById("tracks").innerHTML = '<p class="empty-state">Queue is empty</p>';
+  document.getElementById("tracks").replaceChildren(createEmptyState("Queue is empty"));
 }
 
 // Help modal (About + Keyboard Shortcuts).
@@ -2106,7 +2321,7 @@ function makePagination(initialUrl, fetchPage) {
         const rawNext = await fetchPage(nextUrl);
         el.querySelector(".loading-more")?.remove();
         nextUrl = stripApiBase(rawNext);
-        if (nextUrl) el.insertAdjacentHTML("beforeend", '<li class="loading-more loading-timer">Loading...</li>');
+        if (nextUrl) el.appendChild(cloneTemplate("template-loading-more"));
       } finally {
         loading = false;
       }
@@ -2255,7 +2470,7 @@ async function resumePlaybackIfNeeded() {
     // Show DJ info instead of actual track.
     updatePlayerUI({
       trackName: "DJ",
-      artistHtml: "Spotify",
+      artistText: "Spotify",
       artUrl: "https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg",
       position: 0,
       duration: 0,
@@ -2275,7 +2490,7 @@ async function resumePlaybackIfNeeded() {
     updatePlayerUI({
       trackName: trackData.name,
       trackUri: state.trackUri,
-      artistHtml: artistLinksHtml(trackData.artists),
+      artists: trackData.artists,
       artUrl: trackData.album.images[0]?.url,
       position: state.position,
       duration: trackData.duration_ms,

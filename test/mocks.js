@@ -150,12 +150,12 @@ function resetTestState() {
   playingFromQueueInProgress = false;
 
   // Reset DOM.
-  document.getElementById("tracks").innerHTML = "";
-  document.getElementById("breadcrumb").innerHTML = "";
+  document.getElementById("tracks").replaceChildren();
+  document.getElementById("breadcrumb").replaceChildren();
   document.getElementById("breadcrumb").style.display = "none";
   document.getElementById("player-track").textContent = "Not playing";
-  document.getElementById("player-artist").innerHTML = "";
-  document.getElementById("lyrics-view").innerHTML = "";
+  document.getElementById("player-artist").replaceChildren();
+  document.getElementById("lyrics-view").replaceChildren();
   document.getElementById("lyrics-view").classList.remove("active");
   document.getElementById("tracks").style.display = "";
   const playBtn = document.getElementById("play-btn");
