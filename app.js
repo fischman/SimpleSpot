@@ -1214,7 +1214,7 @@ const fetchLyrics = (() => {
 async function fetchAndShowLyrics() {
   const lyricsView = document.getElementById("lyrics-view");
   if (!lastPlayState?.trackUri) {
-    lyricsView.innerHTML = '<div class="lyrics-error">No track playing</div>';
+    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-track").content.firstElementChild.cloneNode(true));
     return;
   }
 
@@ -1228,7 +1228,7 @@ async function fetchAndShowLyrics() {
   }
 
   lyricsTrackKey = trackKey;
-  lyricsView.innerHTML = '<div class="lyrics-loading loading-timer">Loading lyrics...</div>';
+  lyricsView.replaceChildren(document.getElementById("template-lyrics-loading").content.firstElementChild.cloneNode(true));
 
   const duration = Math.round(currentState?.duration / 1000);
   const durationParam = duration ? `&duration=${duration}` : "";
@@ -1236,7 +1236,7 @@ async function fetchAndShowLyrics() {
   const data = await fetchLyrics(url);
   if (!data) {
     currentLyrics = null;
-    lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
+    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-lyrics").content.firstElementChild.cloneNode(true));
     return;
   }
 
@@ -1264,11 +1264,12 @@ async function fetchAndShowLyrics() {
       .filter((l) => l.words.trim());
     currentLyrics.unshift({
       time: -1,
-      words: "<p style='margin-top: 2em;margin-bottom: 2em;'>[missing time-sync data for these lyrics 😕]</p>",
+      words: "[missing time-sync data for these lyrics 😕]",
+      isNotice: true,
     });
   } else {
     currentLyrics = null;
-    lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
+    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-lyrics").content.firstElementChild.cloneNode(true));
     return;
   }
 
@@ -1278,25 +1279,48 @@ async function fetchAndShowLyrics() {
 function renderLyrics() {
   const lyricsView = document.getElementById("lyrics-view");
   if (!currentLyrics || currentLyrics.length === 0) {
-    lyricsView.innerHTML = '<div class="lyrics-error">No lyrics available</div>';
+    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-lyrics").content.firstElementChild.cloneNode(true));
     return;
   }
 
   const track = currentState?.track_window?.current_track;
-  const title = track ? `<i>${escapeHtml(track.name)}</i> - ${track.artists.map((a) => escapeHtml(a.name)).join(", ")} - <i>${escapeHtml(track.album.name)}</i>` : "";
+  const content = document.getElementById("template-lyrics-content").content.firstElementChild.cloneNode(true);
+  const title = content.querySelector(".lyrics-title");
+  const trackName = content.querySelector(".lyrics-track-name");
+  const artistNames = content.querySelector(".lyrics-artist-names");
+  const albumName = content.querySelector(".lyrics-album-name");
+  const artistSeparator = content.querySelector(".lyrics-separator-artist");
+  const albumSeparator = content.querySelector(".lyrics-separator-album");
+  const linesContainer = content.querySelector(".lyrics-lines");
 
-  const lineClass = lyricsSynced ? "lyric-line" : "lyric-line plain";
-  lyricsView.innerHTML =
-    `<div class="lyrics-title-wrap"><div class="lyrics-title">${title}</div></div><div class="lyrics-lines">` +
-    currentLyrics
-      .map((line, _i) => {
-        line.words = escapeHtml(line.words);
-        return lyricsSynced
-          ? `<div class="${lineClass}" data-time="${line.time}" onclick="seekToLyric(${line.time})">${line.words || "♪"}</div>`
-          : `<div class="${lineClass}">${line.words || ""}</div>`;
-      })
-      .join("") +
-    "</div>";
+  if (track) {
+    trackName.textContent = track.name;
+    artistNames.textContent = track.artists.map((artist) => artist.name).join(", ");
+    albumName.textContent = track.album.name;
+  } else {
+    title.textContent = "";
+    artistSeparator.remove();
+    albumSeparator.remove();
+  }
+
+  for (const line of currentLyrics) {
+    const lineEl = document.getElementById("template-lyric-line").content.firstElementChild.cloneNode(true);
+    if (!lyricsSynced) lineEl.classList.add("plain");
+    if (line.isNotice) {
+      lineEl.style.marginTop = "2em";
+      lineEl.style.marginBottom = "2em";
+    }
+    if (lyricsSynced) {
+      lineEl.dataset.time = line.time;
+      lineEl.onclick = () => seekToLyric(line.time);
+      lineEl.textContent = line.words || "\u266a";
+    } else {
+      lineEl.textContent = line.words || "";
+    }
+    linesContainer.appendChild(lineEl);
+  }
+
+  lyricsView.replaceChildren(content);
 
   if (lyricsSynced) updateLyricsHighlight();
 }

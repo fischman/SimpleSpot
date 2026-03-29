@@ -305,6 +305,37 @@
     </div>
   </template>
 
+  <template id="template-lyrics-no-track">
+    <div class="lyrics-error">No track playing</div>
+  </template>
+
+  <template id="template-lyrics-no-lyrics">
+    <div class="lyrics-error">No lyrics available</div>
+  </template>
+
+  <template id="template-lyrics-loading">
+    <div class="lyrics-loading loading-timer">Loading lyrics...</div>
+  </template>
+
+  <template id="template-lyrics-content">
+    <div>
+      <div class="lyrics-title-wrap">
+        <div class="lyrics-title">
+          <i class="lyrics-track-name"></i>
+          <span class="lyrics-separator-artist"> - </span>
+          <span class="lyrics-artist-names"></span>
+          <span class="lyrics-separator-album"> - </span>
+          <i class="lyrics-album-name"></i>
+        </div>
+      </div>
+      <div class="lyrics-lines"></div>
+    </div>
+  </template>
+
+  <template id="template-lyric-line">
+    <div class="lyric-line"></div>
+  </template>
+
   <template id="template-autoplay-failed">
     <div class="modal-overlay" onclick="if (event.target === this) this.remove()">
       <div class="modal" style="max-width:500px">
