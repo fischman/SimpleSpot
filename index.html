@@ -2,33 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="require-trusted-types-for 'script'; trusted-types simplespot;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://sdk.scdn.co; connect-src https://api.spotify.com https://accounts.spotify.com https://lrclib.net; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src https://sdk.scdn.co; manifest-src 'self' data:; require-trusted-types-for 'script'">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%23121212'/%3E%3Cpath d='M180 140 L180 372 L360 256 Z' fill='%231db954'/%3E%3Cpath d='M380 180 Q420 256 380 332' stroke='%231db954' stroke-width='24' fill='none' stroke-linecap='round'/%3E%3Cpath d='M420 140 Q480 256 420 372' stroke='%231db954' stroke-width='24' fill='none' stroke-linecap='round' opacity='0.6'/%3E%3C/svg%3E">
   <link rel="manifest" id="manifest-link">
-  <script>
-    // This JS is necessary to convert the inline SVG favicon above to
-    // a PNG data URI that can be passed to manifest.icons[0].src
-    // below, since apparently it doesn't support SVG :/
-    const img = document.createElement('img')
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        canvas.getContext('2d').drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
-        const png = canvas.toDataURL('image/png', 1.0)
-        const manifest = {
-            name: 'SimpleSpot',
-            short_name: 'SimpleSpot',
-            display: 'standalone',
-            background_color: '#121212',
-            theme_color: '#121212',
-            icons: [ { sizes: '64x64', type: 'image/png', src: png } ]
-        };
-        document.getElementById('manifest-link').href = `data:application/manifest+json,${encodeURIComponent(JSON.stringify(manifest))}`;
-    };
-    img.src = document.getElementById('favicon').href;
-  </script>
 
   <title>SimpleSpot</title>
   <style>
@@ -170,18 +147,20 @@
     .artist-avatar { width: 150px; height: 150px; border-radius: 50%; }
     .artist-name { font-size: 32px; margin: 8px 0; }
     .empty-state { padding: 16px; color: #b3b3b3; }
+    .github-link { color: #666; }
+    .github-link:hover { color: #fff; }
   </style>
 </head>
 <body>
   <div id="login">
-    <button type="button" onclick="showHelp()" title="About (?)" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#b3b3b3">?</button>
+    <button type="button" id="login-help-btn" title="About (?)" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#b3b3b3">?</button>
     <div style="display:flex;flex-direction:column;gap:12px;text-align:center">
       <!-- biome-ignore lint/a11y/noAutofocus: primary login action -->
-      <button type="button" onclick="loginWith('ncspot')" autofocus style="display:flex;flex-direction:column;align-items:center;line-height:1.4">
+      <button type="button" id="login-ncspot-btn" autofocus style="display:flex;flex-direction:column;align-items:center;line-height:1.4">
         <span>Login using ncspot</span>
         <span id="ncspot-note" style="font-size:12px;opacity:0.7"></span>
       </button>
-      <button type="button" onclick="loginWith('simplespot')" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;background:#333">
+      <button type="button" id="login-simplespot-btn" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;background:#333">
         <span>Login using SimpleSpot</span>
         <span style="font-size:12px;opacity:0.7">(radio/recommendations, DJ, and Explore won&apos;t work)</span>
       </button>
@@ -191,18 +170,18 @@
     <div class="header">
       <div class="search-container">
         <input type="text" id="search" placeholder="Search tracks..." />
-        <span id="search-clear" onmousedown="event.preventDefault(); clearSearch()">⊗</span>
+        <span id="search-clear">⊗</span>
       </div>
-      <button type="button" id="nav-dj" onclick="playDJ()" title="DJ (d)"><img alt="DJ" src="https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg" style="width:20px;height:20px;border-radius:4px;vertical-align:middle"></button>
-      <button type="button" id="nav-playlists" onclick="loadPlaylists()" title="Playlists (p)">📜</button>
-      <button type="button" id="nav-albums" onclick="loadSavedAlbums()" title="Saved Albums (s)">💿</button>
-      <button type="button" id="nav-liked" onclick="loadLikedSongs()" title="Liked Songs (l)">❤️</button>
-      <button type="button" id="nav-topArtists" onclick="loadTopArtists()" title="Top Artists (a)">⬆️A</button>
-      <button type="button" id="nav-topTracks" onclick="loadTopTracks()" title="Top Tracks (t)">⬆️T</button>
-      <button type="button" id="nav-explore" onclick="loadExplore()" title="Explore (e)">✨</button>
-      <input type="range" id="column-count" min="1" max="10" value="3" oninput="setColumnCount(this.value)" title="Columns" />
-      <button type="button" onclick="logout()" title="Logout">🚪</button>
-      <button type="button" onclick="showHelp()" title="About (?)" style="font-weight:bold">?</button>
+      <button type="button" id="nav-dj" title="DJ (d)"><img alt="DJ" src="https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg" style="width:20px;height:20px;border-radius:4px;vertical-align:middle"></button>
+      <button type="button" id="nav-playlists" title="Playlists (p)">📜</button>
+      <button type="button" id="nav-albums" title="Saved Albums (s)">💿</button>
+      <button type="button" id="nav-liked" title="Liked Songs (l)">❤️</button>
+      <button type="button" id="nav-topArtists" title="Top Artists (a)">⬆️A</button>
+      <button type="button" id="nav-topTracks" title="Top Tracks (t)">⬆️T</button>
+      <button type="button" id="nav-explore" title="Explore (e)">✨</button>
+      <input type="range" id="column-count" min="1" max="10" value="3" title="Columns" />
+      <button type="button" id="logout-btn" title="Logout">🚪</button>
+      <button type="button" id="help-btn" title="About (?)" style="font-weight:bold">?</button>
     </div>
     <div class="breadcrumb" id="breadcrumb" style="display:none"></div>
     <div class="content">
@@ -210,15 +189,15 @@
       <div id="lyrics-view"></div>
     </div>
     <div class="player">
-      <img id="player-art" src="" alt="" style="cursor:pointer;display:none" onclick="showCurrentAlbum()" />
+      <img id="player-art" src="" alt="" style="cursor:pointer;display:none" />
       <div class="player-info">
         <div id="player-track">Not playing</div>
         <div id="player-artist" style="color:#b3b3b3;font-size:12px"></div>
       </div>
       <div class="player-controls">
-        <button type="button" id="prev-btn" onclick="previous()">⏮</button>
-        <button type="button" id="play-btn" onclick="togglePlay()" disabled style="opacity:0.5">▶</button>
-        <button type="button" id="next-btn" onclick="next()">⏭</button>
+        <button type="button" id="prev-btn">⏮</button>
+        <button type="button" id="play-btn" disabled style="opacity:0.5">▶</button>
+        <button type="button" id="next-btn">⏭</button>
       </div>
       <div class="progress-container">
         <span class="progress-time" id="progress-current">0:00</span>
@@ -228,14 +207,14 @@
         </div>
         <span class="progress-time" id="progress-total">0:00</span>
       </div>
-      <button type="button" id="loop-btn" onclick="toggleLoop()" title="Loop" style="font-size:20px">↻</button>
-      <button type="button" id="cc-btn" onclick="toggleLyrics()" title="Lyrics (c)"><span class="cc-icon">CC</span></button>
+      <button type="button" id="loop-btn" title="Loop" style="font-size:20px">↻</button>
+      <button type="button" id="cc-btn" title="Lyrics (c)"><span class="cc-icon">CC</span></button>
       <div class="volume-container">
         <input type="range" id="volume-slider" min="0" max="100" value="100" title="Volume: 100%" />
       </div>
-      <button type="button" id="nav-queue" class="queue-btn" onclick="showQueue()" title="Queue (q)">☰</button>
+      <button type="button" id="nav-queue" class="queue-btn" title="Queue (q)">☰</button>
       <div class="device-picker">
-        <button type="button" onclick="toggleDevices()" title="Devices">📱</button>
+        <button type="button" id="devices-btn" title="Devices">📱</button>
         <div class="device-menu" id="device-menu"></div>
       </div>
     </div>
@@ -246,13 +225,13 @@
       <div class="modal" style="max-width:500px">
         <h2 id="alert-heading"></h2>
         <p style="color:#b3b3b3;margin:16px 0"><pre id="alert-message"></pre></p>
-        <button type="button" onclick="this.closest('.modal-overlay').remove()">Close</button>
+        <button type="button" class="modal-close-btn">Close</button>
       </div>
     </div>
   </template>
 
   <template id="template-help">
-    <div class="modal-overlay" id="help-modal" onclick="if (event.target === this) this.remove()">
+    <div class="modal-overlay" id="help-modal">
       <div class="modal" >
         <h2 style="color:#fff">About <span style="color:#1db954">SimpleSpot</span></h2>
         <p>
@@ -263,17 +242,17 @@
         <p style="padding-bottom:1em"></p>
         <p>
           Uses
-          Spotify's <a href="https://developer.spotify.com/documentation/web-api" target="_blank" style="color:#1db954">Web</a>
-          and <a href="https://developer.spotify.com/documentation/web-playback-sdk" target="_blank" style="color:#1db954">Web Playback</a>,
-          and <a href="https://lrclib.net/docs" target="_blank" style="color:#1db954">LRCLIB</a>'s
-          APIs. Requires a <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded) subscription." target="_blank" style="color:#1db954">Spotify Premium</a>.
+          Spotify's <a href="https://developer.spotify.com/documentation/web-api" target="_blank" rel="noopener" style="color:#1db954">Web</a>
+          and <a href="https://developer.spotify.com/documentation/web-playback-sdk" target="_blank" rel="noopener" style="color:#1db954">Web Playback</a>,
+          and <a href="https://lrclib.net/docs" target="_blank" rel="noopener" style="color:#1db954">LRCLIB</a>'s
+          APIs. Requires a <a href="https://developer.spotify.com/documentation/web-playback-sdk#:~:text=The%20Web%20Playback%20SDK%20requires%20a%20Spotify%20Premium%20subscription%20(mobile%20only%20types%20of%20premium%20subscriptions%20are%20excluded) subscription." target="_blank" rel="noopener" style="color:#1db954">Spotify Premium</a>.
         </p>
         <hr style="border:none;border-top:1px solid #444;margin:16px 0">
         <h3 style="margin:0 0 8px;font-size:14px;color:#b3b3b3">Keyboard Shortcuts</h3>
         <table id="help-shortcuts"></table>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
-          <button type="button" onclick="this.closest('.modal-overlay').remove()" style="margin-top:0">Close</button>
-          <a href="https://github.com/fischman/SimpleSpot" target="_blank" rel="noopener" title="GitHub" style="color:#666;text-decoration:none;line-height:0;transition:color .15s" onmouseenter="this.style.color='#fff'" onmouseleave="this.style.color='#666'" onclick="event.stopPropagation()">
+          <button type="button" id="help-close-btn" style="margin-top:0">Close</button>
+          <a href="https://github.com/fischman/SimpleSpot" target="_blank" rel="noopener" title="GitHub" class="github-link" style="color:#666;text-decoration:none;line-height:0;transition:color .15s">
             <svg width="33" height="33" viewBox="0 0 16 16" fill="currentColor"><title>GitHub logo</title><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
           </a>
         </div>
@@ -296,11 +275,10 @@
           Open Spotify Auth
         </button>
         <input type="text" id="ncspot-url" placeholder="Paste the redirect URL here (http://127.0.0.1/login?code=...)"
-               style="width:100%;padding:10px;border-radius:4px;border:1px solid #444;background:#181818;color:#fff;margin-bottom:16px"
-               oninput="const b=document.getElementById('ncspot-continue'),v=!!this.value.trim();b.disabled=!v;b.style.opacity=v?1:0.5;b.style.background=v?'#1db954':'#333'" />
+               style="width:100%;padding:10px;border-radius:4px;border:1px solid #444;background:#181818;color:#fff;margin-bottom:16px" />
         <div style="display:flex;gap:8px">
-          <button type="button" onclick="this.closest('.modal-overlay').remove()" style="flex:1;background:#333">Cancel</button>
-          <button type="button" id="ncspot-continue" onclick="handleNcspotUrl()" style="flex:1;opacity:0.5;background:#333" disabled>Continue</button>
+          <button type="button" id="ncspot-cancel" style="flex:1;background:#333">Cancel</button>
+          <button type="button" id="ncspot-continue" style="flex:1;opacity:0.5;background:#333" disabled>Continue</button>
         </div>
       </div>
     </div>
@@ -447,12 +425,12 @@
   </template>
 
   <template id="template-autoplay-failed">
-    <div class="modal-overlay" onclick="if (event.target === this) this.remove()">
+    <div class="modal-overlay" id="autoplay-failed-modal">
       <div class="modal" style="max-width:500px">
         <h2 style="color:#fff">Autoplay <span style="color:#1db954">Blocked</span></h2>
         <p>Please select &quot;Allow&quot; (not just &quot;Automatic (default)&quot;) for Sound in your browser site settings to enable autoplay:</p>
         <p id="autoplay-settings-url" style="user-select:all;font-family:monospace;background:#333;padding:8px;border-radius:4px;word-break:break-all"></p>
-        <button type="button" onclick="this.closest('.modal-overlay').remove()">OK</button>
+        <button type="button" id="autoplay-failed-ok-btn">OK</button>
       </div>
     </div>
   </template>

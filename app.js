@@ -9,6 +9,56 @@ function cloneTemplate(id) {
   return document.getElementById(id).content.firstElementChild.cloneNode(true);
 }
 
+function closeOverlay(el) {
+  el?.closest(".modal-overlay")?.remove();
+}
+
+function setupOverlayDismissal(overlay, closeSelector) {
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      overlay.remove();
+    }
+  });
+  if (closeSelector) {
+    overlay.querySelector(closeSelector)?.addEventListener("click", () => closeOverlay(overlay));
+  }
+}
+
+function updateNcspotContinueButton() {
+  const input = document.getElementById("ncspot-url");
+  const button = document.getElementById("ncspot-continue");
+  if (!input || !button) return;
+  const enabled = !!input.value.trim();
+  button.disabled = !enabled;
+  button.style.opacity = enabled ? "1" : "0.5";
+  button.style.background = enabled ? "#1db954" : "#333";
+}
+
+function initManifest() {
+  // Convert the inline SVG favicon into a PNG data URL for the manifest icon.
+  const favicon = document.getElementById("favicon");
+  const manifestLink = document.getElementById("manifest-link");
+  if (!favicon || !manifestLink) return;
+
+  const img = document.createElement("img");
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    canvas.getContext("2d").drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
+    const manifest = {
+      name: "SimpleSpot",
+      short_name: "SimpleSpot",
+      display: "standalone",
+      background_color: "#121212",
+      theme_color: "#121212",
+      icons: [{ sizes: "64x64", type: "image/png", src: canvas.toDataURL("image/png", 1.0) }],
+    };
+    manifestLink.href = `data:application/manifest+json,${encodeURIComponent(JSON.stringify(manifest))}`;
+  };
+  img.src = favicon.href;
+}
+
 function assert(condition, message) {
   if (condition) {
     return;
@@ -21,6 +71,7 @@ function alert(heading, message) {
   const modal = cloneTemplate("template-alert");
   modal.querySelector("#alert-heading").textContent = heading;
   modal.querySelector("#alert-message").textContent = message;
+  setupOverlayDismissal(modal, ".modal-close-btn");
   document.body.appendChild(modal);
 }
 
@@ -222,8 +273,19 @@ async function loginWith(clientChoice) {
 
 function showNcspotLoginModal(authUrl) {
   const modal = cloneTemplate("template-ncspot");
+  setupOverlayDismissal(modal);
   document.body.appendChild(modal);
   document.getElementById("open-spotify-auth").onclick = () => window.open(authUrl, "spotify-auth", "width=500,height=700");
+  document.getElementById("ncspot-cancel").onclick = () => closeOverlay(document.getElementById("ncspot-cancel"));
+  document.getElementById("ncspot-continue").onclick = handleNcspotUrl;
+  const input = document.getElementById("ncspot-url");
+  input.addEventListener("input", updateNcspotContinueButton);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.repeat && !document.getElementById("ncspot-continue").disabled) {
+      handleNcspotUrl();
+    }
+  });
+  updateNcspotContinueButton();
 }
 
 async function handleNcspotUrl() {
@@ -598,6 +660,7 @@ function initPlayer() {
     if (window.location.protocol === "file:") return;
     const overlay = cloneTemplate("template-autoplay-failed");
     overlay.querySelector("#autoplay-settings-url").textContent = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
+    setupOverlayDismissal(overlay, "#autoplay-failed-ok-btn");
     document.body.appendChild(overlay);
   });
 
@@ -2097,6 +2160,7 @@ function showHelp() {
     ["→", "Seek forward 10s"],
   ];
   const overlay = cloneTemplate("template-help");
+  setupOverlayDismissal(overlay, "#help-close-btn");
   const table = overlay.querySelector("#help-shortcuts");
   for (const [key, action] of shortcuts) {
     const row = cloneTemplate("template-help-shortcut-row");
@@ -2141,9 +2205,39 @@ function setBreadcrumb(items) {
   document.title = `SimpleSpot - ${lastItem.name}`;
 }
 
+function initStaticUi() {
+  document.getElementById("login-help-btn").addEventListener("click", showHelp);
+  document.getElementById("login-ncspot-btn").addEventListener("click", () => loginWith("ncspot"));
+  document.getElementById("login-simplespot-btn").addEventListener("click", () => loginWith("simplespot"));
+  document.getElementById("search-clear").addEventListener("mousedown", (event) => {
+    event.preventDefault();
+    clearSearch();
+  });
+  document.getElementById("nav-dj").addEventListener("click", playDJ);
+  document.getElementById("nav-playlists").addEventListener("click", loadPlaylists);
+  document.getElementById("nav-albums").addEventListener("click", loadSavedAlbums);
+  document.getElementById("nav-liked").addEventListener("click", loadLikedSongs);
+  document.getElementById("nav-topArtists").addEventListener("click", loadTopArtists);
+  document.getElementById("nav-topTracks").addEventListener("click", loadTopTracks);
+  document.getElementById("nav-explore").addEventListener("click", loadExplore);
+  document.getElementById("column-count").addEventListener("input", (event) => setColumnCount(event.target.value));
+  document.getElementById("logout-btn").addEventListener("click", logout);
+  document.getElementById("help-btn").addEventListener("click", showHelp);
+  document.getElementById("player-art").addEventListener("click", showCurrentAlbum);
+  document.getElementById("prev-btn").addEventListener("click", previous);
+  document.getElementById("play-btn").addEventListener("click", togglePlay);
+  document.getElementById("next-btn").addEventListener("click", next);
+  document.getElementById("loop-btn").addEventListener("click", toggleLoop);
+  document.getElementById("cc-btn").addEventListener("click", toggleLyrics);
+  document.getElementById("nav-queue").addEventListener("click", showQueue);
+  document.getElementById("devices-btn").addEventListener("click", toggleDevices);
+}
+
 // Init.
 (async () => {
   assert("mediaSession" in navigator, "navigator.mediaSession missing!");
+  initManifest();
+  initStaticUi();
 
   const slider = document.getElementById("volume-slider");
   const saved = localStorage.getItem("volume");
