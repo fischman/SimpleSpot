@@ -1447,22 +1447,19 @@ function refreshQueueIfViewing() {
 async function loadDevices() {
   const data = await api("/me/player/devices");
   const menu = document.getElementById("device-menu");
-  let html = data.devices
-    .map(
-      (d) => `
-    <div class="device-item ${d.is_active ? "active" : ""}" onclick="transferPlayback('${d.id}')">
-      ${escapeHtml(d.name)}
-    </div>
-  `,
-    )
-    .join("");
+  const children = data.devices.map((d) => {
+    const item = document.getElementById("template-device-item").content.firstElementChild.cloneNode(true);
+    item.textContent = d.name;
+    item.onclick = () => transferPlayback(d.id);
+    if (d.is_active) item.classList.add("active");
+    return item;
+  });
 
   if (data.devices.length <= 1) {
-    html +=
-      '<div style="padding:8px;color:#b3b3b3;font-size:12px;border-top:1px solid #404040;margin-top:8px">To play on another device, open this page in another browser or device.</div>';
+    children.push(document.getElementById("template-device-help").content.firstElementChild.cloneNode(true));
   }
 
-  menu.innerHTML = html;
+  menu.replaceChildren(...children);
 }
 
 function toggleDevices() {
@@ -1754,8 +1751,10 @@ async function showQueue() {
   setBreadcrumb([
     {
       name: "Queue",
-      suffix:
-        '<button onclick="clearQueue()" style="background:#333;border:none;color:#b3b3b3;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">Clear</button>',
+      suffixTemplateId: "template-breadcrumb-clear-button",
+      suffixSetup: (el) => {
+        el.onclick = () => clearQueue();
+      },
     },
   ]);
   showLoading();
@@ -1903,13 +1902,22 @@ function setBreadcrumb(items) {
     return;
   }
   el.style.display = "block";
-  el.innerHTML = items
-    .map((item, i) =>
-      item.action
-        ? `<a onclick="${item.action}">${escapeHtml(item.name)}</a>${i < items.length - 1 ? " › " : ""}`
-        : `<span>${escapeHtml(item.name)}${item.suffix || ""}</span>`,
-    )
-    .join("");
+  const children = [];
+  for (const [i, item] of items.entries()) {
+    const content = document.getElementById(item.action ? "template-breadcrumb-link" : "template-breadcrumb-text").content.firstElementChild.cloneNode(true);
+    content.textContent = item.name;
+    if (item.action) content.setAttribute("onclick", item.action);
+    if (item.suffixTemplateId) {
+      const suffix = document.getElementById(item.suffixTemplateId).content.firstElementChild.cloneNode(true);
+      item.suffixSetup?.(suffix);
+      content.appendChild(suffix);
+    }
+    children.push(content);
+    if (i < items.length - 1) {
+      children.push(document.getElementById("template-breadcrumb-separator").content.firstElementChild.cloneNode(true));
+    }
+  }
+  el.replaceChildren(...children);
   const lastItem = items[items.length - 1];
   document.title = `SimpleSpot - ${lastItem.name}`;
 }
