@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="require-trusted-types-for 'script'; trusted-types simplespot;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://sdk.scdn.co; connect-src https://api.spotify.com https://accounts.spotify.com https://lrclib.net; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src https://sdk.scdn.co; manifest-src 'self' data:; require-trusted-types-for 'script'">
   <title>SimpleSpot Tests</title>
   <style>
     body { font-family: monospace; background: #1a1a1a; color: #ccc; padding: 16px; margin: 0; }
