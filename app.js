@@ -582,7 +582,6 @@ function initPlayer() {
       artUrl: track.album.images[0]?.url,
       position: state.position,
       duration: state.duration,
-      paused: state.paused,
     });
     updateProgress();
 
@@ -729,21 +728,6 @@ function formatTime(ms) {
 
 function stripHtml(s) {
   return s.replace(/<[^>]*>/g, "");
-}
-
-// Generate shareable link - wraps text in <a> with Spotify URL.
-// Left-click does onclick action, right-click gives native "Copy link" option.
-function shareLink(type, id, text, onclick) {
-  const url = `https://open.spotify.com/${type}/${id}`;
-  return `<a href="${url}" onclick="event.preventDefault(); ${onclick}">${text}</a>`;
-}
-
-// Return the HTML for a (possibly disabled) radio button.
-function radioBtn(type, id) {
-  if (areDeprecatedFeaturesUnavailable()) {
-    return `<button class="radio-btn unavailable" title="Start radio - Unavailable" disabled>📻</button>`;
-  }
-  return `<button class="radio-btn" onclick="event.stopPropagation(); startRadio('${type}', '${id}')" title="Start radio">📻</button>`;
 }
 
 // Radio: get recommendations and add to queue.
@@ -926,12 +910,10 @@ function createArtistChildren(info) {
   return createArtistLinksFragment(info.artists, (id) => loadArtist(id), { stopPropagation: true });
 }
 
-function createQueueButtonElement({ text, title, onClick, disabled = false, unavailable = false }) {
+function createQueueButtonElement({ text, title, onClick }) {
   const button = cloneTemplate("template-queue-button");
   button.textContent = text;
   button.title = title;
-  button.disabled = disabled;
-  if (unavailable) button.classList.add("unavailable");
   button.onclick = (event) => {
     event.stopPropagation();
     onClick?.(event);
@@ -980,7 +962,7 @@ function createEmptyState(message) {
   return el;
 }
 
-function createTrackAlbumElement({ text, title, onClick, type = "div", id = "", shareType, shareId }) {
+function createTrackAlbumElement({ text, title, onClick, type = "div", shareType, shareId }) {
   const el = cloneTemplate("template-track-album");
   setOptionalTitle(el, title);
   if (type === "link") {
@@ -989,7 +971,6 @@ function createTrackAlbumElement({ text, title, onClick, type = "div", id = "", 
     el.textContent = text;
     if (onClick) el.onclick = onClick;
   }
-  if (id) el.id = id;
   return el;
 }
 
@@ -1086,16 +1067,6 @@ function renderItem(d) {
 
 function renderItems(items, mapFn, startNum = 1) {
   return items.map((item, i) => renderItem(mapFn(item, i, startNum + i)));
-}
-
-// --- Shared mapper helpers ---
-
-function queueAddBtn(onclick) {
-  return `<button class="queue-btn" onclick="event.stopPropagation(); ${onclick}" title="Add to queue (Shift: play next)">+</button>`;
-}
-
-function playlistOnclick(p) {
-  return `loadPlaylist('${p.id}')`;
 }
 
 // --- Item mappers ---
@@ -1311,10 +1282,6 @@ function queueTrackMapper(t) {
 
 function renderTrackItems(tracks, contextUri, startNum = 1, contextOffset = 0) {
   return renderItems(tracks, trackMapper(contextUri, contextOffset), startNum);
-}
-
-function renderPlaylistItems(playlists, contextUri, startNum = 1, contextOffset = 0) {
-  return renderItems(playlists, playlistMapper(contextUri, contextOffset), startNum);
 }
 
 function renderSearchResults(data) {
@@ -2568,7 +2535,6 @@ async function resumePlaybackIfNeeded() {
       artUrl: "https://lexicon-assets.spotifycdn.com/DJ-Beta-CoverArt-300.jpg",
       position: 0,
       duration: 0,
-      paused: state.paused,
     });
     if (!state.paused) {
       await playDJ();
@@ -2588,7 +2554,6 @@ async function resumePlaybackIfNeeded() {
       artUrl: trackData.album.images[0]?.url,
       position: state.position,
       duration: trackData.duration_ms,
-      paused: true,
     });
     currentAlbumUri = trackData.album.uri;
   }

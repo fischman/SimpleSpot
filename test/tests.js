@@ -142,14 +142,6 @@ test("stripHtml removes HTML tags", () => {
   eq(stripHtml('<a href="x">link</a> text'), "link text");
 });
 
-test("shareLink generates correct HTML", () => {
-  const html = shareLink("track", "abc123", "My Track", "playTrack('uri')");
-  includes(html, "https://open.spotify.com/track/abc123");
-  includes(html, "My Track");
-  includes(html, "event.preventDefault()");
-  includes(html, "playTrack('uri')");
-});
-
 // --- Queue management ---
 
 group("Queue management");
