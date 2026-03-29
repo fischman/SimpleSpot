@@ -5,6 +5,10 @@ const DJ_PLAYLIST_ID = "37i9dQZF1EYkqdzj48dyYq";
 // https://developer.spotify.com/documentation/web-api/concepts/scopes
 const SCOPES = "streaming user-read-email user-read-private user-library-read user-read-playback-state user-modify-playback-state playlist-read-private user-top-read";
 
+function cloneTemplate(id) {
+  return document.getElementById(id).content.firstElementChild.cloneNode(true);
+}
+
 function assert(condition, message) {
   if (condition) {
     return;
@@ -14,9 +18,9 @@ function assert(condition, message) {
 }
 
 function alert(heading, message) {
-  const modal = document.getElementById("template-alert").content.cloneNode(true);
-  modal.getElementById("alert-heading").textContent = heading;
-  modal.getElementById("alert-message").textContent = message;
+  const modal = cloneTemplate("template-alert");
+  modal.querySelector("#alert-heading").textContent = heading;
+  modal.querySelector("#alert-message").textContent = message;
   document.body.appendChild(modal);
 }
 
@@ -217,7 +221,7 @@ async function loginWith(clientChoice) {
 }
 
 function showNcspotLoginModal(authUrl) {
-  const modal = document.getElementById("template-ncspot").content.firstElementChild.cloneNode(true);
+  const modal = cloneTemplate("template-ncspot");
   document.body.appendChild(modal);
   document.getElementById("open-spotify-auth").onclick = () => window.open(authUrl, "spotify-auth", "width=500,height=700");
 }
@@ -592,7 +596,7 @@ function initPlayer() {
     // can't grant autoplay permission), but playback works fine via the Web
     // API transfer in resumePlaybackIfNeeded(). Suppress the overlay.
     if (window.location.protocol === "file:") return;
-    const overlay = document.getElementById("template-autoplay-failed").content.firstElementChild.cloneNode(true);
+    const overlay = cloneTemplate("template-autoplay-failed");
     overlay.querySelector("#autoplay-settings-url").textContent = `chrome://settings/content/siteDetails?site=${encodeURIComponent(window.location.origin)}`;
     document.body.appendChild(overlay);
   });
@@ -1214,7 +1218,7 @@ const fetchLyrics = (() => {
 async function fetchAndShowLyrics() {
   const lyricsView = document.getElementById("lyrics-view");
   if (!lastPlayState?.trackUri) {
-    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-track").content.firstElementChild.cloneNode(true));
+    lyricsView.replaceChildren(cloneTemplate("template-lyrics-no-track"));
     return;
   }
 
@@ -1228,7 +1232,7 @@ async function fetchAndShowLyrics() {
   }
 
   lyricsTrackKey = trackKey;
-  lyricsView.replaceChildren(document.getElementById("template-lyrics-loading").content.firstElementChild.cloneNode(true));
+  lyricsView.replaceChildren(cloneTemplate("template-lyrics-loading"));
 
   const duration = Math.round(currentState?.duration / 1000);
   const durationParam = duration ? `&duration=${duration}` : "";
@@ -1236,7 +1240,7 @@ async function fetchAndShowLyrics() {
   const data = await fetchLyrics(url);
   if (!data) {
     currentLyrics = null;
-    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-lyrics").content.firstElementChild.cloneNode(true));
+    lyricsView.replaceChildren(cloneTemplate("template-lyrics-no-lyrics"));
     return;
   }
 
@@ -1269,7 +1273,7 @@ async function fetchAndShowLyrics() {
     });
   } else {
     currentLyrics = null;
-    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-lyrics").content.firstElementChild.cloneNode(true));
+    lyricsView.replaceChildren(cloneTemplate("template-lyrics-no-lyrics"));
     return;
   }
 
@@ -1279,12 +1283,12 @@ async function fetchAndShowLyrics() {
 function renderLyrics() {
   const lyricsView = document.getElementById("lyrics-view");
   if (!currentLyrics || currentLyrics.length === 0) {
-    lyricsView.replaceChildren(document.getElementById("template-lyrics-no-lyrics").content.firstElementChild.cloneNode(true));
+    lyricsView.replaceChildren(cloneTemplate("template-lyrics-no-lyrics"));
     return;
   }
 
   const track = currentState?.track_window?.current_track;
-  const content = document.getElementById("template-lyrics-content").content.firstElementChild.cloneNode(true);
+  const content = cloneTemplate("template-lyrics-content");
   const title = content.querySelector(".lyrics-title");
   const trackName = content.querySelector(".lyrics-track-name");
   const artistNames = content.querySelector(".lyrics-artist-names");
@@ -1304,7 +1308,7 @@ function renderLyrics() {
   }
 
   for (const line of currentLyrics) {
-    const lineEl = document.getElementById("template-lyric-line").content.firstElementChild.cloneNode(true);
+    const lineEl = cloneTemplate("template-lyric-line");
     if (!lyricsSynced) lineEl.classList.add("plain");
     if (line.isNotice) {
       lineEl.style.marginTop = "2em";
@@ -1448,7 +1452,7 @@ async function loadDevices() {
   const data = await api("/me/player/devices");
   const menu = document.getElementById("device-menu");
   const children = data.devices.map((d) => {
-    const item = document.getElementById("template-device-item").content.firstElementChild.cloneNode(true);
+    const item = cloneTemplate("template-device-item");
     item.textContent = d.name;
     item.onclick = () => transferPlayback(d.id);
     if (d.is_active) item.classList.add("active");
@@ -1456,7 +1460,7 @@ async function loadDevices() {
   });
 
   if (data.devices.length <= 1) {
-    children.push(document.getElementById("template-device-help").content.firstElementChild.cloneNode(true));
+    children.push(cloneTemplate("template-device-help"));
   }
 
   menu.replaceChildren(...children);
@@ -1877,10 +1881,10 @@ function showHelp() {
     ["←", "Seek back 10s"],
     ["→", "Seek forward 10s"],
   ];
-  const overlay = document.getElementById("template-help").content.firstElementChild.cloneNode(true);
+  const overlay = cloneTemplate("template-help");
   const table = overlay.querySelector("#help-shortcuts");
   for (const [key, action] of shortcuts) {
-    const row = document.getElementById("template-help-shortcut-row").content.firstElementChild.cloneNode(true);
+    const row = cloneTemplate("template-help-shortcut-row");
     row.querySelector(".help-shortcut-key").textContent = key;
     row.querySelector(".help-shortcut-action").textContent = action;
     table.appendChild(row);
@@ -1904,17 +1908,17 @@ function setBreadcrumb(items) {
   el.style.display = "block";
   const children = [];
   for (const [i, item] of items.entries()) {
-    const content = document.getElementById(item.action ? "template-breadcrumb-link" : "template-breadcrumb-text").content.firstElementChild.cloneNode(true);
+    const content = cloneTemplate(item.action ? "template-breadcrumb-link" : "template-breadcrumb-text");
     content.textContent = item.name;
     if (item.action) content.setAttribute("onclick", item.action);
     if (item.suffixTemplateId) {
-      const suffix = document.getElementById(item.suffixTemplateId).content.firstElementChild.cloneNode(true);
+      const suffix = cloneTemplate(item.suffixTemplateId);
       item.suffixSetup?.(suffix);
       content.appendChild(suffix);
     }
     children.push(content);
     if (i < items.length - 1) {
-      children.push(document.getElementById("template-breadcrumb-separator").content.firstElementChild.cloneNode(true));
+      children.push(cloneTemplate("template-breadcrumb-separator"));
     }
   }
   el.replaceChildren(...children);
