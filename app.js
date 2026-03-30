@@ -239,6 +239,8 @@ async function generateCodeChallenge(verifier) {
 }
 
 async function loginWith(clientChoice) {
+  clearAuth();
+
   setClientChoice(clientChoice); // Store the client choice before starting auth flow.
 
   const clientId = getClientId();
