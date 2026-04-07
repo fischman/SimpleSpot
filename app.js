@@ -614,6 +614,9 @@ function initPlayer() {
       currentTrackUri = track.uri;
       queueRefreshPending = false;
 
+      // Update now-playing highlight across all visible track listings.
+      updateNowPlayingHighlight();
+
       // Fetch new lyrics if lyrics view is active.
       if (lyricsEnabled) {
         fetchAndShowLyrics();
@@ -1005,10 +1008,39 @@ function createArtistHeroElement(artist) {
   return hero;
 }
 
+// Now-playing highlight helpers.
+function applyNowPlaying(li) {
+  li.classList.add("now-playing");
+  if (!li.querySelector(".now-playing-eq")) {
+    const eq = document.createElement("span");
+    eq.className = "now-playing-eq";
+    eq.title = "Now playing";
+    eq.append(...[0, 1, 2].map(() => document.createElement("span")));
+    li.querySelector(".track-name")?.appendChild(eq);
+  }
+}
+
+function clearNowPlaying(li) {
+  li.classList.remove("now-playing");
+  li.querySelector(".now-playing-eq")?.remove();
+}
+
+// Scan visible track items and toggle the now-playing highlight.
+function updateNowPlayingHighlight() {
+  for (const li of document.querySelectorAll("#tracks [data-track-uri]")) {
+    if (li.dataset.trackUri === currentTrackUri) {
+      if (!li.classList.contains("now-playing")) applyNowPlaying(li);
+    } else if (li.classList.contains("now-playing")) {
+      clearNowPlaying(li);
+    }
+  }
+}
+
 // Unified list item renderer. Each caller provides a mapper that returns a
 // descriptor; renderItem turns it into a <li>.
 function renderItem(d) {
   const li = cloneTemplate("template-track-item");
+  if (d.trackUri) li.dataset.trackUri = d.trackUri;
   if (d.liClass) li.classList.add(...d.liClass.split(" "));
   if (d.liOnclick) li.onclick = d.liOnclick;
   if (d.draggable) {
@@ -1064,6 +1096,8 @@ function renderItem(d) {
 
   if (d.suffix) li.appendChild(cloneTemplate(d.suffix.templateId));
 
+  if (d.trackUri === currentTrackUri) applyNowPlaying(li);
+
   return li;
 }
 
@@ -1078,6 +1112,7 @@ function baseTrackFields(t) {
   const trackId = t.uri?.split(":")[2] || t.id;
   return {
     trackId,
+    trackUri: t.uri || null,
     radio: { type: "track", id: trackId },
     imgSrc: t.album?.images?.[2]?.url || "",
     name: { text: t.name, title: t.name },
