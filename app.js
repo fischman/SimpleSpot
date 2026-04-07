@@ -145,6 +145,7 @@ let queueRenderVersion = 0; // Incremented each render to detect stale renders.
 let localQueue = []; // Array of track URIs.
 const playHistory = []; // Track URIs we've played (for previous).
 let currentTrackUri = null;
+let currentTrackLinkedFromUri = null;
 let lastTrackUri = null;
 let playingFromQueueInProgress = false; // Guard against rapid duplicate calls.
 let isNavigatingBack = false; // Flag to prevent pushing state during popstate.
@@ -612,6 +613,7 @@ function initPlayer() {
 
       lastTrackUri = track.uri;
       currentTrackUri = track.uri;
+      currentTrackLinkedFromUri = track.linked_from?.uri;
       queueRefreshPending = false;
 
       // Update now-playing highlight across all visible track listings.
@@ -1028,7 +1030,7 @@ function clearNowPlaying(li) {
 // Scan visible track items and toggle the now-playing highlight.
 function updateNowPlayingHighlight() {
   for (const li of document.querySelectorAll("#tracks [data-track-uri]")) {
-    if (li.dataset.trackUri === currentTrackUri) {
+    if (li.dataset.trackUri === currentTrackUri || li.dataset.trackUri === currentTrackLinkedFromUri) {
       if (!li.classList.contains("now-playing")) applyNowPlaying(li);
     } else if (li.classList.contains("now-playing")) {
       clearNowPlaying(li);
@@ -1736,6 +1738,7 @@ async function previous() {
     saveLocalQueue();
   }
   currentTrackUri = null;
+  currentTrackLinkedFromUri = null;
 
   // Play previous track from history.
   const prevUri = playHistory.pop();
