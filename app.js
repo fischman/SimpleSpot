@@ -1013,18 +1013,6 @@ function createArtistHeroElement(artist) {
 // Now-playing highlight helpers.
 function applyNowPlaying(li) {
   li.classList.add("now-playing");
-  if (!li.querySelector(".now-playing-eq")) {
-    const eq = document.createElement("span");
-    eq.className = "now-playing-eq";
-    eq.title = "Now playing";
-    eq.append(...[0, 1, 2].map(() => document.createElement("span")));
-    li.querySelector(".track-name")?.appendChild(eq);
-  }
-}
-
-function clearNowPlaying(li) {
-  li.classList.remove("now-playing");
-  li.querySelector(".now-playing-eq")?.remove();
 }
 
 // Scan visible track items and toggle the now-playing highlight.
@@ -1033,7 +1021,7 @@ function updateNowPlayingHighlight() {
     if (li.dataset.trackUri === currentTrackUri || li.dataset.trackUri === currentTrackLinkedFromUri) {
       if (!li.classList.contains("now-playing")) applyNowPlaying(li);
     } else if (li.classList.contains("now-playing")) {
-      clearNowPlaying(li);
+      li.classList.remove("now-playing");
     }
   }
 }
@@ -1098,7 +1086,7 @@ function renderItem(d) {
 
   if (d.suffix) li.appendChild(cloneTemplate(d.suffix.templateId));
 
-  if (d.trackUri === currentTrackUri) applyNowPlaying(li);
+  if (d.trackUri === currentTrackUri || d.trackUri === currentTrackLinkedFromUri) applyNowPlaying(li);
 
   return li;
 }
