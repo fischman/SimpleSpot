@@ -544,6 +544,7 @@ async function disableNativeLooping(deviceId) {
 }
 
 function initPlayer() {
+  deviceId = null;
   player = new Spotify.Player({
     name: getDeviceName(),
     getOAuthToken: async (cb) => {
@@ -679,7 +680,6 @@ function initPlayer() {
     if (await refreshToken()) {
       console.log(`Refresh succeeded; now disconnecting, dropping, and re-initPlayer()'ing.`);
       player.disconnect();
-      player = null;
       initPlayer();
     } else {
       forceRelogin("SDK authentication error");
@@ -1784,7 +1784,6 @@ async function transferPlayback(id, play = true) {
           404: () => {
             console.warn("transferPlayback: 404, device invalidated - recreating player");
             player.disconnect();
-            player = null;
             initPlayer();
           },
         },
