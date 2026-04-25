@@ -53,10 +53,11 @@
     .queue-item { counter-increment: queue-num; }
     .queue-item .track-num::before { content: counter(queue-num); }
     .track-num-col { display: flex; flex-direction: column; align-items: center; min-width: 24px; gap: 2px; }
-    .track-num-col .queue-btn { font-size: 14px; padding: 0; line-height: 1; }
+    .track-num-col .queue-btn { font-size: 14px; padding: 0; line-height: 1; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; }
     .track-actions-row { display: flex; align-items: center; gap: 2px; }
-    .track-num-col .radio-btn { font-size: 12px; padding: 0; line-height: 1; background: none; border: none; color: #b3b3b3; cursor: pointer; }
+    .track-num-col .radio-btn { padding: 0; line-height: 1; background: none; border: none; color: #b3b3b3; cursor: pointer; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; transform: translateY(-3px); }
     .track-num-col .radio-btn:hover { color: #1db954; }
+    .track-num-col .radio-btn:hover:not(.unavailable), .track-num-col .queue-btn:hover { background: #535353; }
     .track-num-col .radio-btn.unavailable { opacity: 0.4; cursor: not-allowed; }
     .track-num-col .radio-btn.unavailable:hover { color: #b3b3b3; }
     .drag-handle { cursor: grab; color: #666; padding: 8px; font-size: 16px; user-select: none; }

@@ -270,7 +270,7 @@ test("trackMapper produces correct structure", () => {
   eq(result.num, 1);
   eq(result.name.text, "Bohemian Rhapsody");
   eq(result.subtitle.artists[0].name, "Queen");
-  eq(result.queueButton.text, "+");
+  eq(result.queueButton.text, "➕");
   eq(result.radio.type, "track");
 });
 

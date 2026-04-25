@@ -1159,7 +1159,7 @@ function trackMapper(contextUri, contextOffset = 0) {
       ...base,
       num,
       queueButton: {
-        text: "+",
+        text: "➕",
         title: "Add to queue (Shift: play next)",
         onClick: (event) => addToQueue([t.uri], event.shiftKey),
       },
@@ -1212,7 +1212,7 @@ function albumMapper(a, _i, num) {
   return {
     num,
     queueButton: {
-      text: "+",
+      text: "➕",
       title: "Add to queue (Shift: play next)",
       onClick: (event) => addAlbumToQueue(a.id, event.shiftKey),
     },
@@ -1250,7 +1250,7 @@ function playlistMapper(p, _i, num) {
   return {
     num,
     queueButton: {
-      text: "+",
+      text: "➕",
       title: "Add to queue (Shift: play next)",
       onClick: (event) => addPlaylistToQueue(p.id, event.shiftKey),
     },
