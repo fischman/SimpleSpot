@@ -131,9 +131,12 @@ function clearAuth() {
 // TODO: review each remaining piece of global state for sanity.
 
 let player = null;
+let userId = null;
 let deviceId = null;
 let currentState = null;
 let currentAlbumUri = null;
+
+const playlistsOwnedByUser = {};
 
 let progressInterval = null;
 let lastPlayState = null;
@@ -408,9 +411,18 @@ async function refreshToken() {
 
 const api = (() => {
   const API_CACHE = {};
+  const keyForRequest = (endpoint, opts) => {
+    const o = { ...opts };
+    delete o.method;
+    return JSON.stringify({ endpoint, o });
+  };
   const isCacheable = (() => {
     const CACHEABLE_PATHS = new Set(["albums", "playlists", "artists", "tracks", "search", "browse", "/recommendations"]);
-    return (endpoint) => {
+    return (endpoint, opts) => {
+      if (opts?.method !== "GET") {
+        delete API_CACHE[keyForRequest(endpoint, opts)];
+        return false;
+      }
       endpoint = endpoint.split("?")[0];
       if (endpoint.startsWith("/me/top/")) return true;
       const p = endpoint.split("/");
@@ -420,8 +432,8 @@ const api = (() => {
   })();
   return async (endpoint, opts = {}, statusHandlers = null) => {
     let key;
-    if (isCacheable(endpoint)) {
-      key = JSON.stringify({ endpoint, opts });
+    if (isCacheable(endpoint, opts)) {
+      key = keyForRequest(endpoint, opts);
       const prev = API_CACHE[key];
       if (prev) return prev;
     }
@@ -1045,7 +1057,17 @@ function renderItem(d) {
   li.querySelector(".track-num").textContent = d.num;
   const numCol = li.querySelector(".track-num-col");
   if (d.queueButton) numCol.appendChild(createQueueButtonElement(d.queueButton));
-  if (d.radio) numCol.appendChild(createRadioButtonElement(d.radio.type, d.radio.id));
+
+  if (d.trashButton && d.radio) {
+    const row = document.createElement("div");
+    row.className = "track-actions-row";
+    row.appendChild(createQueueButtonElement(d.trashButton));
+    row.appendChild(createRadioButtonElement(d.radio.type, d.radio.id));
+    numCol.appendChild(row);
+  } else {
+    if (d.trashButton) numCol.appendChild(createQueueButtonElement(d.trashButton));
+    if (d.radio) numCol.appendChild(createRadioButtonElement(d.radio.type, d.radio.id));
+  }
 
   const art = li.querySelector(".track-art");
   const image = art.querySelector("img");
@@ -1110,6 +1132,21 @@ function baseTrackFields(t) {
   };
 }
 
+async function removeFromPlaylist(trackUri, playlistUri, playlistSnapshotId) {
+  const playlistId = playlistUri.split(":")[2];
+  await api(`/playlists/${playlistId}/items`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: [{ uri: trackUri }], snapshot_id: playlistSnapshotId }),
+  });
+  await restoreLastView();
+}
+
+async function removeFromLiked(trackUri) {
+  await api(`/me/library?uris=${encodeURIComponent(trackUri)}`, { method: "DELETE" });
+  await restoreLastView();
+}
+
 function trackMapper(contextUri, contextOffset = 0) {
   return (t, i, num) => {
     const base = baseTrackFields(t);
@@ -1118,7 +1155,7 @@ function trackMapper(contextUri, contextOffset = 0) {
       onClick: (event) => (contextUri ? playFromContext(contextUri, contextOffset + i, event.shiftKey) : play(t.uri)),
       title: contextUri ? "Play now (shift: drop rest of queue)" : "",
     };
-    return {
+    const o = {
       ...base,
       num,
       queueButton: {
@@ -1154,6 +1191,20 @@ function trackMapper(contextUri, contextOffset = 0) {
           ]
         : [],
     };
+    if (localStorage.last_view === "liked") {
+      o.trashButton = {
+        text: "💔",
+        title: "Remove from Liked",
+        onClick: (_event) => removeFromLiked(t.uri),
+      };
+    } else if (contextUri?.split(":")[1] === "playlist" && playlistsOwnedByUser[contextUri]) {
+      o.trashButton = {
+        text: "🗑",
+        title: "Remove from playlist",
+        onClick: (_event) => removeFromPlaylist(t.uri, contextUri),
+      };
+    }
+    return o;
   };
 }
 
@@ -1959,6 +2010,7 @@ async function loadPlaylist(id) {
 
   const [_, allTracks] = await Promise.all([
     api(`/playlists/${id}`).then((d) => {
+      playlistsOwnedByUser[contextUri] = d.owner?.id === userId;
       setBreadcrumb([{ name: "Playlists", action: loadPlaylists }, { name: d.name || "Playlist" }]);
     }),
     fetchAllPages(`/playlists/${id}/items?limit=50`, (data) => (data?.items || []).map((i) => i.item).filter(Boolean)),
@@ -2315,11 +2367,16 @@ function initStaticUi() {
       document.getElementById("column-count").value = saved;
     }
 
-    restoreLastView();
+    await restoreLastView();
   }
 })();
 
-function restoreLastView() {
+async function restoreLastView() {
+  if (!userId) {
+    const m = await api(`/me`);
+    userId = m.id;
+  }
+
   const lastView = localStorage.getItem("last_view");
   if (!lastView) {
     return showQueue();
