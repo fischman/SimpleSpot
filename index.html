@@ -160,13 +160,13 @@
     <button type="button" id="login-help-btn" title="About (?)" style="position:absolute;top:16px;right:16px;background:none;border:none;font-size:20px;cursor:pointer;font-weight:bold;color:#b3b3b3">?</button>
     <div style="display:flex;flex-direction:column;gap:12px;text-align:center">
       <!-- biome-ignore lint/a11y/noAutofocus: primary login action -->
-      <button type="button" id="login-ncspot-btn" autofocus style="display:flex;flex-direction:column;align-items:center;line-height:1.4">
+      <button type="button" id="login-ncspot-btn" autofocus style="display:flex;flex-direction:column;align-items:center;line-height:1.4;color: black;">
         <span>Login using ncspot</span>
-        <span id="ncspot-note" style="font-size:12px;opacity:0.7"></span>
+        <span id="ncspot-note" style="font-size:12px;opacity:0.9"></span>
       </button>
-      <button type="button" id="login-simplespot-btn" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;background:#333">
+      <button type="button" id="login-simplespot-btn" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;background:#333; color: lightgrey">
         <span>Login using SimpleSpot</span>
-        <span style="font-size:12px;opacity:0.7">(radio/recommendations, DJ, and Explore won&apos;t work)</span>
+        <span style="font-size:12px;opacity:0.9">(radio/recommendations, DJ, and Explore <b>won't work</b>)</span>
       </button>
     </div>
   </div>
@@ -274,7 +274,7 @@
     <div class="modal-overlay" id="ncspot-modal">
       <div class="modal" style="max-width:500px">
         <h2>Login with Spotify (ncspot)</h2>
-        <p style="color:#b3b3b3;margin:16px 0">After authorizing, you&quot;ll be redirected to a page that won&quot;t load. Copy the URL from the popup&quot;s address bar and paste it below:</p>
+        <p style="color:#b3b3b3;margin:16px 0">After authorizing, you'll be redirected to a page that <b>won't load</b>. Copy the URL from the popup's address bar and paste it below:</p>
         <button type="button" id="open-spotify-auth" style="width:100%;margin-bottom:16px">
           Open Spotify Auth
         </button>
