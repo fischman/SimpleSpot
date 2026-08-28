@@ -45,7 +45,7 @@ interacts with the https://open.spotify.com version of the entity.
 Some features like radio/recommendations, DJ, and Explore require
 having registered the spotify client before [they were deprecated](https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api). This webapp supports two different client IDs:
 - **SimpleSpot**: registered too late, so above features are unavailable, but login flow is simplest.
-- **ncspot**: Alternative, requires either running locally using `./server.py` or a manual URL copy/paste due to `http://127.0.0.1` redirect URI restriction.
+- **[ncspot](https://github.com/hrkfdn/ncspot)**: Alternative, requires either running locally using `./server.py` or a manual URL copy/paste due to `http://127.0.0.1` redirect URI restriction (thanks, @hrkfdn!).
 
 ## Authentication
 Uses OAuth 2.0 PKCE flow. Access & refresh tokens are stored in
