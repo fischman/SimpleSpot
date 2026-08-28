@@ -1,4 +1,4 @@
-# SimpleSpot
+# [SimpleSpot](https://fischman.github.io/SimpleSpot/)
 
 A simple Spotify client with minimal CPU usage.
 
