@@ -442,6 +442,29 @@ const api = (() => {
   };
 })();
 
+// Toast notification for API rate limiting (HTTP 429).
+let throttleToast = null;
+let throttleWaiters = 0;
+
+function showThrottleToast(secs) {
+  if (!throttleToast) {
+    throttleToast = document.createElement("div");
+    throttleToast.className = "throttle-toast";
+    document.body.appendChild(throttleToast);
+  }
+  throttleToast.style.setProperty("--tcd-max", secs);
+  // Keep the elapsed animation listed during the toggle so it never restarts.
+  throttleToast.style.animation = "tel 99999s linear forwards";
+  void throttleToast.offsetWidth; // Flush style so the restart takes effect.
+  throttleToast.style.animation = `tel 99999s linear forwards, tcd ${secs}s linear reverse forwards`;
+}
+
+function hideThrottleToast() {
+  if (--throttleWaiters > 0) return; // Other requests are still waiting.
+  throttleToast?.remove();
+  throttleToast = null;
+}
+
 // _retries: number of previous attempts (used internally for 401/403 refresh and 5xx backoff).
 async function _api(endpoint, opts, _retries, statusHandlers) {
   if (!navigator.onLine) {
@@ -466,12 +489,13 @@ async function _api(endpoint, opts, _retries, statusHandlers) {
     },
   });
 
+  // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
   if (res.status === 429) {
-    // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
-    const delay = res.headers.get("retry-after");
-    // AMI: replace with a CSS-based countdown user-visible toast.
-    console.log(`API call got 429; delaying for ${delay}s`);
-    await new Promise((r) => setTimeout(r, delay * 1000)); // a.k.a. "async sleep".
+    const retryAfter = parseInt(res.headers.get("retry-after"), 10);
+    console.warn(`Got 429 on ${endpoint}, sleeping for ${retryAfter}s`);
+    showThrottleToast(retryAfter);
+    await new Promise((r) => setTimeout(r, retryAfter * 1000)); // a.k.a. "async sleep".
+    hideThrottleToast();
     return _api(endpoint, opts, _retries, statusHandlers);
   }
 

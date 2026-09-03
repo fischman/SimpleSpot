@@ -102,6 +102,13 @@
     .loading-timer { animation: ls 60s steps(60) 1 forwards, lt 1s steps(10) infinite; }
     .loading-timer::after { counter-reset: ls var(--ls) lt var(--lt);
       content: ' (' counter(ls) '.' counter(lt) 's)'; }
+    @property --tel { syntax: '<integer>'; initial-value: 0; inherits: true; }
+    @property --tcd { syntax: '<integer>'; initial-value: 0; inherits: true; }
+    @keyframes tel { from { --tel: 0 } to { --tel: 99999 } }
+    @keyframes tcd { from { --tcd: 0 } to { --tcd: var(--tcd-max) } }
+    .throttle-toast { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); background: #282828; border: 1px solid #1db954; border-radius: 8px; padding: 10px 16px; z-index: 2000; font-size: 14px; color: #fff; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.6); animation: tel 99999s linear forwards; }
+    .throttle-toast::before { counter-reset: tel var(--tel) tcd var(--tcd); --tcd: var(--tcd-max);
+      content: 'Rate limited by Spotify; retrying in ' counter(tcd) 's (throttled for ' counter(tel) 's)...'; }
     #lyrics-view .lyrics-loading { color: #b3b3b3; font-size: 18px; margin-top: 40px; }
     .track-album { font-size: 12px; color: #b3b3b3; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .track-album:hover { text-decoration: underline; }
