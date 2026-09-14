@@ -1923,6 +1923,12 @@ function renderPlaylistSection(playlists, startNum = 1) {
 let exploreSeenIds = new Set();
 
 async function loadExplore() {
+  if (areDeprecatedFeaturesUnavailable()) {
+    alert("Explore not available",
+      `ClientID is too old; see:\nhttps://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api`
+    );
+    return;
+  }
   navigate("explore");
   setBreadcrumb([{ name: "Explore" }]);
   const el = document.getElementById("tracks");
@@ -2351,12 +2357,6 @@ function initStaticUi() {
       exploreBtn.style.opacity = "0.4";
       exploreBtn.style.cursor = "not-allowed";
       exploreBtn.title = "Explore (e) - Unavailable";
-
-      const djBtn = document.getElementById("nav-dj");
-      djBtn.disabled = true;
-      djBtn.style.opacity = "0.4";
-      djBtn.style.cursor = "not-allowed";
-      djBtn.title = "DJ (d) - Unavailable";
     }
 
     if (window.Spotify) initPlayer();
