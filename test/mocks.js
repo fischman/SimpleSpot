@@ -32,6 +32,10 @@ Object.defineProperty(window, "localStorage", {
   configurable: true,
 });
 
+// --- navigator.onLine mock ---
+// Fake being online even when running in a --network=none container.
+Object.defineProperty(window.navigator, "onLine", { get: () => true });
+
 // --- navigator.mediaSession mock ---
 if (!navigator.mediaSession) {
   navigator.mediaSession = {};

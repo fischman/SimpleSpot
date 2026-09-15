@@ -2,4 +2,8 @@
 
 cd "$(dirname "$0")/.."
 
-exec docker run --rm -v $PWD:/work -w /work biome check --config-path=/work/biome/biome.json --unsafe "$@" app.js index.html test/*.html test/*.js
+IMAGE="biome"
+
+docker image inspect "$IMAGE" >/dev/null 2>&1 || { echo "$IMAGE missing; build it with $(dirname "$0")/build" >&2 ; exit 1; }
+
+exec docker run --pull=never --rm -v $PWD:/work -w /work "$IMAGE" check --config-path=/work/biome/biome.json --unsafe "$@" app.js index.html test/*.html test/*.js
