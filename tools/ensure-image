@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+IMAGE=simplespot-tools
+
+if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+   echo "$IMAGE"
+   exit 0
+fi
+
+docker build -t "$IMAGE" . >&2
+echo "$IMAGE"

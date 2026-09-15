@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cd "$(dirname "$0")/../.."
+
+IMAGE="$(./tools/ensure-image)"
+
+exec docker run --pull=never --rm -v $PWD:/work -w /work "$IMAGE" biome check --config-path=/work/tools/biome/biome.json --unsafe "$@" app.js index.html tools/test/*.html tools/test/*.js

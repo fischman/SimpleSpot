@@ -5,6 +5,9 @@
   },
   "linter": {
     "rules": {
+      "a11y": {
+        "recommended": false
+      },
       "style": {
         "noDescendingSpecificity": "off",
         "useTemplate": "warn"

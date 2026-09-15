@@ -1924,9 +1924,7 @@ let exploreSeenIds = new Set();
 
 async function loadExplore() {
   if (areDeprecatedFeaturesUnavailable()) {
-    alert("Explore not available",
-      `ClientID is too old; see:\nhttps://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api`
-    );
+    alert("Explore not available", `ClientID is too old; see:\nhttps://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api`);
     return;
   }
   navigate("explore");

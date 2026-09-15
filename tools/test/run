@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -euo pipefail
+
+cd "$(dirname "$0")/../.."
+
+IMAGE="$(./tools/ensure-image)"
+
+exec docker run --pull=never --rm --network=none -v "$PWD:/work" -w /work "$IMAGE" python3 tools/test/run.py
