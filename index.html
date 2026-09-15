@@ -163,10 +163,13 @@
         <span>Login using ncspot</span>
         <span id="ncspot-note" style="font-size:12px;opacity:0.9"></span>
       </button>
-      <button type="button" id="login-simplespot-btn" style="display:flex;flex-direction:column;align-items:center;line-height:1.4;background:#333; color: lightgrey">
-        <span>Login using SimpleSpot</span>
-        <span style="font-size:12px;opacity:0.9">(radio/recommendations and Explore <a style="color:#1db954" href="https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api"><b>won't work</b></a>)</span>
-      </button>
+      <div id="login-custom" style="display:flex;flex-direction:column;align-items:center;gap:6px;background:#333;border-radius:24px;padding:12px 32px;color:lightgrey">
+        <span>Login using own Client ID (<a href="https://developer.spotify.com/dashboard" target="_blank" style="color:#1db954;font-size:12px;opacity:0.9">Dashboard</a>)</span>
+        <input type="text" id="custom-client-id" placeholder="Client ID (32 hex characters)"
+               style="width:260px;padding:8px;border-radius:16px;border:1px solid #444;background:#181818;color:#fff;font-size:14px;text-align:center" />
+        <button type="button" id="login-custom-btn" style="padding:6px 24px;font-size:14px;opacity:0.5;background: #1db954; color: #fff;" disabled>Login</button>
+        <span style="font-size:12px;opacity:0.9">(radio/recommendations and Explore <a style="color:#1db954" href="https://developer.spotify.com/blog/2024-11-27-changes-to-the-web-api"><b>won't work</b></a> unless ClientID was created before 2024-11-27)</span>
+      </div>
     </div>
   </div>
   <div id="app">
@@ -272,7 +275,7 @@
   <template id="template-ncspot">
     <div class="modal-overlay" id="ncspot-modal">
       <div class="modal" style="max-width:500px">
-        <h2>Login with Spotify (ncspot)</h2>
+        <h2>Login with Spotify</h2>
         <p style="color:#b3b3b3;margin:16px 0">After authorizing, you'll be redirected to a page that <b>won't load</b>. Copy the URL from the popup's address bar and paste it below:</p>
         <button type="button" id="open-spotify-auth" style="width:100%;margin-bottom:16px">
           Open Spotify Auth

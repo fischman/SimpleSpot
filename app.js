@@ -90,6 +90,8 @@ function getClientId() {
       return NCSPOT_CLIENT_ID;
     case "simplespot":
       return SIMPLESPOT_CLIENT_ID;
+    case "custom":
+      return localStorage.getItem("custom_client_id");
     case null:
       return null;
     default:
@@ -266,17 +268,11 @@ async function loginWith(clientChoice) {
   });
   const authUrl = `https://accounts.spotify.com/authorize?${params}`;
 
-  if (clientChoice === "ncspot") {
-    const host = window.location.hostname;
-    if (host === "127.0.0.1") {
-      // On 127.0.0.1, redirect directly - we can handle the callback.
-      window.location = authUrl;
-    } else {
-      // On hosted version, show manual paste modal.
-      showNcspotLoginModal(authUrl);
-    }
+  const host = window.location.hostname;
+  if ((clientChoice === "ncspot" && host === "127.0.0.1") || (clientChoice === "simplespot")) {
+    window.location = authUrl; // Redirect directly - we can handle the callback.
   } else {
-    window.location = authUrl;
+    showNcspotLoginModal(authUrl);
   }
 }
 
@@ -351,6 +347,7 @@ async function processAuthCode(code, clearUrl = false, reload = false) {
   setAuth("access_token", data.access_token);
   setAuth("refresh_token", data.refresh_token);
   setAuth("token_expiry", Date.now() + data.expires_in * 1000);
+
   if (clearUrl) {
     window.history.replaceState({}, "", window.location.href.split("?")[0]);
   }
@@ -2276,7 +2273,31 @@ function setBreadcrumb(items) {
 function initStaticUi() {
   document.getElementById("login-help-btn").addEventListener("click", showHelp);
   document.getElementById("login-ncspot-btn").addEventListener("click", () => loginWith("ncspot"));
-  document.getElementById("login-simplespot-btn").addEventListener("click", () => loginWith("simplespot"));
+
+  (function() {
+    const input = document.getElementById("custom-client-id");
+    const loginBtn = document.getElementById("login-custom-btn");
+    input.value = localStorage.getItem("custom_client_id") || "";
+    const updateButton = () => {
+      const valid = /^[0-9a-f]{32}$/i.test(input.value.trim());
+      loginBtn.disabled = !valid;
+      loginBtn.style.opacity = valid ? "1" : "0.5";
+    };
+    const startCustomLogin = async () => {
+      const clientId = input.value.trim().toLowerCase();
+      localStorage.setItem("custom_client_id", clientId); // Remember for future logins.
+      await loginWith("custom");
+    };
+    loginBtn.onclick = startCustomLogin;
+    input.addEventListener("input", updateButton);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.repeat && !loginBtn.disabled) {
+        startCustomLogin();
+      }
+    });
+    updateButton();
+  })();
+
   document.getElementById("search-clear").addEventListener("mousedown", (event) => {
     event.preventDefault();
     clearSearch();
