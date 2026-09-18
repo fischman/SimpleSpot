@@ -132,8 +132,10 @@ def main():
         for f in failures:
             print(f"  \033[31m{f}\033[0m")
 
-    # Uncomment the next line to keep the docker container alive for
-    # manual debugging e.g. of test.html line numbers.
+    # Uncomment and add -it to docker invocation in ./run to keep the
+    # docker container alive for manual debugging e.g. of test.html
+    # line numbers.
+    #
     # input('awaiting ENTER to exit')
 
     sys.exit(0 if failed == 0 else 1)

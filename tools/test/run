@@ -6,5 +6,5 @@ cd "$(dirname "$0")/../.."
 
 IMAGE="$(./tools/ensure-image)"
 
-# -it to allow input() in run.py to work.
-exec docker run -it --pull=never --rm --network=none -v "$PWD:/work" -w /work "$IMAGE" python3 tools/test/run.py
+# Add -it to allow input() in run.py to work.
+exec docker run --pull=never --rm --network=none -v "$PWD:/work" -w /work "$IMAGE" python3 tools/test/run.py
