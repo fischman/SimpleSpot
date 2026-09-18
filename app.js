@@ -1,4 +1,4 @@
-const SIMPLESPOT_CLIENT_ID = "1366988155e64d34b759879f2a575cdd";
+// const SIMPLESPOT_CLIENT_ID = "1366988155e64d34b759879f2a575cdd";
 const NCSPOT_CLIENT_ID = "d420a117a32841c2b3474932e49fb54b";
 const DJ_PLAYLIST_ID = "37i9dQZF1EYkqdzj48dyYq";
 
@@ -88,8 +88,6 @@ function getClientId() {
   switch (c) {
     case "ncspot":
       return NCSPOT_CLIENT_ID;
-    case "simplespot":
-      return SIMPLESPOT_CLIENT_ID;
     case "custom":
       return localStorage.getItem("custom_client_id");
     case null:
@@ -100,9 +98,6 @@ function getClientId() {
 }
 
 function getRedirectUri() {
-  if (getClientChoice() === "simplespot") {
-    return window.location.href.split("?")[0].split("#")[0];
-  }
   // Try to use our origin (including port!) if on 127.0.0.1, otherwise fall back to manual paste flow.
   const host = window.location.hostname;
   if (host === "127.0.0.1") {
@@ -268,7 +263,7 @@ async function loginWith(clientChoice) {
   const authUrl = `https://accounts.spotify.com/authorize?${params}`;
 
   const host = window.location.hostname;
-  if ((clientChoice === "ncspot" && host === "127.0.0.1") || clientChoice === "simplespot") {
+  if (clientChoice === "ncspot" && host === "127.0.0.1") {
     window.location = authUrl; // Redirect directly - we can handle the callback.
   } else {
     showNcspotLoginModal(authUrl);
