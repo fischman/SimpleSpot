@@ -109,8 +109,11 @@ function getRedirectUri() {
   return "http://127.0.0.1/login"; // Note excludes the port included in .origin above, will require manual paste.
 }
 
+
+let deprecatedFeaturesAreAvailable = null;
 function areDeprecatedFeaturesUnavailable() {
-  return localStorage.getItem("chosen_client") === "simplespot";
+  assert(deprecatedFeaturesAreAvailable !== null, "deprecatedFeaturesAreAvailable must be true or false!");
+  return !deprecatedFeaturesAreAvailable;
 }
 
 // Auth storage helpers - namespace by client ID so switching clients requires re-auth.
@@ -2345,6 +2348,19 @@ function initStaticUi() {
       }
     }
     document.getElementById("login").style.display = "none";
+
+    await (async () => {
+      while (deprecatedFeaturesAreAvailable === null) {
+        const res = await fetch('https://api.spotify.com/v1/recommendations?seed_artists=0k17h0D3J5VfsdmQ1iZtE9', { headers: { Authorization: `Bearer ${getAuth("access_token")}` } });
+        if (res.status == 429) { // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
+          const delay = res.headers.get('retry-after') * 1000;
+          await new Promise((r) => setTimeout(r, delay)); // a.k.a. "async sleep".
+        } else {
+          deprecatedFeaturesAreAvailable = res.ok;
+        }
+      }
+    })();
+
     document.getElementById("app").classList.add("show");
     loadLocalQueue();
     updateLoopButton();
