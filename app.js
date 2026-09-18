@@ -111,7 +111,6 @@ function getRedirectUri() {
   return "http://127.0.0.1/login"; // Note excludes the port included in .origin above, will require manual paste.
 }
 
-
 let deprecatedFeaturesAreAvailable = null;
 function areDeprecatedFeaturesUnavailable() {
   assert(deprecatedFeaturesAreAvailable !== null, "deprecatedFeaturesAreAvailable must be true or false!");
@@ -269,7 +268,7 @@ async function loginWith(clientChoice) {
   const authUrl = `https://accounts.spotify.com/authorize?${params}`;
 
   const host = window.location.hostname;
-  if ((clientChoice === "ncspot" && host === "127.0.0.1") || (clientChoice === "simplespot")) {
+  if ((clientChoice === "ncspot" && host === "127.0.0.1") || clientChoice === "simplespot") {
     window.location = authUrl; // Redirect directly - we can handle the callback.
   } else {
     showNcspotLoginModal(authUrl);
@@ -419,7 +418,7 @@ const api = (() => {
   const isCacheable = (() => {
     const CACHEABLE_PATHS = new Set(["albums", "playlists", "artists", "tracks", "search", "browse", "/recommendations"]);
     return (endpoint, opts) => {
-      if (opts && opts.method && opts.method !== "GET") {
+      if (opts?.method && opts.method !== "GET") {
         delete API_CACHE[keyForRequest(endpoint, opts)];
         return false;
       }
@@ -467,11 +466,12 @@ async function _api(endpoint, opts, _retries, statusHandlers) {
     },
   });
 
-  if (res.status == 429) { // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
-    const delay = res.headers.get('retry-after');
+  if (res.status === 429) {
+    // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
+    const delay = res.headers.get("retry-after");
     // AMI: replace with a CSS-based countdown user-visible toast.
     console.log(`API call got 429; delaying for ${delay}s`);
-    await new Promise((r) => setTimeout(r, delay*1000)); // a.k.a. "async sleep".
+    await new Promise((r) => setTimeout(r, delay * 1000)); // a.k.a. "async sleep".
     return _api(endpoint, opts, _retries, statusHandlers);
   }
 
@@ -546,7 +546,7 @@ async function fetchTracksByIds(trackIds) {
   return Promise.all(trackIds.map((id) => api(`/tracks/${id}`)));
 }
 
-let myDeviceName = (() => {
+const myDeviceName = `${(() => {
   const ua = navigator.userAgent;
   if (/Android/i.test(ua)) return "Android";
   if (/iPhone/i.test(ua)) return "iPhone";
@@ -555,7 +555,7 @@ let myDeviceName = (() => {
   if (/Windows/i.test(ua)) return "Windows";
   if (/Linux/i.test(ua)) return "Linux";
   return "Browser";
-})() + "-" + crypto.randomUUID().slice(0, 4);
+})()}-${crypto.randomUUID().slice(0, 4)}`;
 
 async function disableNativeLooping(deviceId) {
   // Since we manage localQueue and loopEnabled locally, disable
@@ -582,14 +582,14 @@ function initPlayer() {
     volume: (localStorage.getItem("volume") || 100) / 100,
   });
 
-  player.addListener("ready", async ({ /* ignored bogus device_id */ }) => {
+  player.addListener("ready", async () => {
     // It's maddening, but the device_id passed to the ready event is
     // unreliable to use and frequently simply triggers 404's when
     // used for subsequent calls (even after many seconds of waiting
     // for spotify server-side stuff to settle down).  Instead of
     // using it, look for our device name in the list of all devices
     // and use _that_ ID.
-    deviceId = (await api("/me/player/devices")).devices.find(d => d.name === myDeviceName).id
+    deviceId = (await api("/me/player/devices")).devices.find((d) => d.name === myDeviceName).id;
     await disableNativeLooping(deviceId);
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
@@ -2280,7 +2280,7 @@ function initStaticUi() {
   document.getElementById("login-help-btn").addEventListener("click", showHelp);
   document.getElementById("login-ncspot-btn").addEventListener("click", () => loginWith("ncspot"));
 
-  (function() {
+  (() => {
     const input = document.getElementById("custom-client-id");
     const loginBtn = document.getElementById("login-custom-btn");
     input.value = localStorage.getItem("custom_client_id") || "";
@@ -2393,9 +2393,12 @@ function initStaticUi() {
 
     await (async () => {
       while (deprecatedFeaturesAreAvailable === null) {
-        const res = await fetch('https://api.spotify.com/v1/recommendations?seed_artists=0k17h0D3J5VfsdmQ1iZtE9', { headers: { Authorization: `Bearer ${getAuth("access_token")}` } });
-        if (res.status == 429) { // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
-          const delay = res.headers.get('retry-after') * 1000;
+        const res = await fetch("https://api.spotify.com/v1/recommendations?seed_artists=0k17h0D3J5VfsdmQ1iZtE9", {
+          headers: { Authorization: `Bearer ${getAuth("access_token")}` },
+        });
+        if (res.status === 429) {
+          // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
+          const delay = res.headers.get("retry-after") * 1000;
           await new Promise((r) => setTimeout(r, delay)); // a.k.a. "async sleep".
         } else {
           deprecatedFeaturesAreAvailable = res.ok;
