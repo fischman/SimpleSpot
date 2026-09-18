@@ -76,7 +76,10 @@ def main():
 
     html = build_test_html()
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    # delete=False since we're running in a docker container that will
+    # be --rm'd anyway, and leaving the test.html intact can be
+    # helpful for debugging (see commented-out input() call below).
+    with tempfile.TemporaryDirectory(delete=False) as tmpdir:
         html_path = Path(tmpdir) / "test.html"
         html_path.write_text(html)
 
@@ -90,6 +93,7 @@ def main():
             "--host-resolver-rules=MAP * ~NOTFOUND", # Fail DNS quickly rather than timing out, when running in a --network=none container.
             f"--user-data-dir={tmpdir}/profile",
             "--virtual-time-budget=5000",
+            "--enable-logging=stderr",
             "--dump-dom",
             f"file://{html_path}",
         ]
@@ -102,19 +106,23 @@ def main():
 
     dom = result.stdout
     if not dom.strip():
-        print("ERROR: Chrome produced no output.", file=sys.stderr)
-        print(result.stderr[-500:] if result.stderr else "(no stderr)", file=sys.stderr)
+        print("ERROR: Chrome DOM produced no output.", file=sys.stderr)
+        print(result.stderr if result.stderr else "(no stderr)", file=sys.stderr)
         sys.exit(1)
 
     passed, failed, failures = parse_results_from_dom(dom)
 
     if passed == 0 and failed == 0:
         print("ERROR: Could not parse test results from DOM.", file=sys.stderr)
+        print(result.stderr if result.stderr else "(no stderr)", file=sys.stderr)
         m = re.search(r'id="results">(.*)', dom, re.DOTALL)
         if m:
             text = re.sub(r'<[^>]+>', ' ', m.group(1))[:500]
             print(text, file=sys.stderr)
         sys.exit(1)
+
+    if failed:
+        print(result.stderr if result.stderr else "(no stderr)", file=sys.stderr)
 
     total = passed + failed
     if failed == 0:
@@ -123,6 +131,10 @@ def main():
         print(f"\033[31mFAIL\033[0m {passed}/{total} passed, {failed} failed")
         for f in failures:
             print(f"  \033[31m{f}\033[0m")
+
+    # Uncomment the next line to keep the docker container alive for
+    # manual debugging e.g. of test.html line numbers.
+    # input('awaiting ENTER to exit')
 
     sys.exit(0 if failed == 0 else 1)
 

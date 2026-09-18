@@ -68,6 +68,9 @@ window.Spotify = {
       this._connected = true;
       // Emit ready after microtask so init code can finish.
       Promise.resolve().then(() => {
+        FIXTURES.devices.devices[0].name = myDeviceName;
+        mockApiRoute("/me/player/devices", FIXTURES.devices);
+        mockApiRoute("/me", { id: "myId" });
         this._emit("ready", { device_id: "mock-device-id-123" });
       });
       return Promise.resolve(true);
@@ -152,6 +155,7 @@ function resetTestState() {
   queueRenderVersion = 0;
   queueRefreshPending = false;
   playingFromQueueInProgress = false;
+  deprecatedFeaturesAreAvailable = true;
 
   // Reset DOM.
   document.getElementById("tracks").replaceChildren();

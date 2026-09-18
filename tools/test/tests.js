@@ -608,7 +608,7 @@ test("api() returns mock data", async () => {
   mockApiRoute("/me/player/devices", FIXTURES.devices);
   const result = await api("/me/player/devices");
   eq(result.devices.length, 2);
-  eq(result.devices[0].name, "My Computer");
+  eq(result.devices[0].name, FIXTURES.devices.devices[0].name);
 });
 
 test("addAlbumToQueue fetches album and queues tracks", async () => {
