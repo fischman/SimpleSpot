@@ -422,14 +422,14 @@ const api = (() => {
   const isCacheable = (() => {
     const CACHEABLE_PATHS = new Set(["albums", "playlists", "artists", "tracks", "search", "browse", "/recommendations"]);
     return (endpoint, opts) => {
-      if (opts?.method !== "GET") {
+      if (opts && opts.method && opts.method !== "GET") {
         delete API_CACHE[keyForRequest(endpoint, opts)];
         return false;
       }
       endpoint = endpoint.split("?")[0];
       if (endpoint.startsWith("/me/top/")) return true;
       const p = endpoint.split("/");
-      if ((p[1] === "users" || p[1] === "/me") && CACHEABLE_PATHS.has(p[3])) return true;
+      if (p[1] === "users" && CACHEABLE_PATHS.has(p[3])) return true;
       return CACHEABLE_PATHS.has(p[1]) || CACHEABLE_PATHS.has(p[2]);
     };
   })();
@@ -469,6 +469,15 @@ async function _api(endpoint, opts, _retries, statusHandlers) {
       ...opts.headers,
     },
   });
+
+  if (res.status == 429) { // E.g. https://github.com/hrkfdn/ncspot/issues/1867 :(
+    const delay = res.headers.get('retry-after');
+    // AMI: replace with a CSS-based countdown user-visible toast.
+    console.log(`API call got 429; delaying for ${delay}s`);
+    await new Promise((r) => setTimeout(r, delay*1000)); // a.k.a. "async sleep".
+    return _api(endpoint, opts, _retries, statusHandlers);
+  }
+
   if (res.status === 204 || res.status === 202) return null;
 
   // On 401/403, try refreshing token and retry once.
@@ -540,7 +549,7 @@ async function fetchTracksByIds(trackIds) {
   return Promise.all(trackIds.map((id) => api(`/tracks/${id}`)));
 }
 
-function getDeviceName() {
+let myDeviceName = (() => {
   const ua = navigator.userAgent;
   if (/Android/i.test(ua)) return "Android";
   if (/iPhone/i.test(ua)) return "iPhone";
@@ -549,7 +558,7 @@ function getDeviceName() {
   if (/Windows/i.test(ua)) return "Windows";
   if (/Linux/i.test(ua)) return "Linux";
   return "Browser";
-}
+})() + "-" + crypto.randomUUID().slice(0, 4);
 
 async function disableNativeLooping(deviceId) {
   // Since we manage localQueue and loopEnabled locally, disable
@@ -561,7 +570,7 @@ async function disableNativeLooping(deviceId) {
 function initPlayer() {
   deviceId = null;
   player = new Spotify.Player({
-    name: getDeviceName(),
+    name: myDeviceName,
     getOAuthToken: async (cb) => {
       // Refresh with 60s buffer to avoid race conditions.
       if (Date.now() > getAuth("token_expiry") - 60000) {
@@ -576,8 +585,14 @@ function initPlayer() {
     volume: (localStorage.getItem("volume") || 100) / 100,
   });
 
-  player.addListener("ready", async ({ device_id }) => {
-    deviceId = device_id;
+  player.addListener("ready", async ({ /* ignored bogus device_id */ }) => {
+    // It's maddening, but the device_id passed to the ready event is
+    // unreliable to use and frequently simply triggers 404's when
+    // used for subsequent calls (even after many seconds of waiting
+    // for spotify server-side stuff to settle down).  Instead of
+    // using it, look for our device name in the list of all devices
+    // and use _that_ ID.
+    deviceId = (await api("/me/player/devices")).devices.find(d => d.name === myDeviceName).id
     await disableNativeLooping(deviceId);
     setupMediaSessionHandlers();
     resumePlaybackIfNeeded();
