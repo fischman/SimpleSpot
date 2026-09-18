@@ -595,6 +595,7 @@ function initPlayer() {
     resumePlaybackIfNeeded();
   });
 
+  let skippingDJNarration = false; // We get lots of player_state_changed events _during_ the nextTrack() skipping DJ narration, so suppress them.
   player.addListener("player_state_changed", (state) => {
     currentState = state;
     if (!state) {
@@ -669,8 +670,13 @@ function initPlayer() {
 
     // Skip DJ X's blathering.
     if (state.context?.uri === `spotify:playlist:${DJ_PLAYLIST_ID}` && state.track_window?.current_track?.content_type === "narration") {
-      console.log("Skipping DJ narration track!");
-      next();
+      if (!skippingDJNarration) {
+        console.log("Skipping DJ narration track!");
+        skippingDJNarration = true;
+        return player.nextTrack();
+      }
+    } else {
+      skippingDJNarration = false;
     }
   });
 
