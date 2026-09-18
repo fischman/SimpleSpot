@@ -1154,7 +1154,7 @@ function renderItem(d) {
 }
 
 function renderItems(items, mapFn, startNum = 1) {
-  return items.map((item, i) => renderItem(mapFn(item, i, startNum + i)));
+  return items.filter((item) => item !== null).map((item, i) => renderItem(mapFn(item, i, startNum + i)));
 }
 
 // --- Item mappers ---
